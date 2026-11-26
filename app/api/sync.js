@@ -111,6 +111,7 @@ export default async function handler(req, res) {
           members: ms2.filter(m => m.status === 'member').map(m => Number(m.user_id)),
           pending: (isMember && Number(c.admin_id) === uid) || (mine && mine.status === 'pending') ? ms2.filter(m => m.status === 'pending').map(m => Number(m.user_id)) : [],
           record: c.flappy_score ? { score: c.flappy_score, uid: Number(c.flappy_user) } : null,
+          trecord: c.tetris_score ? { score: c.tetris_score, uid: Number(c.tetris_user) } : null,
           pin: c.pin_id ? 'm' + c.pin_id : null, read, msgs: canRead ? (byChat[c.id] || []) : [], full: canRead
         };
       }),

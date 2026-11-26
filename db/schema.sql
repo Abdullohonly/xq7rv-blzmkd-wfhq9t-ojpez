@@ -165,3 +165,5 @@ alter table posts drop constraint if exists posts_body_check;
 alter table posts add constraint posts_body_check check (char_length(body) <= 500);
 -- Kommentga javob
 alter table replies add column if not exists parent_id bigint references replies(id) on delete set null;
+-- Tetris rekordi (har chatda)
+alter table chats add column if not exists tetris_score int, add column if not exists tetris_user bigint references users(id) on delete set null;

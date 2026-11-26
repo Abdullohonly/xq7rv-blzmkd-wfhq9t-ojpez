@@ -207,7 +207,7 @@ export default async function handler(req, res) {
             if (!q || opts.length < 2) return bad(res, 'Savol va kamida 2 ta variant yozing'); poll = { q, opts }; body = '';
           }
           if (!body && !img && !poll) return bad(res, 'Avval biror narsa yozing');
-          game = !poll && !img && /@flappy\b/i.test(body);
+          game = !poll && !img && /@(flappy|tetris)\b/i.test(body);
           const rt = idOf(b.replyTo, 'm');
           if (rt) { const [r] = await db`select id, user_id from messages where id = ${rt} and chat_id = ${cid}`; if (r) replyTo = Number(r.id); }
         }
@@ -270,6 +270,13 @@ export default async function handler(req, res) {
         if (up.length) {
           await db`insert into messages (chat_id, user_id, body, is_sys) values (${cid}, null, ${'@' + me.username + ' dan rekord ' + score + ' ta!'}, true)`;
         }
+        return send(res, 200, { ok: true, record: up.length > 0 });
+      }
+      case 'tetris': {
+        const cid = idOf(b.chat, 'c'), score = Number(b.score); const c = cid && await chatOf(db, cid, uid);
+        if (!isMember(c) || !Number.isInteger(score) || score < 1 || score > 999999) return bad(res, 'score');
+        const up = await db`update chats set tetris_score = ${score}, tetris_user = ${uid} where id = ${cid} and coalesce(tetris_score, 0) < ${score} returning id`;
+        if (up.length) await db`insert into messages (chat_id, user_id, body, is_sys) values (${cid}, null, ${'🧱 @' + me.username + ' Tetris rekordi: ' + score + ' ochko!'}, true)`;
         return send(res, 200, { ok: true, record: up.length > 0 });
       }
       default: return bad(res, 'Noma’lum amal');

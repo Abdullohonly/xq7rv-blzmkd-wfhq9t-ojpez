@@ -178,7 +178,7 @@ function guard(kind, text) {
   if (!clean) { toast('Avval biror narsa yozing'); return false; }
   if (clean.length > LIMIT[kind]) { toast(`Juda uzun: ko‘pi bilan ${LIMIT[kind]} belgi`, true); return false; }
   if (kind !== 'msg') {
-    if (/@flappy\b/i.test(clean)) { toast('@flappy faqat chat va guruhlarda ishlaydi 🐤', true); return false; }
+    if (/@(flappy|tetris)\b/i.test(clean)) { toast('O‘yinlar faqat chat va guruhlarda ishlaydi 🎮', true); return false; }
     const links = (clean.match(/https?:\/\//g) || []).length;
     const fresh = t - u.joined < 7 * DAY && !isOwnerSession();
     if (links > 1) { toast('Bitta postda ko‘pi bilan 1 ta havola', true); return false; }
@@ -519,7 +519,7 @@ function dayLabel(t) {
   const diff = Math.round((today - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / DAY);
   return diff === 0 ? 'Bugun' : diff === 1 ? 'Kecha' : uzDate(t);
 }
-const msgPreview = m => !m ? 'O‘chirilgan xabar' : m.img ? '📷 Rasm' + (m.text ? ': ' + m.text : '') : m.poll ? '📊 ' + m.poll.q : m.game ? '🐤 Flappy o‘yini' : m.text;
+const msgPreview = m => !m ? 'O‘chirilgan xabar' : m.img ? '📷 Rasm' + (m.text ? ': ' + m.text : '') : m.poll ? '📊 ' + m.poll.q : m.game ? (/@tetris/i.test(m.text || '') ? '🧱 Tetris o‘yini' : '🐤 Flappy o‘yini') : m.text;
 const canPin = c => c.type === 'dm' || c.admin === me().id || isAdmin();
 const canDelMsg = (c, m) => m.uid === me().id || (c.type === 'group' && (isAdmin() || c.admin === me().id));
 function pollHtml(c, m) {
@@ -537,8 +537,9 @@ function msgHtml(c, m) {
   const quote = m.replyTo ? `<button class="quote" data-act="jump" data-m="${m.replyTo}"><b>${rep ? esc((user(rep.uid) || {}).name || '') : ''}</b><span>${esc(msgPreview(rep)).slice(0, 90)}</span></button>` : '';
   const fwd = m.fwd ? `<span class="fwd">↪ Uzatildi: ${esc((user(m.fwd) || { name: 'kimdir' }).name)}</span>` : '';
   let body;
-  if (m.game) body = `<div class="game-card">${Flappy.birdSVG(42)}<div style="flex:1"><b style="display:block">Flappy</b><span style="font-size:12px;color:#bbb">${c.record ? `Rekord: ${c.record.score} · @${esc(user(c.record.uid).u)}` : 'Rekord yo‘q, birinchi bo‘ling!'}</span></div>
-      <button class="btn acc" style="height:38px;border-radius:999px;font-size:13px" data-act="play" data-id="${c.id}">O‘ynash</button></div>`;
+  if (m.game) { const tet = /@tetris\b/i.test(m.text || ''), rec = tet ? c.trecord : c.record;
+    body = `<div class="game-card">${tet ? Tetris.icon(42) : Flappy.birdSVG(42)}<div style="flex:1"><b style="display:block">${tet ? 'Tetris' : 'Flappy'}</b><span style="font-size:12px;color:#bbb">${rec ? `Rekord: ${rec.score} · @${esc(user(rec.uid).u)}` : 'Rekord yo‘q, birinchi bo‘ling!'}</span></div>
+      <button class="btn acc" style="height:38px;border-radius:999px;font-size:13px" data-act="${tet ? 'playtet' : 'play'}" data-id="${c.id}">O‘ynash</button></div>`; }
   else if (m.poll) body = pollHtml(c, m);
   else body = (m.img ? `<button class="mimg" data-act="viewimg" data-c="${c.id}" data-m="${m.id}"><img src="${esc(m.img)}" alt="Rasm" loading="lazy"></button>` : '') + (m.text ? `<span class="mtx">${linkify(m.text)}</span>` : '');
   const read = mine && c.type === 'dm' && c.members.filter(x => x !== u.id).every(x => (c.read[x] || 0) >= m.t);
@@ -576,7 +577,7 @@ function chat(id) {
     <div class="msgs" id="msgs">${msgList(c)}</div>
     <form class="chat-in" data-form="msg" data-id="${c.id}">${bar}<div class="cin-row">
       <button type="button" class="attach" data-act="attach" data-id="${c.id}" aria-label="Biriktirish: rasm, so‘rovnoma, o‘yin">📎</button>
-      <label style="flex:1;display:flex"><span class="sr">Xabar</span><input id="msg-in" maxlength="2000" autocomplete="off" placeholder="${editing ? 'Yangi matn' : 'Xabar · @flappy — o‘yin'}" value="${editing ? esc(editing.text) : ''}"></label>
+      <label style="flex:1;display:flex"><span class="sr">Xabar</span><input id="msg-in" maxlength="2000" autocomplete="off" placeholder="${editing ? 'Yangi matn' : 'Xabar · @flappy yoki @tetris — o‘yin'}" value="${editing ? esc(editing.text) : ''}"></label>
       <button class="round" aria-label="${editing ? 'Saqlash' : 'Yuborish'}">${editing ? '✓' : I.send.replace('<svg', '<svg width="18" height="18"')}</button></div>
       <input type="file" id="img-file" accept="image/*" class="sr" tabindex="-1"></form></div>`;
 }
@@ -1032,6 +1033,17 @@ document.addEventListener('click', async e => {
       } });
       break;
     }
+    case 'playtet': {
+      const c = DB.chats.find(x => x.id === id); if (!c) break;
+      Tetris.open({ record: c.trecord && c.trecord.score, recordBy: c.trecord && user(c.trecord.uid).u, onEnd: score => {
+        if (score > 0 && (!c.trecord || score > c.trecord.score) && c.members.includes(u.id)) {
+          c.trecord = { score, uid: u.id }; server({ t: 'tetris', chat: c.id, score }); toast(`Yangi Tetris rekordi: ${score} 🏆`);
+          return { record: score, recordBy: u.u };
+        }
+        return null;
+      } });
+      break;
+    }
     case 'adm-hide': { if (!isAdmin()) break; const p = P(); if (!p) break; p.hidden = !p.hidden; render(); server({ t: 'hide', post: id }); break; }
     case 'adm-warn': { if (!isAdmin()) break; server({ t: 'warn', user: +el.dataset.u }, 'Ogohlantirish yuborildi'); break; }
     case 'adm-block': {
@@ -1092,9 +1104,11 @@ document.addEventListener('click', async e => {
     case 'attach': sheet(`<h2>Biriktirish</h2><div class="stack" style="gap:8px">
         <button class="btn ghost full" style="justify-content:flex-start" data-act="pickimg">📷 Rasm yuborish</button>
         <button class="btn ghost full" style="justify-content:flex-start" data-act="newpoll" data-id="${id}">📊 So‘rovnoma</button>
-        <button class="btn ghost full" style="justify-content:flex-start" data-act="sendflappy" data-id="${id}">🐤 Flappy o‘yini</button></div>`); break;
+        <button class="btn ghost full" style="justify-content:flex-start" data-act="sendflappy" data-id="${id}">🐤 Flappy o‘yini</button>
+        <button class="btn ghost full" style="justify-content:flex-start" data-act="sendtetris" data-id="${id}">🧱 Tetris</button></div>`); break;
     case 'pickimg': closeSheet(); $('#img-file') && $('#img-file').click(); break;
     case 'sendflappy': { closeSheet(); const i = $('#msg-in'); i.value = '@flappy'; i.form.requestSubmit(); break; }
+    case 'sendtetris': { closeSheet(); const i = $('#msg-in'); i.value = '@tetris'; i.form.requestSubmit(); break; }
     case 'newpoll': sheet(`<h2>So‘rovnoma 📊</h2><form class="stack" data-form="poll" data-id="${id}">
         <div class="field"><label for="pq">Savol</label><input class="inp" id="pq" required maxlength="200" placeholder="Masalan: Shanba qayerda uchrashamiz?"></div>
         <div class="field"><span style="font-size:14px;font-weight:700">Variantlar</span>${[1, 2, 3, 4].map(i => `<input class="inp po" maxlength="80" ${i < 3 ? 'required' : ''} placeholder="${i}-variant${i > 2 ? ' (ixtiyoriy)' : ''}">`).join('')}</div>
@@ -1216,7 +1230,7 @@ document.addEventListener('submit', async e => {
     }
     if (!c.members.includes(u.id)) { toast('Yozish uchun guruhga qo‘shiling', true); return; }
     if (!guard('msg', text)) return save();
-    const game = /@flappy\b/i.test(text), replyTo = CH.reply && !String(CH.reply).startsWith('tmp') ? CH.reply : null;
+    const game = /@(flappy|tetris)\b/i.test(text), replyTo = CH.reply && !String(CH.reply).startsWith('tmp') ? CH.reply : null;
     c.msgs.push({ id: 'tmp' + uid(), tmp: true, uid: u.id, text: text.trim(), t: now(), reacts: {}, game, ...(replyTo ? { replyTo } : {}) });
     CH.reply = null; inp.value = '';
     render(); setTimeout(() => $('#msg-in') && $('#msg-in').focus(), 0);

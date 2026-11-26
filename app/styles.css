@@ -268,3 +268,18 @@ button.stat:active{transform:scale(.97)}
 .rquote{display:block;max-width:100%;text-align:left;font-size:12px;color:var(--mute);background:var(--soft);border-radius:8px;padding:3px 8px;margin:4px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .li.flash{animation:flash 1.4s}
 .comp .cbar{background:var(--soft);color:var(--ink)}.comp .cbar em{color:var(--mute)}.comp .cbar button{color:var(--ink)}
+
+/* Tetris */
+.tet-box{max-width:440px}
+.tet-main{display:flex;gap:10px;justify-content:center;align-items:flex-start}
+.tet-board{border-radius:12px;touch-action:none;display:block;background:#16161A}
+.tet-side{display:flex;flex-direction:column;gap:2px;min-width:76px}
+.tet-side b{font-family:var(--head);font-size:16px;margin-bottom:6px}
+.tet-k{font-size:11px;color:#999;text-transform:uppercase;letter-spacing:.04em}
+.tet-next{background:#16161A;border-radius:10px;margin-bottom:8px;width:80px;height:80px}
+.tet-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;user-select:none;-webkit-user-select:none}
+.tet-pad button{height:52px;border-radius:16px;background:#2a2a2a;color:#fff;font-size:20px;font-weight:700;touch-action:none}
+.tet-pad button:active{background:#3a3a3a}
+.tet-pad .tet-drop{grid-column:span 2;background:var(--acc);font-size:15px}
+.tet-box canvas.tet-board,.tet-box canvas.tet-next{background:#16161A}
+.tet-box canvas.tet-next{width:80px;height:80px}
