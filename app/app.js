@@ -1,8 +1,8 @@
-/* Lahzam v1.1.4 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.1.5 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.1.4'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.1.5'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { post: 500, reply: 300, msg: 2000 };
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
@@ -139,6 +139,7 @@ function linkify(text) {
 }
 function avatar(u, size = 44) {
   if (!u) return '';
+  if (u.owner && !u._in) { const w = size >= 80 ? 5 : size >= 44 ? 3 : 2.5; return `<span class="oav" style="--ow:${w}px">${avatar({ ...u, _in: 1 }, size - w * 2)}</span>`; }
   if (u.photo) return `<span class="av" style="width:${size}px;height:${size}px;background:${u.color}" aria-hidden="true"><img src="${esc(u.photo)}" alt="" style="width:100%;height:100%;object-fit:cover"></span>`;
   if (u.system) return `<span class="av" style="width:${size}px;height:${size}px;background:#BFEAF7">${Flappy.birdSVG(size * .86)}</span>`;
   return `<span class="av" style="width:${size}px;height:${size}px;background:${u.color};font-size:${Math.round(size * .38)}px" aria-hidden="true">${esc(u.name[0] || u.u[0]).toUpperCase()}</span>`;
