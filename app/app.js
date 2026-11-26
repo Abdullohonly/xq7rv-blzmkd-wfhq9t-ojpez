@@ -332,7 +332,8 @@ function postCard(p, full) {
         <div><div class="name" style="font-size:15px">${esc(a.name)}${founderPill(a)}</div><div class="muted">@${esc(a.u)} · ${ago(p.t)}${p.lahza ? ' · <span class="lahza">Lahza · 24 soat</span>' : ''}</div></div></a>
       <button class="ibtn dark" style="width:38px;height:38px" data-act="postmenu" data-id="${p.id}" aria-label="Ko‘proq">${I.dots}</button>
     </div>
-    <p class="txt ${long ? 'clamp' : ''}" style="${full ? 'font-size:19px' : ''}">${linkify(p.text)}</p>
+    ${p.text ? `<p class="txt ${long ? 'clamp' : ''}" style="${full ? 'font-size:19px' : ''}">${linkify(p.text)}</p>` : ''}
+    ${p.img ? `<button class="pimg" data-act="viewpimg" data-id="${p.id}" aria-label="Rasmni kattalashtirish"><img src="${esc(p.img)}" alt="Post rasmi" loading="lazy"></button>` : ''}
     ${long ? `<a href="/p/${p.id}" data-link class="more">Ko‘proq o‘qish</a>` : ''}
     <div class="row" style="gap:6px;flex-wrap:wrap">
       <button class="pill ${liked ? 'on' : ''}" data-act="like" data-id="${p.id}" aria-label="Yoqtirish" aria-pressed="${!!liked}">${I.heart(liked)}${fmt(p.likes.length)}</button>
@@ -358,8 +359,10 @@ function home() {
     <form class="card comp" data-form="post">
       <div class="row" style="align-items:flex-start;gap:12px">${avatar(u, 40)}
         <label style="flex:1"><span class="sr">Post matni</span><textarea id="post-text" rows="2" maxlength="600" placeholder="Nima gap, ${esc(u.name.split(' ')[0])}?"></textarea></label></div>
+      <div id="post-prev"></div>
       <div class="row" style="justify-content:space-between;margin-top:6px">
-        <label class="check"><input type="checkbox" id="post-lahza"> Lahza · 24 soat</label>
+        <div class="row" style="gap:8px"><label class="pill" style="cursor:pointer" aria-label="Rasm qo‘shish">📷<input type="file" accept="image/*" id="post-img" class="sr"></label>
+        <label class="check"><input type="checkbox" id="post-lahza"> Lahza · 24 soat</label></div>
         <div class="row" style="gap:10px"><span class="counter" id="post-count">0 / ${LIMIT.post}</span>
         <button class="btn acc" style="height:40px;border-radius:999px">Joylash</button></div>
       </div>
@@ -847,10 +850,14 @@ after.admin = async () => {
   const aq = $('#adm-q'); if (aq) aq.addEventListener('input', admFilter);
   api('admin/users?stats=1').then(st => {
     const el = $('#srv-stats'); if (!el || !st.ok) { if (el) el.innerHTML = '<div class="kpi"><span class="muted">Statistika yuklanmadi</span></div>'; return; }
-    const pct = Math.min(100, st.dbBytes / st.limitBytes * 100), col = pct > 85 ? 'var(--danger)' : pct > 60 ? '#D97706' : 'var(--ok)';
-    el.innerHTML = `<div class="kpi" style="grid-column:1/-1"><span class="muted">Baza (Neon) hajmi</span><b>${fmtBytes(st.dbBytes)} <span class="muted" style="font-size:15px;font-family:var(--font)">/ ${fmtBytes(st.limitBytes)} · ${pct.toFixed(pct < 1 ? 2 : 1)}%</span></b>
+    const bar = (title, used, limit, extra = '') => { const pct = Math.min(100, used / limit * 100), col = pct > 85 ? 'var(--danger)' : pct > 60 ? '#D97706' : 'var(--ok)';
+      return `<div class="kpi" style="grid-column:1/-1"><span class="muted">${title}</span><b>${fmtBytes(used)} <span class="muted" style="font-size:15px;font-family:var(--font)">/ ${fmtBytes(limit)} · ${pct.toFixed(pct < 1 ? 2 : 1)}%</span></b>
       <div style="height:12px;background:var(--soft);border-radius:99px;overflow:hidden;margin-top:8px" role="progressbar" aria-valuenow="${pct.toFixed(1)}" aria-valuemin="0" aria-valuemax="100"><i style="display:block;height:100%;width:${Math.max(pct, 1)}%;background:${col};border-radius:99px"></i></div>
-      <span class="muted" style="font-size:12px">${pct > 85 ? 'Diqqat: joy tugayapti, tarifni oshirish kerak bo‘ladi' : 'Joy yetarli ✅'}</span></div>
+      <span class="muted" style="font-size:12px">${extra}${pct > 85 ? 'Diqqat: joy tugayapti, tarifni oshirish kerak bo‘ladi' : 'Joy yetarli ✅'}</span></div>`; };
+    const R2 = st.r2;
+    el.innerHTML = bar('Baza (Neon) hajmi', st.dbBytes, st.limitBytes)
+      + (R2 && !R2.error ? bar('Rasmlar (Cloudflare R2)', R2.bytes, R2.limitBytes, `${R2.count}${R2.more ? '+' : ''} ta fayl · `)
+        : `<div class="kpi" style="grid-column:1/-1"><span class="muted">Rasmlar (Cloudflare R2)</span><b style="font-size:18px">${R2 ? '⚠️ Ulanmadi' : 'Sozlanmagan'}</b><span class="muted" style="font-size:12px">${R2 ? 'Vercel’dagi R2 kalitlarini tekshiring: ' + esc(R2.error) : 'Vercel’da R2_* kalitlari yo‘q'}</span></div>`) + `
       <div class="kpi"><span class="muted">Ro‘yxatdan o‘tganlar</span><b>${st.users}</b></div>
       <div class="kpi"><span class="muted">Oxirgi 24 soatda</span><b>${st.today}</b></div>
       <div class="kpi"><span class="muted">Bloklangan</span><b>${st.blocked}</b></div>
@@ -1097,6 +1104,8 @@ document.addEventListener('click', async e => {
       if (!r.ok) { toast('O‘chirib bo‘lmadi', true); break; }
       UPD.list = UPD.list.filter(x => x.id !== +id); toast('O‘chirildi'); render(); break;
     }
+    case 'postimg-x': POSTIMG = null; $('#post-prev').innerHTML = ''; break;
+    case 'viewpimg': { const p = P(); if (p && p.img) sheet(`<img src="${esc(p.img)}" alt="Post rasmi" style="width:100%;border-radius:16px;display:block"><button class="btn ghost full" style="margin-top:10px" data-act="close-sheet-btn">Yopish</button>`); break; }
     case 'close-sheet-btn': closeSheet(); break;
   }
   save();
@@ -1152,11 +1161,11 @@ document.addEventListener('submit', async e => {
     adoptSession(r.user); AUTH = { step: 'start' }; save(); go('/'); sync(true); return;
   }
   if (kind === 'post') {
-    const ta = $('#post-text'), text = ta.value, btn = f.querySelector('button.btn');
-    if (!guard('post', text)) return save();
-    const lahza = $('#post-lahza').checked, tmp = { id: 'tmp' + uid(), uid: u.id, text: text.trim(), t: now(), lahza, likes: [], views: 1, seen: true, replies: [] };
-    DB.posts.unshift(tmp); ta.value = ''; render(); toast('Joylandi ✅');
-    const r = await server({ t: 'post', body: tmp.text, lahza });
+    const ta = $('#post-text'), text = ta.value, img = POSTIMG;
+    if (!guard('post', text.trim() || (img ? 'rasm' : ''))) return save();
+    const lahza = $('#post-lahza').checked, tmp = { id: 'tmp' + uid(), uid: u.id, text: text.trim(), img, t: now(), lahza, likes: [], views: 1, seen: true, replies: [] };
+    DB.posts.unshift(tmp); ta.value = ''; POSTIMG = null; render(); toast(img ? 'Rasm yuklanmoqda…' : 'Joylandi ✅');
+    const r = await server({ t: 'post', body: tmp.text, lahza, img }, img ? 'Joylandi ✅' : '');
     if (!r.ok) { DB.posts = DB.posts.filter(x => x !== tmp); render(); }
     return;
   }
@@ -1204,6 +1213,7 @@ document.addEventListener('submit', async e => {
   }
 });
 
+let POSTIMG = null; // postga tanlangan rasm (siqilgan)
 let PHOTO; // undefined: o'zgarmagan, null: olib tashlandi, string: yangi rasm
 document.addEventListener('change', async e => {
   if (e.target.id === 'img-file') {
@@ -1217,6 +1227,13 @@ document.addEventListener('change', async e => {
     CH.reply = null; $('#msg-in').value = ''; render(); toast('Rasm yuborilmoqda…');
     const r = await server({ t: 'msg', chat: c.id, img, body: cap, replyTo });
     if (r.ok) toast('Rasm yuborildi 📷'); return;
+  }
+  if (e.target.id === 'post-img') {
+    const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+    if (!/^image\//.test(file.type)) { toast('Faqat rasm tanlang', true); return; }
+    try { POSTIMG = await compressImage(file); } catch (err) { toast('Rasmni ochib bo‘lmadi', true); return; }
+    const pv = $('#post-prev'); if (pv) pv.innerHTML = `<div class="pprev"><img src="${POSTIMG}" alt="Tanlangan rasm"><button type="button" data-act="postimg-x" aria-label="Rasmni olib tashlash">✕</button></div>`;
+    return;
   }
   if (e.target.id !== 'ph-file') return;
   const file = e.target.files[0]; if (!file) return;

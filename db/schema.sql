@@ -159,3 +159,7 @@ alter table chats drop constraint if exists chats_admin_id_fkey;
 alter table chats add constraint chats_admin_id_fkey foreign key (admin_id) references users(id) on delete set null;
 alter table chats drop constraint if exists chats_flappy_user_fkey;
 alter table chats add constraint chats_flappy_user_fkey foreign key (flappy_user) references users(id) on delete set null;
+-- Postga rasm (Cloudflare R2 havolasi yoki zaxira sifatida dataURL)
+alter table posts add column if not exists img text;
+alter table posts drop constraint if exists posts_body_check;
+alter table posts add constraint posts_body_check check (char_length(body) <= 500);

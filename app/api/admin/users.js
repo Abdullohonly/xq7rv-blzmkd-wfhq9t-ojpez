@@ -1,4 +1,5 @@
 import { sql, requireAdmin, isOwnerEmail, send, sameOrigin } from '../_lib.js';
+import { r2Usage } from '../_r2.js';
 // Faqat ega (musoxonshovkatov@gmail.com) uchun: GET — ro'yxat; POST { action, id } — block | unblock | delete
 export default async function handler(req, res) {
   try {
@@ -13,7 +14,8 @@ export default async function handler(req, res) {
         (select count(*)::int from users where not is_system and created_at > now() - interval '1 day') as today,
         (select count(*)::int from users where is_blocked) as blocked,
         (select count(*)::int from banned_emails) as banned`;
-      return send(res, 200, { dbBytes: Number(r.bytes), limitBytes: 512 * 1024 * 1024, users: r.users, today: r.today, blocked: r.blocked, banned: r.banned });
+      let r2 = null; try { r2 = await r2Usage(); } catch (e) { r2 = { error: String(e.message).slice(0, 80) }; }
+      return send(res, 200, { dbBytes: Number(r.bytes), limitBytes: 512 * 1024 * 1024, users: r.users, today: r.today, blocked: r.blocked, banned: r.banned, r2 });
     }
     if (req.method === 'GET') {
       const users = await db`select id, username, name, email, is_blocked, created_at from users where not is_system order by id`;

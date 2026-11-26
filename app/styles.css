@@ -248,3 +248,10 @@ html[data-fs=lg] .txt,html[data-fs=lg] .m{font-size:18px}
 .is-desk .center .top .desk-title{display:block;font-family:var(--head);font-size:20px}
 .is-desk .center .chatv{display:flex;flex-direction:column;min-height:calc(100vh - 16px)}
 .is-desk .center .chatv .msgs{flex:1}
+
+/* post rasmi */
+.pimg{display:block;padding:0;border-radius:18px;overflow:hidden;width:100%;background:var(--soft)}
+.pimg img{display:block;width:100%;max-height:520px;object-fit:cover}
+.pprev{position:relative;margin-top:10px;border-radius:16px;overflow:hidden;max-width:260px}
+.pprev img{display:block;width:100%}
+.pprev button{position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:16px}

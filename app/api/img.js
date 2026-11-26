@@ -17,7 +17,11 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return send(res, 405, { error: 'method' });
   try {
     const q = req.query || {}, db = sql();
-    const u = Number(q.u), m = Number(q.m);
+    const u = Number(q.u), m = Number(q.m), p = Number(q.p);
+    if (Number.isSafeInteger(p) && p > 0) { // post rasmi: ommaviy
+      const [r] = await db`select img from posts where id = ${p} and not is_hidden`;
+      return out(res, r && r.img, 'public, max-age=31536000, immutable');
+    }
     if (Number.isSafeInteger(u) && u > 0) {
       const [r] = await db`select photo from users where id = ${u} and not is_blocked`;
       return out(res, r && r.photo, 'public, max-age=31536000, immutable');

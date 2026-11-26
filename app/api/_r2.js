@@ -42,3 +42,25 @@ export async function r2PutDataUrl(dataUrl, prefix) {
   if (!r.ok) throw new Error('r2 ' + r.status + ' ' + (await r.text()).slice(0, 200));
   return `${E().R2_PUBLIC_URL.trim().replace(/\/+$/, '')}/${key}`;
 }
+
+// R2 bucket'dagi fayllar soni va umumiy hajmi (ListObjectsV2, 1000 tadan; ko'pi bilan 20 sahifa)
+export async function r2Usage() {
+  if (!r2Ready()) return null;
+  const host = `${E().R2_ACCOUNT_ID.trim()}.r2.cloudflarestorage.com`, path = `/${E().R2_BUCKET.trim()}`;
+  let bytes = 0, count = 0, token = null, pages = 0, more = true;
+  while (more && pages < 20) {
+    const q = { 'list-type': '2', 'max-keys': '1000', ...(token ? { 'continuation-token': token } : {}) };
+    const query = Object.keys(q).sort().map(k => `${enc(k)}=${enc(q[k])}`).join('&');
+    const amzDate = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    const { headers } = sigV4({ method: 'GET', host, path, query, headers: {}, payloadHash: sha256(''), amzDate, region: 'auto', service: 's3', accessKey: E().R2_ACCESS_KEY_ID.trim(), secret: E().R2_SECRET_ACCESS_KEY.trim() });
+    delete headers.host;
+    const r = await fetch(`https://${host}${path}?${query}`, { headers });
+    const xml = await r.text();
+    if (!r.ok) throw new Error('r2 list ' + r.status + ' ' + (/<Code>([^<]+)<\/Code>/.exec(xml) || [])[1]);
+    for (const m of xml.matchAll(/<Size>(\d+)<\/Size>/g)) { bytes += Number(m[1]); count++; }
+    more = /<IsTruncated>true<\/IsTruncated>/.test(xml);
+    token = (/<NextContinuationToken>([^<]+)<\/NextContinuationToken>/.exec(xml) || [])[1] || null;
+    pages++; if (!token) more = false;
+  }
+  return { bytes, count, more, limitBytes: 10 * 1024 ** 3 };
+}

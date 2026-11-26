@@ -42,12 +42,14 @@ export default async function handler(req, res) {
     switch (t) {
       /* ---------- Ochiq maydon ---------- */
       case 'post': {
-        const body = str(b.body, 500); if (!body) return bad(res, 'Avval biror narsa yozing');
+        const body = str(b.body, 500); let img = null;
+        if (b.img != null) { if (typeof b.img !== 'string' || b.img.length > 400000 || !IMG_RE.test(b.img)) return bad(res, 'Rasm juda katta yoki noto‘g‘ri'); img = (await r2PutDataUrl(b.img, 'p').catch(() => null)) || b.img; }
+        if (!body && !img) return bad(res, 'Avval biror narsa yozing');
         if (!(await rateLimit('post:' + uid, 10, 3600))) return send(res, 429, { error: 'rate', message: 'Soatiga ko‘pi bilan 10 ta post' });
-        const hash = createHash('sha256').update(body.toLowerCase().replace(/\s+/g, ' ')).digest('hex');
-        const [dup] = await db`select 1 from posts where user_id = ${uid} and body_hash = ${hash} and created_at > now() - interval '1 day'`;
+        const hash = createHash('sha256').update(body.toLowerCase().replace(/\s+/g, ' ') + (img ? '|' + img.slice(-40) : '')).digest('hex');
+        const [dup] = body ? await db`select 1 from posts where user_id = ${uid} and body_hash = ${hash} and created_at > now() - interval '1 day'` : [];
         if (dup) return bad(res, 'Bu matnni 24 soat ichida allaqachon joylagansiz');
-        const [p] = await db`insert into posts (user_id, body, body_hash, is_lahza) values (${uid}, ${body}, ${hash}, ${!!b.lahza}) returning id`;
+        const [p] = await db`insert into posts (user_id, body, body_hash, is_lahza, img) values (${uid}, ${body}, ${hash}, ${!!b.lahza}, ${img}) returning id`;
         await db`insert into post_views (post_id, user_id) values (${p.id}, ${uid}) on conflict do nothing`;
         await notifyMentions(db, body, uid, me.username, 'postda', `/p/${p.id}`);
         return send(res, 200, { ok: true, id: 'p' + p.id });
