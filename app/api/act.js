@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { TERMS_VER, isStar, clearSession, sql, currentUser, isOwnerEmail, hasAdminPass, rateLimit, tooMany, send, sameOrigin } from './_lib.js';
+import { TERMS_VER, OWNER_EMAIL, isStar, clearSession, sql, currentUser, isOwnerEmail, hasAdminPass, rateLimit, tooMany, send, sameOrigin } from './_lib.js';
 import { r2PutDataUrl } from './_r2.js';
 import { pushTo } from './_push.js';
 import { clean } from './_clean.js';
@@ -137,8 +137,15 @@ export default async function handler(req, res) {
       }
       case 'report': {
         const pid = idOf(b.post, 'p'); if (!pid) return bad(res, 'post');
-        await db`insert into reports (post_id, reporter_id) select id, ${uid} from posts where id = ${pid} and user_id <> ${uid} on conflict do nothing`;
+        const REASONS = { spam: 'Spam', haqorat: 'Haqorat', '18': 'Behayo kontent', yolgon: 'Yolg‘on ma’lumot', boshqa: 'Boshqa' }, why = REASONS[b.reason] || 'Boshqa';
+        const ins = await db`insert into reports (post_id, reporter_id, reason) select id, ${uid}, ${why} from posts where id = ${pid} and user_id <> ${uid} on conflict do nothing returning post_id`;
         await db`update posts set is_hidden = true where id = ${pid} and (select count(*) from reports where post_id = ${pid}) >= 5`;
+        if (ins.length) {
+          // 🚩 Owner'ga darhol bildirishnoma va push
+          const [own] = await db`select id from users where lower(email) = ${OWNER_EMAIL} limit 1`;
+          const [pp] = await db`select p.body, u.username, (select count(*)::int from reports r where r.post_id = p.id) as n from posts p join users u on u.id = p.user_id where p.id = ${pid}`;
+          if (own && pp) await notify(db, Number(own.id), `🚩 Shikoyat (${why}): @${me.username} → @${pp.username} posti${pp.n > 1 ? ` · jami ${pp.n} ta` : ''}: “${pp.body.slice(0, 60)}”`, `/p/${pid}`, uid);
+        }
         return send(res, 200, { ok: true });
       }
       case 'hide': {

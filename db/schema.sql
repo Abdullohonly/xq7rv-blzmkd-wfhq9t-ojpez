@@ -195,3 +195,4 @@ alter table users add column if not exists app_icon text;
 create table if not exists tournaments (id bigserial primary key, chat_id bigint not null references chats(id) on delete cascade, game text not null check (game in ('flappy','tetris','2048')), ends_at timestamptz not null, created_by bigint references users(id) on delete set null, done boolean not null default false, created_at timestamptz not null default now());
 create index if not exists tournaments_chat on tournaments(chat_id);
 create table if not exists tourney_scores (tid bigint not null references tournaments(id) on delete cascade, user_id bigint not null references users(id) on delete cascade, score int not null, primary key (tid, user_id));
+alter table reports add column if not exists reason text;

@@ -1,8 +1,8 @@
-/* Lahzam v1.6.0 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.6.1 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.6.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.6.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -1264,9 +1264,10 @@ document.addEventListener('click', async e => {
     }
     case 'ph-clear': { PHOTO = null; const pv = $('#ph-prev'); const tg = user(+el.dataset.u); if (pv && tg) pv.innerHTML = avatar({ ...tg, photo: null }, 64); el.remove(); break; }
     case 'report': {
-      if (!u) return go('/kirish'); const p = P(); if (!p) break; p.reported = true;
-      closeSheet(); server({ t: 'report', post: id }, 'Rahmat, moderatorlar ko‘rib chiqadi'); break;
+      if (!u) return go('/kirish'); const p = P(); if (!p) break;
+      sheet(`<h2>🚩 Shikoyat sababi</h2><div class="stack" style="gap:8px">${[['spam', '📢 Spam yoki reklama'], ['haqorat', '🤬 Haqorat yoki bezorilik'], ['18', '🔞 Behayo kontent'], ['yolgon', '❌ Yolg‘on ma’lumot'], ['boshqa', '❔ Boshqa']].map(([k, l]) => `<button class="btn ghost full" style="justify-content:flex-start" data-act="reportgo" data-id="${id}" data-r="${k}">${l}</button>`).join('')}</div>`); break;
     }
+    case 'reportgo': { const p = P(); if (!p) break; p.reported = true; closeSheet(); server({ t: 'report', post: id, reason: el.dataset.r }, 'Rahmat! Shikoyatingiz moderatorga yuborildi 🚩'); break; }
     case 'follow': {
       if (!u) return go('/kirish'); const t = +id; if (t === u.id) return;
       const i = DB.follows.findIndex(f => f[0] === u.id && f[1] === t);
