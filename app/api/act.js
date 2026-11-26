@@ -220,7 +220,7 @@ export default async function handler(req, res) {
         const others = await db`select user_id from chat_members where chat_id = ${cid} and status = 'member' and user_id <> ${uid}`;
         await db`update chat_members set typing_at = null where chat_id = ${cid} and user_id = ${uid}`;
         if (others.length) {
-          const st = /^\[s:[a-z0-9]+\]$/.test(body), prev = poll ? '📊 ' + poll.q : img ? '📷 Rasm' + (body ? ': ' + body : '') : game ? '🎮 O‘yin' : st ? '🎨 Stiker' : body;
+          const st = /^\[s:[a-z0-9]+\]$/.test(body), pp = /^\[post:\d+\]\n?/.exec(body), prev = pp ? '📝 Post: ' + body.slice(pp[0].length) : poll ? '📊 ' + poll.q : img ? '📷 Rasm' + (body ? ': ' + body : '') : game ? '🎮 O‘yin' : st ? '🎨 Stiker' : body;
           const grp = c.kind === 'group', who = me.name || '@' + me.username;
           await pushTo(db, others.map(o => o.user_id), { title: grp ? c.name : who, body: (grp ? who + ': ' : '') + prev.slice(0, 160), url: '/c/c' + cid, tag: 'c' + cid });
         }

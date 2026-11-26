@@ -1,8 +1,8 @@
-/* Lahzam v1.1.2 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.1.3 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.1.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.1.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { post: 500, reply: 300, msg: 2000 };
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
@@ -549,7 +549,15 @@ function dayLabel(t) {
 }
 const gameKind = t => /@tetris\b/i.test(t || '') ? 'tetris' : /@2048(?!\w)/.test(t || '') ? '2048' : 'flappy';
 const stickerOf = m => m && !m.img && !m.poll && !m.game && window.Stickers && (Stickers.re.exec(m.text || '') || [])[1];
-const msgPreview = m => !m ? 'O‘chirilgan xabar' : m.img ? '📷 Rasm' + (m.text ? ': ' + m.text : '') : m.poll ? '📊 ' + m.poll.q : m.game ? ({ tetris: '🧱 Tetris o‘yini', '2048': '🔢 2048 o‘yini', flappy: '🐤 Flappy o‘yini' })[gameKind(m.text)] : stickerOf(m) ? '🎨 Stiker' : m.text;
+const POSTRE = /^\[post:(\d+)\]\n?([\s\S]*)$/;
+const postOf = m => m && !m.img && !m.poll && !m.game && POSTRE.exec(m.text || '');
+function chatPostCard(m) {
+  const [, pid, snip] = postOf(m), p = DB.posts.find(x => x.id === 'p' + pid), a = p && user(p.uid);
+  return `<a href="/p/${pid}" data-link class="pcard">${a ? `<span class="pc-h">${avatar(a, 26)}<b>${esc(a.name)}</b><span>@${esc(a.u)}</span></span>` : '<span class="pc-h"><b>Lahzam post</b></span>'}
+    ${p && p.img ? `<img src="${esc(p.img)}" alt="" loading="lazy">` : ''}<span class="pc-t">${esc(p ? p.text : snip)}</span>
+    <span class="pc-f">${p ? `❤ ${p.likes.length} · 💬 ${p.replies.length} · ` : ''}Postni ochish ›</span></a>`;
+}
+const msgPreview = m => !m ? 'O‘chirilgan xabar' : postOf(m) ? '📝 Post' + (postOf(m)[2] ? ': ' + postOf(m)[2].split('\n')[0] : '') : m.img ? '📷 Rasm' + (m.text ? ': ' + m.text : '') : m.poll ? '📊 ' + m.poll.q : m.game ? ({ tetris: '🧱 Tetris o‘yini', '2048': '🔢 2048 o‘yini', flappy: '🐤 Flappy o‘yini' })[gameKind(m.text)] : stickerOf(m) ? '🎨 Stiker' : m.text;
 const canPin = c => c.type === 'dm' || c.admin === me().id || isAdmin();
 const canDelMsg = (c, m) => m.uid === me().id || (c.type === 'group' && (isAdmin() || c.admin === me().id));
 function pollHtml(c, m) {
@@ -571,6 +579,7 @@ function msgHtml(c, m) {
   if (m.game) { const gk = gameKind(m.text), rec = gk === 'tetris' ? c.trecord : gk === '2048' ? c.grecord : c.record;
     body = `<div class="game-card">${gk === 'tetris' ? Tetris.icon(42) : gk === '2048' ? G2048.icon(42) : Flappy.birdSVG(42)}<div style="flex:1"><b style="display:block">${gk === 'tetris' ? 'Tetris' : gk === '2048' ? '2048' : 'Flappy'}</b><span style="font-size:12px;color:#bbb">${rec ? `Rekord: ${rec.score} · @${esc(user(rec.uid).u)}` : 'Rekord yo‘q, birinchi bo‘ling!'}</span></div>
       <button class="btn acc" style="height:38px;border-radius:999px;font-size:13px" data-act="${gk === 'tetris' ? 'playtet' : gk === '2048' ? 'play48' : 'play'}" data-id="${c.id}">O‘ynash</button></div>`; }
+  else if (postOf(m)) body = chatPostCard(m);
   else if (stk) body = `<div class="stk" role="img" aria-label="Stiker: ${esc(Stickers.label(stk))}">${Stickers.svg(stk)}</div>`;
   else if (m.poll) body = pollHtml(c, m);
   else body = (m.img ? `<button class="mimg" data-act="viewimg" data-c="${c.id}" data-m="${m.id}"><img src="${esc(m.img)}" alt="Rasm" loading="lazy"></button>` : '') + (m.text ? `<span class="mtx">${linkify(m.text)}</span>` : '');
@@ -992,11 +1001,17 @@ document.addEventListener('click', async e => {
     case 'copy': try { await navigator.clipboard.writeText(el.dataset.text); toast('Nusxalandi'); } catch (err) { toast(el.dataset.text); } break;
     case 'sendpost': {
       if (!u) return go('/kirish');
-      const list = DB.chats.filter(c => c.members.includes(u.id));
-      sheet(`<h2>Chatga yuborish</h2><div class="card" style="padding:4px 16px">${list.map(c => `<button class="li" style="width:100%;text-align:left" data-act="sendto" data-id="${id}" data-c="${c.id}">${chatAv(c, u, 40)}<b>${esc(chatName(c, u))}</b></button>`).join('') || '<p class="muted">Hali chat yo‘q.</p>'}</div>`);
+      const sv = DB.chats.find(c => isSaved(c) && c.members.includes(u.id));
+      const list = DB.chats.filter(c => c.members.includes(u.id) && !isSaved(c)).sort((a, b) => (b.msgs.at(-1)?.t || 0) - (a.msgs.at(-1)?.t || 0));
+      const svBtn = `<button class="li" style="width:100%;text-align:left" data-act="sendto" data-id="${id}" data-c="${sv ? sv.id : 'saved'}">${savedAv(40)}<b>Saqlangan xabarlar</b></button>`;
+      sheet(`<h2>Chatga yuborish</h2><div class="card" style="padding:4px 16px">${svBtn}${list.map(c => `<button class="li" style="width:100%;text-align:left" data-act="sendto" data-id="${id}" data-c="${c.id}">${chatAv(c, u, 40)}<b>${esc(chatName(c, u))}</b></button>`).join('') || '<p class="muted">Hali chat yo‘q.</p>'}</div>`);
       break;
     }
-    case 'sendto': { const c = DB.chats.find(x => x.id === el.dataset.c); const p = P(); if (!c || !p || !guard('msg', 'post')) return; closeSheet(); server({ t: 'msg', chat: c.id, body: `${location.origin}/p/${p.id}\n“${p.text.slice(0, 80)}${p.text.length > 80 ? '…' : ''}”` }, 'Yuborildi'); break; }
+    case 'sendto': {
+      const p = P(); if (!p || !guard('msg', 'post')) return; let cid = el.dataset.c;
+      if (cid === 'saved') { const r = await api('act', { method: 'POST', body: { t: 'saved' } }); if (!r.chat) { toast(r.message || 'Bo‘lmadi', true); break; } cid = r.chat; }
+      closeSheet(); const r2 = await server({ t: 'msg', chat: cid, body: `[post:${String(p.id).replace('p', '')}]\n${p.text.slice(0, 120)}` }, cid === el.dataset.c ? 'Yuborildi ↪️' : 'Saqlandi 🔖'); break;
+    }
     case 'postmenu': {
       const p = P(); if (!p) break; const own = u && (p.uid === u.id || isAdmin());
       sheet(`<h2>Post</h2><div class="stack">${own ? `<button class="btn ghost full" style="color:var(--danger)" data-act="delpost" data-id="${id}">O‘chirish</button>` : p.reported ? '<p class="muted" style="margin:0">Shikoyatingiz qabul qilingan ✅</p>' : `<button class="btn ghost full" data-act="report" data-id="${id}">Shikoyat qilish</button>`}<button class="btn ghost full" data-act="sharepost" data-id="${id}">Havolani nusxalash</button></div>`);
