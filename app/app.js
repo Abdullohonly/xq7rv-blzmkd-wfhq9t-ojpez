@@ -461,6 +461,7 @@ async function onGoogle(resp) {
 after.auth = () => {
   if (AUTH.step === 'start') initGoogle();
   const un = $('#un'); if (!un) return;
+  api('auth/username?u='); // serverni oldindan uyg'otamiz: birinchi tekshiruv tez bo'ladi
   let okU = false, okP = !!AUTH.owner, tm, seq = 0;
   const btn = $('#su-btn'), uh = $('#un-hint'), pw = $('#pw'), ph = $('#pw-hint');
   const sync = () => { btn.disabled = !(okU && okP && $('#nm').value.trim()); };
@@ -474,7 +475,7 @@ after.auth = () => {
       const my = ++seq, r = await api('auth/username?u=' + encodeURIComponent(v) + '&e=' + encodeURIComponent(AUTH.email || ''));
       if (my !== seq || un.value !== v) return;
       uh.textContent = r.message || (r.ok ? msg : 'Tekshirib bo‘lmadi'); uh.className = 'hint ' + (r.ok ? 'ok' : 'bad'); okU = !!r.ok; sync();
-    }, 250);
+    }, 120);
   });
   if (AUTH.owner && !un.value) { un.value = 'musoxon'; un.dispatchEvent(new Event('input')); }
   if (pw) pw.addEventListener('input', () => { const v = pw.value; okP = v.length >= 6; ph.textContent = !v ? '' : okP ? (/[0-9]/.test(v) && /[a-zA-Z]/.test(v) ? 'Kuchli parol ✅' : 'Yaxshi. Raqam va harf aralashsa yanada kuchli') : `Yana ${6 - v.length} belgi`; ph.className = 'hint ' + (okP ? 'ok' : 'bad'); sync(); });
