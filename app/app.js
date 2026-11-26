@@ -1,0 +1,1260 @@
+/* Lahzam v1.0.0 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+(function () {
+'use strict';
+const KEY = 'lahzam_db_v2';
+const VERSION = '1.0.0'; // faqat katta yangilanishlarda oshadi
+const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
+const LIMIT = { post: 500, reply: 300, msg: 2000 };
+const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
+const RESERVED = ['admin', 'lahzam', 'musoojon', 'support', 'yordam', 'root', 'api'];
+const OWNER_EMAIL = 'musoxonshovkatov@gmail.com'; // Lahzam egasi: admin huquqlari shu Gmail'ga bog'langan
+const CATS = ['Ta‘lim', 'Sport', 'Kitoblar', 'Biznes', 'IT', 'Oila', 'Boshqa'];
+const ACCESS = { open: 'Hamma uchun', ask: 'Ruxsatli', closed: 'Yopiq' };
+const REACTS = ['❤️', '👎', '⭐', '🫶', '😂', '😮', '😢', '🤲'];
+const now = () => Date.now();
+const uid = () => Math.random().toString(36).slice(2, 10);
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------------- data ---------------- */
+let DB;
+const fresh = (keep = {}) => ({ v: 2, users: [], follows: [], posts: [], chats: [], notifs: [], stars: {}, me: null, sess: null, limits: {}, spam: [], theme: keep.theme || 'light', fs: keep.fs || 'md', updSeen: keep.updSeen || 0 });
+function load() {
+  try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && d.v === 2) return d; } catch (e) {}
+  let old = {}; try { old = JSON.parse(localStorage.getItem('lahzam_db_v1')) || {}; localStorage.removeItem('lahzam_db_v1'); } catch (e) {}
+  return fresh(old); // eski demo ma'lumotlar o'chadi: endi hammasi serverdan keladi
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) {} }
+DB = load();
+
+const GHOST = id => ({ id, u: 'deleted', name: 'O‘chirilgan akkaunt', color: '#E8E2D8', bio: '', ghost: true });
+const user = id => id == null ? undefined : (DB.users.find(u => u.id === id) || GHOST(id));
+const byName = n => DB.users.find(u => u.u.toLowerCase() === String(n).toLowerCase());
+const me = () => (DB.me == null ? null : user(DB.me));
+let SESSION = null; // serverda tasdiqlangan foydalanuvchi (Google yoki parol bilan kirgan)
+const isOwnerUser = u => !!u && u.email === OWNER_EMAIL;
+const isOwnerSession = () => { const u = me(); return !!u && !!SESSION && SESSION.isOwner === true && u.id === SESSION.id; };
+let ADM = { checked: false, configured: false, verified: false }; // admin 2-bosqich holati (serverdan)
+const isAdmin = () => isOwnerSession() && ADM.verified;
+async function refreshAdm() {
+  if (!isOwnerSession()) { ADM = { checked: true, configured: false, verified: false }; return; }
+  const r = await api('admin/2fa');
+  ADM = { checked: true, configured: !!r.configured, verified: !!r.verified };
+}
+async function api(path, opts = {}) {
+  try {
+    const r = await fetch('/api/' + path, { method: opts.method || 'GET', credentials: 'same-origin', headers: opts.body ? { 'Content-Type': 'application/json' } : {}, body: opts.body ? JSON.stringify(opts.body) : undefined });
+    const data = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, ...data };
+  } catch (e) { return { ok: false, status: 0, message: 'Internetga ulanib bo‘lmadi' }; }
+}
+// Server sessiyasi: kim kirgan. Boshqa hamma narsa sync() orqali serverdan keladi
+function adoptSession(su) {
+  const prev = DB.me;
+  SESSION = su || null; DB.sess = SESSION;
+  if (!su) { if (prev != null) DB = fresh(DB); return; }
+  if (prev != null && prev !== su.id) DB = Object.assign(fresh(DB), { sess: su }); // boshqa akkaunt: eski keshni tozalaymiz
+  DB.me = su.id;
+  if (!DB.users.some(x => x.id === su.id)) DB.users.push({ id: su.id, u: su.username, name: su.name, bio: su.bio || '', color: su.color, joined: Date.parse(su.createdAt) || now(), photo: null });
+}
+/* Server bilan sinxronlash: har bir necha soniyada yangi postlar va xabarlar o'zi keladi */
+let SYNC = { busy: false, sig: '', last: 0, readSent: {} };
+async function sync(force) {
+  if (!SESSION || (SYNC.busy && !force)) return;
+  SYNC.busy = true;
+  const r = await api('sync');
+  SYNC.busy = false; SYNC.last = now();
+  if (r.status === 401) { adoptSession(null); save(); render(); return; }
+  if (!r.ok) return;
+  const sig = JSON.stringify([r.users, r.follows, r.posts, r.chats, r.notifs, r.stars]);
+  if (sig === SYNC.sig && !force) return;
+  SYNC.sig = sig;
+  Object.assign(DB, { me: r.me, users: r.users, follows: r.follows, stars: r.stars || {}, posts: r.posts, chats: r.chats, notifs: r.notifs.map(n => ({ ...n, to: r.me })) });
+  if (isOwnerSession() && ADM.checked && r.admin !== ADM.verified) ADM.verified = r.admin;
+  save(); softRender();
+}
+// Foydalanuvchi yozayotganda sahifani qayta chizmaymiz, faqat chatdagi xabarlarni yangilaymiz
+function softRender() {
+  const name = route()[0];
+  if (name === 'chat') {
+    const box = $('#msgs'), c = DB.chats.find(x => x.id === CH.cid);
+    if (box && c) { const near = innerHeight + scrollY >= document.body.scrollHeight - 160; box.innerHTML = msgList(c); if (near) scrollTo(0, document.body.scrollHeight); markRead(c); return; }
+  }
+  if (busy()) { SYNC.pending = true; return; }
+  const y = scrollY; render(true); if (name !== 'chat') scrollTo(0, y);
+}
+const busy = () => { const a = document.activeElement; return !!(a && /INPUT|TEXTAREA|SELECT/.test(a.tagName) && a.value) || !!$('#modal-root').innerHTML || !!document.querySelector('.rx-bar'); };
+document.addEventListener('focusout', () => setTimeout(() => { if (SYNC.pending && !busy()) { SYNC.pending = false; softRender(); } }, 300));
+// Amal serverga yuboriladi; xato bo'lsa aytiladi va haqiqiy holat qayta olinadi
+async function server(body, okMsg) {
+  const r = await api('act', { method: 'POST', body });
+  if (!r.ok) { toast(r.message || (r.status === 0 ? 'Internetga ulanib bo‘lmadi' : 'Bajarilmadi, qayta urinib ko‘ring'), true); if (r.status === 401 && r.error === 'auth') { adoptSession(null); go('/kirish'); return r; } }
+  else if (okMsg) toast(okMsg);
+  sync(true);
+  return r;
+}
+const VIEWQ = new Set(); let viewT;
+function seen(p) { if (p.seen || !me()) return; p.seen = true; p.views = (p.views || 0) + 1; VIEWQ.add(p.id); clearTimeout(viewT); viewT = setTimeout(() => { const ids = [...VIEWQ]; VIEWQ.clear(); api('act', { method: 'POST', body: { t: 'views', posts: ids } }); }, 1500); }
+function markRead(c) {
+  const u = me(); if (!u || !c || !c.members.includes(u.id)) return;
+  const last = c.msgs.length ? c.msgs[c.msgs.length - 1].t : 0;
+  c.read[u.id] = now();
+  if (last > (SYNC.readSent[c.id] || 0)) { SYNC.readSent[c.id] = last; api('act', { method: 'POST', body: { t: 'read', chat: c.id } }); }
+}
+const realUsers = () => DB.users.filter(u => !u.system).sort((a, b) => a.id - b.id);
+const isFounder = u => !u.system && realUsers().findIndex(x => x.id === u.id) < 50;
+const followers = id => DB.follows.filter(f => f[1] === id).map(f => f[0]);
+const following = id => DB.follows.filter(f => f[0] === id).map(f => f[1]);
+const isFollowing = (a, b) => DB.follows.some(f => f[0] === a && f[1] === b);
+const alive = p => !p.hidden && !(p.lahza && now() - p.t > DAY) && !(user(p.uid) || {}).blocked;
+// ⭐ Foydali: server hisoblaydi (bir odamning ⭐ si bir marta)
+const foydaliCount = (id, since = 0) => { const s2 = (DB.stars || {})[id]; return s2 ? (since ? s2.week : s2.all) : 0; };
+function notify() { /* bildirishnomalarni endi server yaratadi */ }
+function mentions(text) { return [...new Set((text.match(/@([a-z0-9._]{3,20})/gi) || []).map(s => s.slice(1).toLowerCase()))]; }
+
+/* ---------------- helpers ---------------- */
+const OYLAR = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'];
+const uzDate = (t, year) => { const d = new Date(t); return `${d.getDate()}-${OYLAR[d.getMonth()]}${year || d.getFullYear() !== new Date().getFullYear() ? ', ' + d.getFullYear() : ''}`; };
+
+function ago(t) {
+  const s = Math.max(1, Math.round((now() - t) / 1000));
+  if (s < 60) return 'hozir'; const m = Math.round(s / 60); if (m < 60) return m + ' daq';
+  const h = Math.round(m / 60); if (h < 24) return h + ' soat'; const d = Math.round(h / 24); if (d < 7) return d + ' kun';
+  return uzDate(t);
+}
+const fmt = n => n >= 1000 ? (n / 1000).toFixed(1).replace('.', ',').replace(',0', '') + 'k' : String(n);
+function linkify(text) {
+  return esc(text)
+    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener nofollow">$1</a>')
+    .replace(/(^|[^\w/])@([a-z0-9._]{3,20})/gi, '$1<a href="/@$2" data-link>@$2</a>')
+    .replace(/(^|\s)#([\p{L}0-9_]{2,30})/gu, '$1<a href="/t/$2" data-link>#$2</a>');
+}
+function avatar(u, size = 44) {
+  if (!u) return '';
+  if (u.photo) return `<span class="av" style="width:${size}px;height:${size}px;background:${u.color}" aria-hidden="true"><img src="${esc(u.photo)}" alt="" style="width:100%;height:100%;object-fit:cover"></span>`;
+  if (u.system) return `<span class="av" style="width:${size}px;height:${size}px;background:#BFEAF7">${Flappy.birdSVG(size * .86)}</span>`;
+  return `<span class="av" style="width:${size}px;height:${size}px;background:${u.color};font-size:${Math.round(size * .38)}px" aria-hidden="true">${esc(u.name[0] || u.u[0]).toUpperCase()}</span>`;
+}
+const founderPill = u => u && isFounder(u) ? ' <span class="founder">Asoschi</span>' : '';
+let toastT;
+function toast(msg, warn) { const el = $('#toast'); el.textContent = msg; el.className = 'toast show' + (warn ? ' warn' : ''); clearTimeout(toastT); toastT = setTimeout(() => el.className = 'toast', warn ? 3200 : 2000); }
+async function hash(s) { try { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('lahzam:' + s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); } catch (e) { return 'x' + s.length + s; } }
+const I = {
+  back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>',
+  search: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  trophy: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>',
+  spark: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/><path d="M19 3v4M17 5h4"/></svg>',
+  bell: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>',
+  heart: f => `<svg viewBox="0 0 24 24" fill="${f ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg>`,
+  reply: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.7-4.9A8 8 0 1 1 21 12z"/></svg>',
+  send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>',
+  share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4M12 2v13"/></svg>',
+  eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  dots: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+  globe: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>',
+  group: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.8-3.4 3.2-5.2 6-5.2s5.2 1.8 6 5.2"/><path d="M16 5.3a3 3 0 0 1 0 5.6M18 14.9c1.6.7 2.6 2.4 3 5.1"/></svg>',
+  plus: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  gear: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  logo: (fill = '#fff', dot = '#121212', s = 26) => `<svg viewBox="0 0 100 100" width="${s}" height="${s}" aria-hidden="true"><path d="M14 12a8 8 0 0 1 8-8h14a8 8 0 0 1 8 8v46h34a8 8 0 0 1 8 8v14a8 8 0 0 1-8 8H30L14 98z" fill="${fill}"/><circle cx="72" cy="30" r="13" fill="${dot}"/></svg>`
+};
+
+/* ---------------- anti-spam ---------------- */
+function guard(kind, text) {
+  const u = me(); if (!u) { go('/kirish'); return false; }
+  if (u.blocked) { toast('Akkauntingiz moderator tomonidan bloklangan.', true); return false; }
+  const L = DB.limits[u.id] = DB.limits[u.id] || { sends: [], warnedAt: 0, pauseUntil: 0, coolUntil: 0 };
+  const t = now();
+  if (t < L.coolUntil) { const m = Math.ceil((L.coolUntil - t) / MIN); toast(`Hordiq davom etmoqda 🍵 Yana ${m} daqiqa`, true); return false; }
+  if (t < L.pauseUntil) { toast(`Shoshmang 🙂 Yana ${Math.ceil((L.pauseUntil - t) / 1000)} soniya dam oling`, true); return false; }
+  const clean = text.trim();
+  if (!clean) { toast('Avval biror narsa yozing'); return false; }
+  if (clean.length > LIMIT[kind]) { toast(`Juda uzun: ko‘pi bilan ${LIMIT[kind]} belgi`, true); return false; }
+  if (kind !== 'msg') {
+    if (/@flappy\b/i.test(clean)) { toast('@flappy faqat chat va guruhlarda ishlaydi 🐤', true); return false; }
+    const links = (clean.match(/https?:\/\//g) || []).length;
+    const fresh = t - u.joined < 7 * DAY && !isOwnerSession();
+    if (links > 1) { toast('Bitta postda ko‘pi bilan 1 ta havola', true); return false; }
+    if (links && fresh) { toast('Yangi akkauntlar 7 kun havola qo‘ya olmaydi', true); return false; }
+    if (mentions(clean).length > 5) { toast('Ko‘pi bilan 5 ta @belgilash', true); return false; }
+  }
+  if (kind === 'post') {
+    const norm = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    if (DB.posts.some(p => p.uid === u.id && t - p.t < DAY && norm(p.text) === norm(clean))) { toast('Bu matnni 24 soat ichida allaqachon joylagansiz', true); return false; }
+    const lastHour = L.sends.filter(s => s.k === 'post' && t - s.t < HOUR).length;
+    if (lastHour >= 10) { toast('Soatiga ko‘pi bilan 10 ta post', true); return false; }
+    if (t - u.joined < 7 * DAY && !isOwnerSession() && L.sends.filter(s => s.k === 'post' && t - s.t < DAY).length >= 3) { toast('Yangi akkauntlar birinchi 7 kunda kuniga 3 ta post', true); return false; }
+  }
+  if (kind === 'reply' && L.sends.filter(s => s.k === 'reply' && t - s.t < HOUR).length >= 30) { toast('Soatiga ko‘pi bilan 30 ta javob', true); return false; }
+  const junk = clean.length <= 2 || /^[\s.\-_,!?…*]+$/.test(clean) || /^(.)\1+$/.test(clean.replace(/\s/g, ''));
+  L.sends.push({ t, k: kind, junk });
+  L.sends = L.sends.filter(s => t - s.t < DAY);
+  const burst = L.sends.filter(s => t - s.t < 10e3).length > 5 || L.sends.filter(s => t - s.t < 20e3 && s.junk).length >= 3;
+  if (burst) {
+    if (t - L.warnedAt < 5 * MIN) {
+      L.coolUntil = t + 15 * MIN; L.warnedAt = 0;
+      DB.spam.push({ uid: u.id, t, reason: 'Ogohlantirishdan keyin yana tez yozdi: 15 daqiqa hordiq' });
+      save(); toast('15 daqiqalik hordiq 🍵 Choy ichib keling, keyin davom etamiz', true); return false;
+    }
+    L.warnedAt = t; L.pauseUntil = t + 30e3;
+    DB.spam.push({ uid: u.id, t, reason: 'Juda tez yozdi: ogohlantirildi' });
+    save(); toast('Shoshmang 🙂 Biroz dam olib, keyin yozing', true); return false;
+  }
+  return true;
+}
+
+/* ---------------- router ---------------- */
+const app = $('#app');
+function go(path, replace) { if (replace) history.replaceState({}, '', path); else history.pushState({}, '', path); render(); window.scrollTo(0, 0); }
+window.addEventListener('popstate', render);
+function route() {
+  const p = decodeURI(location.pathname).replace(/\/+$/, '') || '/';
+  let m;
+  if (p === '/') return ['home'];
+  if (p === '/kirish') return ['auth'];
+  if (p === '/guruhlar') return ['groups'];
+  if (p === '/shaxsiy') return ['dms'];
+  if (p === '/qidiruv') return ['search'];
+  if (p === '/bildirishnomalar') return ['notifs'];
+  if (p === '/sozlamalar') return ['settings'];
+  if (p === '/musoojon') return ['admin'];
+  if (p === '/yangiliklar') return ['updates'];
+  if (p === '/reyting') return ['leaders'];
+  if ((m = p.match(/^\/@([a-z0-9._]+)$/i))) return ['profile', m[1]];
+  if ((m = p.match(/^\/p\/([\w-]+)$/))) return ['post', m[1]];
+  if ((m = p.match(/^\/c\/([\w-]+)$/))) return ['chat', m[1]];
+  if ((m = p.match(/^\/g\/([\w-]+)$/))) return ['group', m[1]];
+  if ((m = p.match(/^\/t\/(.+)$/))) return ['tag', m[1]];
+  return ['404'];
+}
+const PUBLIC = ['auth', 'profile', 'post', 'tag', 'admin', 'updates', '404'];
+function render() {
+  document.documentElement.dataset.theme = DB.theme;
+  document.documentElement.dataset.fs = DB.fs || 'md';
+  const [name, arg] = route();
+  if (me() && me().blocked) { DB.me = null; save(); toast('Akkauntingiz bloklangan.', true); }
+  if (!me() && !PUBLIC.includes(name)) return go('/kirish', true);
+  if (me() && name === 'auth') return go('/', true);
+  const V = { home, auth, groups, dms, search, notifs, settings, admin, profile, post, chat, group, tag, updates, leaders, '404': notFound }[name];
+  const html = V(arg);
+  const desk = DESK.matches && me() && !['auth', 'admin'].includes(name);
+  document.body.classList.toggle('is-desk', !!desk);
+  app.innerHTML = desk ? deskShell(name, html) : html;
+  document.title = name === 'home' ? 'Lahzam — Har lahza yoningizda!' : (TITLES[name] || '') + ' · Lahzam';
+  after[name] && after[name](arg);
+  save();
+}
+/* Kompyuter ko'rinishi: chapda menyu, o'rtada asosiy qism, o'ngda reyting va yangiliklar */
+const DESK = window.matchMedia('(min-width: 1080px)');
+DESK.addEventListener('change', () => render());
+function deskShell(name, html) {
+  const u = me(), g = unread('group'), d = unread('dm'), n = unreadNotifs(), nu = unreadUpdates();
+  const L = (href, icon, label, on, num) => `<a href="${href}" data-link class="snav${on ? ' on' : ''}">${icon}<span>${label}</span>${num ? `<span class="dot">${num > 99 ? '99+' : num}</span>` : ''}</a>`;
+  const ico = s => s.replace('<svg', '<svg width="22" height="22"');
+  const top = realUsers().filter(x => !x.blocked).map(x => ({ x, n: foydaliCount(x.id, now() - 7 * DAY) })).filter(r => r.n).sort((a, b) => b.n - a.n).slice(0, 5);
+  const sug = realUsers().filter(x => x.id !== u.id && !x.blocked && !isFollowing(u.id, x.id)).slice(0, 4);
+  const upd = (UPD.list || [])[0];
+  return `<div class="desk">
+    <aside class="side"><a href="/" data-link class="side-brand">${I.logo('#FF5A1F', '#121212', 34)}<b>lahzam</b></a>
+      <nav aria-label="Asosiy">
+        ${L('/', ico(I.globe), 'Ochiq maydon', name === 'home')}
+        ${L('/guruhlar', ico(I.group), 'Guruhlar', name === 'groups', g)}
+        ${L('/shaxsiy', ico(I.reply), 'Shaxsiy', name === 'dms', d)}
+        ${L('/qidiruv', ico(I.search), 'Qidiruv', name === 'search')}
+        ${L('/bildirishnomalar', ico(I.bell), 'Bildirishnomalar', name === 'notifs', n)}
+        ${L('/reyting', ico(I.trophy), 'Reyting', name === 'leaders')}
+        ${L('/yangiliklar', ico(I.spark), 'Lahzam Updates', name === 'updates', nu)}
+        ${L('/sozlamalar', ico(I.gear), 'Sozlamalar', name === 'settings')}
+      </nav>
+      <button class="btn acc full" style="border-radius:999px;margin-top:14px" data-act="compose">+ Yangi post</button>
+      <a href="/@${esc(u.u)}" data-link class="side-me">${avatar(u, 42)}<span style="min-width:0"><b>${esc(u.name)}</b><span class="muted" style="display:block">@${esc(u.u)}</span></span></a>
+      <p class="muted side-ver">Lahzam v${VERSION}</p>
+    </aside>
+    <main class="center">${html}</main>
+    <aside class="rail">
+      <div class="card"><div class="row" style="justify-content:space-between"><b style="font-family:var(--head)">🏆 Haftaning foydalilari</b><a href="/reyting" data-link class="more" style="font-size:13px">Hammasi</a></div>
+        ${top.map((r, i) => `<a href="/@${esc(r.x.u)}" data-link class="li" style="padding:9px 0">${['🥇', '🥈', '🥉'][i] || `<b class="rank" style="width:22px;text-align:center">${i + 1}</b>`}${avatar(r.x, 34)}<span style="flex:1;min-width:0"><b style="font-size:14px">${esc(r.x.name)}</b></span><b style="font-size:13px">⭐ ${r.n}</b></a>`).join('') || '<p class="muted">Bu hafta hali ⭐ yo‘q. Guruhlarda foydali javob yozing!</p>'}</div>
+      ${upd ? `<a href="/yangiliklar" data-link class="card" style="display:block;text-decoration:none;background:#121212;color:#fff"><span class="muted" style="color:#aaa">✨ So‘nggi yangilanish</span><b style="display:block;font-family:var(--head);margin-top:4px">${esc(upd.title)}</b></a>` : ''}
+      ${sug.length ? `<div class="card"><b style="font-family:var(--head)">Kimni kuzatish</b>${sug.map(x => `<div class="li" style="padding:9px 0"><a href="/@${esc(x.u)}" data-link class="row" style="flex:1;text-decoration:none;gap:10px;min-width:0">${avatar(x, 34)}<span style="min-width:0"><b style="font-size:14px">${esc(x.name)}</b><span class="muted" style="display:block">@${esc(x.u)}</span></span></a><button class="pill" data-act="follow" data-id="${x.id}">Kuzatish</button></div>`).join('')}</div>` : ''}
+      <p class="muted" style="text-align:center">Lahzam v${VERSION} · Har lahza yoningizda!</p>
+    </aside></div>`;
+}
+const TITLES = { auth: 'Kirish', groups: 'Guruhlar', dms: 'Shaxsiy', search: 'Qidiruv', notifs: 'Bildirishnomalar', settings: 'Sozlamalar', admin: 'Admin', updates: 'Lahzam Updates', leaders: 'Reyting', profile: 'Profil', post: 'Post', chat: 'Suhbat', group: 'Guruh', tag: 'Heshteg' };
+const after = {};
+
+/* ---------------- shared pieces ---------------- */
+function unread(kind) {
+  const u = me(); if (!u) return 0;
+  return DB.chats.filter(c => c.type === kind && c.members.includes(u.id)).reduce((n, c) => n + c.msgs.filter(m => m.uid !== u.id && m.t > (c.read[u.id] || 0)).length, 0);
+}
+const unreadNotifs = () => me() ? DB.notifs.filter(n => n.to === me().id && !n.read).length : 0;
+function dock(active) {
+  const g = unread('group'), d = unread('dm'), nu = unreadUpdates();
+  return `<nav class="dock" aria-label="Asosiy">
+    <button class="plus" data-act="compose" aria-label="Yangi post">${I.plus}</button>
+    <a href="/" data-link class="tab ${active === 'home' ? 'on' : ''}" aria-label="Ochiq maydon">${I.globe}Ochiq</a>
+    <a href="/guruhlar" data-link class="ico ${active === 'groups' ? 'on' : ''}" aria-label="Guruhlar${g ? ', ' + g + ' ta yangi' : ''}">${I.group}<span>Guruhlar</span>${g ? `<span class="num">${g > 99 ? '99+' : g}</span>` : ''}</a>
+    <a href="/shaxsiy" data-link class="ico ${active === 'dms' ? 'on' : ''}" aria-label="Shaxsiy${d ? ', ' + d + ' ta yangi' : ''}">${I.reply.replace('<svg', '<svg width="20" height="20"')}<span>Shaxsiy</span>${d ? `<span class="num">${d > 99 ? '99+' : d}</span>` : ''}</a>
+    <a href="/yangiliklar" data-link class="ico ${active === 'updates' ? 'on' : ''}" aria-label="Lahzam Updates${nu ? ', ' + nu + ' ta yangi' : ''}">${I.spark}<span>Updates</span>${nu ? `<span class="num">${nu}</span>` : ''}</a>
+  </nav>`;
+}
+function header(extra = '', deskTitle = '') {
+  const u = me(), n = unreadNotifs();
+  return `<header class="top"><div class="top-row">
+    <a href="/" data-link class="brand" aria-label="Lahzam bosh sahifa">${I.logo()}<b>lahzam</b></a>${deskTitle ? `<b class="desk-title">${deskTitle}</b>` : ''}
+    <div class="row" style="gap:6px">
+      <a href="/reyting" data-link class="ibtn" aria-label="Foydali reytingi">${I.trophy}</a>
+      <a href="/qidiruv" data-link class="ibtn" aria-label="Qidirish">${I.search}</a>
+      <a href="/bildirishnomalar" data-link class="ibtn" aria-label="Bildirishnomalar${n ? ', ' + n + ' ta yangi' : ''}">${I.bell}${n ? `<span class="badge">${n > 99 ? '99+' : n}</span>` : ''}</a>
+      ${u ? `<a href="/@${esc(u.u)}" data-link aria-label="Profilim" style="border-radius:50%;border:2px solid #fff;display:inline-flex">${avatar(u, 40)}</a>` : `<a href="/kirish" data-link class="btn" style="height:40px;background:#fff;color:#111;border-radius:999px">Kirish</a>`}
+    </div></div>${extra}</header>`;
+}
+function backBar(title, sub = '', right = '') {
+  return `<header class="top"><div class="top-row">
+    <div class="row" style="gap:10px"><button class="ibtn" data-act="back" aria-label="Orqaga">${I.back}</button>
+    <div><div style="font-family:var(--head);font-weight:700;font-size:18px;line-height:1.15">${title}</div>${sub ? `<div class="sub-h">${sub}</div>` : ''}</div></div>${right}</div></header>`;
+}
+function postCard(p, full) {
+  const a = user(p.uid), u = me();
+  if (u) seen(p);
+  const liked = u && p.likes.includes(u.id);
+  const long = !full && (p.text.length > 300 || p.text.split('\n').length > 6);
+  return `<article class="card stack" data-post="${p.id}" style="gap:8px">
+    <div class="row" style="justify-content:space-between">
+      <a href="/@${esc(a.u)}" data-link class="row" style="text-decoration:none;gap:10px">${avatar(a, 42)}
+        <div><div class="name" style="font-size:15px">${esc(a.name)}${founderPill(a)}</div><div class="muted">@${esc(a.u)} · ${ago(p.t)}${p.lahza ? ' · <span class="lahza">Lahza · 24 soat</span>' : ''}</div></div></a>
+      <button class="ibtn dark" style="width:38px;height:38px" data-act="postmenu" data-id="${p.id}" aria-label="Ko‘proq">${I.dots}</button>
+    </div>
+    <p class="txt ${long ? 'clamp' : ''}" style="${full ? 'font-size:19px' : ''}">${linkify(p.text)}</p>
+    ${long ? `<a href="/p/${p.id}" data-link class="more">Ko‘proq o‘qish</a>` : ''}
+    <div class="row" style="gap:6px;flex-wrap:wrap">
+      <button class="pill ${liked ? 'on' : ''}" data-act="like" data-id="${p.id}" aria-label="Yoqtirish" aria-pressed="${!!liked}">${I.heart(liked)}${fmt(p.likes.length)}</button>
+      <a class="pill" href="/p/${p.id}" data-link aria-label="Javoblar">${I.reply}${p.replies.length}</a>
+      <button class="pill" data-act="sendpost" data-id="${p.id}" aria-label="Chatga yuborish">${I.send}</button>
+      <button class="pill" data-act="sharepost" data-id="${p.id}" aria-label="Havolani ulashish">${I.share}</button>
+      <span class="pill" style="background:none;color:var(--mute);margin-left:auto" title="Ko‘rishlar">${I.eye}${fmt(p.views || 0)}</span>
+    </div>
+  </article>`;
+}
+
+/* ---------------- views ---------------- */
+function home() {
+  const u = me();
+  const posts = DB.posts.filter(alive).sort((a, b) => b.t - a.t);
+  const mine = DB.posts.some(p => p.uid === u.id);
+  return `<div class="shell">${header('', 'Ochiq maydon 🌍')}
+  <div class="pad stack">
+    ${!mine ? `<div class="card" style="background:#121212;color:#fff">
+      <b style="font-family:var(--head);font-size:16px">Birinchi postingiz 👋</b>
+      <p style="margin:6px 0 10px;color:#ddd;font-size:14px">Nima yozishni bilmayapsizmi? O‘zingizni tanishtiring: kim siz va Lahzamga nima uchun keldingiz?</p>
+      <button class="btn acc" style="height:42px" data-act="intro">Tanishtiruv yozish</button></div>` : ''}
+    <form class="card comp" data-form="post">
+      <div class="row" style="align-items:flex-start;gap:12px">${avatar(u, 40)}
+        <label style="flex:1"><span class="sr">Post matni</span><textarea id="post-text" rows="2" maxlength="600" placeholder="Nima gap, ${esc(u.name.split(' ')[0])}?"></textarea></label></div>
+      <div class="row" style="justify-content:space-between;margin-top:6px">
+        <label class="check"><input type="checkbox" id="post-lahza"> Lahza · 24 soat</label>
+        <div class="row" style="gap:10px"><span class="counter" id="post-count">0 / ${LIMIT.post}</span>
+        <button class="btn acc" style="height:40px;border-radius:999px">Joylash</button></div>
+      </div>
+    </form>
+    ${posts.map(p => postCard(p)).join('') || '<div class="card muted">Hali post yo‘q.</div>'}
+    <p class="muted ver">Lahzam v${VERSION} · <a href="/yangiliklar" data-link>nimalar yangi?</a></p>
+  </div>${dock('home')}</div>`;
+}
+after.home = () => bindCounter('#post-text', '#post-count', LIMIT.post);
+function bindCounter(ta, ct, max) {
+  const t = $(ta), c = $(ct); if (!t || !c) return;
+  const up = () => { const n = t.value.length; c.textContent = `${n} / ${max}`; c.className = 'counter' + (n > max ? ' over' : n > max - 50 ? ' warn' : ''); const b = t.form && t.form.querySelector('button.btn'); if (b) b.disabled = n > max; };
+  t.addEventListener('input', up); up();
+}
+
+/* auth */
+let AUTH = { step: 'start', email: '' };
+function auth() {
+  const s = AUTH.step;
+  const shell = inner => `<div class="shell" style="padding:0 0 40px">
+    <div style="background:var(--acc);color:#fff;padding:40px 22px 60px;border-radius:0 0 36px 36px">
+      <div class="row" style="gap:10px">${I.logo('#fff', '#121212', 40)}<b style="font-family:var(--brand);font-size:30px;letter-spacing:-.045em">lahzam</b></div>
+      <h1 class="title-h" style="font-size:30px;margin-top:26px">Har lahza<br>yoningizda!</h1>
+      <p style="margin:8px 0 0;font-weight:600">Fikrlar, guruhlar va shaxsiy suhbatlar bir joyda.</p>
+      <p style="margin:10px 0 0;font-weight:500">Birinchi 50 kishi profilida umrbod “Asoschi” belgisi bo‘ladi.</p>
+    </div>
+    <div class="card stack" style="margin:-30px 12px 0;gap:14px;padding:20px">${inner}</div></div>`;
+  if (s === 'start') return shell(`
+    <div id="gbtn" style="min-height:44px;display:flex;justify-content:center"></div>
+    <div class="row muted" style="justify-content:center">yoki</div>
+    <button class="btn ghost full" data-act="auth-login">Akkauntim bor: username va parol</button>
+    <p class="muted" style="margin:0;text-align:center">Davom etish orqali siz Lahzam qoidalariga rozilik bildirasiz.</p>`);
+  if (s === 'username') return shell(`
+    <h2 style="font-family:var(--head);font-size:20px;margin:0">Username tanlang</h2>
+    <p class="muted" style="margin:0">${esc(AUTH.email)} ✅ Google tasdiqladi. Username: kamida 3 belgi, kichik harf, raqam, nuqta yoki pastki chiziq.</p>
+    <form class="stack" data-form="signup">
+      <div class="field"><label for="un">Username</label>
+        <div style="position:relative"><span style="position:absolute;left:16px;top:14px;color:var(--mute);font-weight:700">@</span>
+        <input class="inp" id="un" style="padding-left:34px" required autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" placeholder="masalan: aziz.k"></div>
+        <div class="hint" id="un-hint" aria-live="polite"></div></div>
+      <div class="field"><label for="nm">Ismingiz</label><input class="inp" id="nm" required maxlength="40" placeholder="Ism Familiya" autocomplete="name" value="${esc(AUTH.name || '')}"></div>
+      ${AUTH.owner ? '<p class="card" style="background:#121212;color:#fff;margin:0">👑 Siz Lahzam egasisiz. Parol kerak emas: bu akkauntga faqat Google orqali kiriladi.</p>' : `<div class="field"><label for="pw">Parol</label><input class="inp" id="pw" type="password" required minlength="6" autocomplete="new-password" placeholder="Kamida 6 belgi">
+        <div class="hint" id="pw-hint"></div></div>`}
+      <div class="hint bad" id="su-hint"></div>
+      <button class="btn acc full" id="su-btn" disabled>Ro‘yxatdan o‘tish</button>
+    </form>`);
+  return shell(`
+    <h2 style="font-family:var(--head);font-size:20px;margin:0">Kirish</h2>
+    <form class="stack" data-form="login">
+      <div class="field"><label for="lu">Username</label><input class="inp" id="lu" required autocomplete="username" autocapitalize="none"></div>
+      <div class="field"><label for="lp">Parol</label><input class="inp" id="lp" type="password" required autocomplete="current-password"></div>
+      <div class="hint bad" id="li-hint"></div>
+      <button class="btn acc full">Kirish</button>
+      <button type="button" class="btn ghost full" data-act="auth-start">Orqaga</button>
+    </form>
+    <p class="muted" style="margin:0">Parolni Google bilan ro‘yxatdan o‘tayotganda qo‘ygansiz.</p>`);
+}
+function checkUsername(v) {
+  if (!v) return ['', null];
+  if (v.length < 3) return ['Kamida 3 belgi', false];
+  if (!/^[a-z0-9._]+$/.test(v)) return ['Faqat kichik harf, raqam, nuqta (.) va pastki chiziq (_)', false];
+  if (/^\.|\.$/.test(v) || v.includes('..')) return ['Nuqta boshida, oxirida yoki ketma-ket bo‘lmasin', false];
+  if ((RESERVED.includes(v) || v === 'flappy') && !(v === 'musoxon' && AUTH.owner)) return [`@${v} band ❌`, false];
+  return [`@${v} bo‘sh ✅`, true];
+}
+let GCFG;
+async function initGoogle() {
+  const box = $('#gbtn'); if (!box) return;
+  if (GCFG === undefined) { const r = await api('auth/config'); GCFG = r.ok ? r.googleClientId : null; }
+  if (!$('#gbtn')) return;
+  if (!GCFG) { box.innerHTML = '<p class="muted" style="margin:0;text-align:center">Google bilan kirish sozlanmoqda, tez orada ishga tushadi.</p>'; return; }
+  const draw = () => {
+    const b = $('#gbtn'); if (!b || !window.google || !google.accounts) return;
+    google.accounts.id.initialize({ client_id: GCFG, callback: onGoogle, ux_mode: 'popup', context: 'signin', itp_support: true });
+    b.innerHTML = '';
+    google.accounts.id.renderButton(b, { theme: 'filled_black', size: 'large', shape: 'pill', text: 'continue_with', logo_alignment: 'center', width: Math.min(360, b.clientWidth || 320), locale: 'uz' });
+  };
+  if (window.google && google.accounts) return draw();
+  if (!document.getElementById('gsi')) { const sc = document.createElement('script'); sc.id = 'gsi'; sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true; sc.onload = draw; sc.onerror = () => { const b = $('#gbtn'); if (b) b.innerHTML = '<p class="hint bad" style="text-align:center">Google yuklanmadi. Internetni tekshirib, sahifani yangilang.</p>'; }; document.head.appendChild(sc); }
+}
+async function onGoogle(resp) {
+  const r = await api('auth/google', { method: 'POST', body: { credential: resp.credential } });
+  if (r.user) { adoptSession(r.user); AUTH = { step: 'start' }; save(); go('/'); toast(`Xush kelibsiz, ${r.user.name.split(' ')[0]} 👋`); if (isOwnerSession()) refreshAdm(); sync(true); return; }
+  if (r.needsSignup) { AUTH = { step: 'username', ticket: r.ticket, email: r.email, name: r.name, owner: r.owner }; render(); return; }
+  toast(r.message || 'Kirib bo‘lmadi', true);
+}
+after.auth = () => {
+  if (AUTH.step === 'start') initGoogle();
+  const un = $('#un'); if (!un) return;
+  let okU = false, okP = !!AUTH.owner, tm, seq = 0;
+  const btn = $('#su-btn'), uh = $('#un-hint'), pw = $('#pw'), ph = $('#pw-hint');
+  const sync = () => { btn.disabled = !(okU && okP && $('#nm').value.trim()); };
+  un.addEventListener('input', () => {
+    un.value = un.value.toLowerCase().replace(/\s/g, '');
+    clearTimeout(tm); uh.textContent = un.value.length >= 3 ? 'Tekshirilmoqda…' : ''; uh.className = 'hint';
+    okU = false; sync();
+    tm = setTimeout(async () => {
+      const v = un.value, [msg, ok] = checkUsername(v);
+      if (!ok) { uh.textContent = msg; uh.className = 'hint ' + (ok === false ? 'bad' : ''); return; }
+      const my = ++seq, r = await api('auth/username?u=' + encodeURIComponent(v) + '&e=' + encodeURIComponent(AUTH.email || ''));
+      if (my !== seq || un.value !== v) return;
+      uh.textContent = r.message || (r.ok ? msg : 'Tekshirib bo‘lmadi'); uh.className = 'hint ' + (r.ok ? 'ok' : 'bad'); okU = !!r.ok; sync();
+    }, 250);
+  });
+  if (AUTH.owner && !un.value) { un.value = 'musoxon'; un.dispatchEvent(new Event('input')); }
+  if (pw) pw.addEventListener('input', () => { const v = pw.value; okP = v.length >= 6; ph.textContent = !v ? '' : okP ? (/[0-9]/.test(v) && /[a-zA-Z]/.test(v) ? 'Kuchli parol ✅' : 'Yaxshi. Raqam va harf aralashsa yanada kuchli') : `Yana ${6 - v.length} belgi`; ph.className = 'hint ' + (okP ? 'ok' : 'bad'); sync(); });
+  $('#nm').addEventListener('input', sync);
+};
+
+/* groups & dms */
+function chatRow(c) {
+  const u = me(), last = c.msgs[c.msgs.length - 1];
+  const n = c.msgs.filter(m => m.uid !== u.id && m.t > (c.read[u.id] || 0)).length;
+  let title, av;
+  if (c.type === 'group') { title = esc(c.name); av = `<span class="gav" style="background:${c.color}">${esc(c.name[0])}</span>`; }
+  else { const o = user(c.members.find(x => x !== u.id)); title = esc(o.name); av = avatar(o, 50); }
+  const lastTxt = last ? (last.sys ? esc(last.text) : (c.type === 'group' && user(last.uid) ? esc(user(last.uid).name.split(' ')[0]) + ': ' : '') + esc(msgPreview(last))) : 'Hali xabar yo‘q';
+  return `<a href="/c/${c.id}" data-link class="li">${av}<span style="flex:1;min-width:0"><span class="row" style="justify-content:space-between"><b>${title}</b><span class="muted">${last ? ago(last.t) : ''}</span></span>
+    <span class="muted" style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px">${lastTxt}</span>
+    ${c.type === 'group' ? `<span class="muted" style="font-size:12px">${c.members.length} a‘zo · ${ACCESS[c.access]} · ${esc(c.cat)}</span>` : ''}</span>${n ? `<span class="dot">${n}</span>` : ''}</a>`;
+}
+function groups() {
+  const u = me();
+  const mine = DB.chats.filter(c => c.type === 'group' && c.members.includes(u.id));
+  const cat = DB.chats.filter(c => c.type === 'group' && !c.members.includes(u.id) && c.access !== 'closed');
+  return `<div class="shell">${header(`<div class="row" style="justify-content:space-between;margin-top:12px"><div><div class="title-h" style="margin:0">Guruhlar</div><div class="sub-h">${unread('group')} ta yangi xabar · ${mine.length} guruh</div></div><button class="btn" style="height:44px;background:#fff;color:#111;border-radius:999px" data-act="newgroup">Yangi guruh</button></div>`)}
+  <div class="pad stack"><div class="card" style="padding:4px 16px">${mine.map(chatRow).join('') || '<p class="muted">Hali guruhingiz yo‘q. Pastdagi katalogdan qo‘shiling yoki yangisini oching.</p>'}</div>
+  <div class="card"><b style="font-family:var(--head);font-size:16px">Guruhlar katalogi</b>
+    ${cat.map(c => `<div class="li"><span class="gav" style="background:${c.color}">${esc(c.name[0])}</span><span style="flex:1"><b>${esc(c.name)}</b><span class="muted" style="display:block">${esc(c.cat)} · ${c.members.length} a‘zo · ${ACCESS[c.access]}</span></span>
+      <button class="btn ${c.pending.includes(u.id) ? 'ghost' : 'ink'}" style="height:38px;font-size:13px;border-radius:999px" data-act="join" data-id="${c.id}" ${c.pending.includes(u.id) ? 'disabled' : ''}>${c.pending.includes(u.id) ? 'So‘rov yuborildi' : c.access === 'ask' ? 'So‘rov yuborish' : 'Qo‘shilish'}</button></div>`).join('') || '<p class="muted">Hozircha boshqa ochiq guruh yo‘q.</p>'}
+  </div></div>${dock('groups')}</div>`;
+}
+function dms() {
+  const u = me();
+  const list = DB.chats.filter(c => c.type === 'dm' && c.members.includes(u.id)).sort((a, b) => (b.msgs.at(-1)?.t || 0) - (a.msgs.at(-1)?.t || 0));
+  return `<div class="shell">${header(`<div style="margin-top:12px"><div class="title-h" style="margin:0">Shaxsiy</div><div class="sub-h">${unread('dm')} ta yangi xabar</div></div>`)}
+  <div class="pad"><div class="card" style="padding:4px 16px">${list.map(chatRow).join('') || '<p class="muted">Hali suhbat yo‘q. Biror profilga kirib “Xabar yozish”ni bosing.</p>'}</div></div>${dock('dms')}</div>`;
+}
+/* chat: Telegram uslubidagi funksiyalar */
+let CH = { cid: null, reply: null, edit: null, q: '', search: false };
+const clock = t => new Date(t).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit', hour12: false });
+function dayLabel(t) {
+  const d = new Date(t), today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = Math.round((today - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / DAY);
+  return diff === 0 ? 'Bugun' : diff === 1 ? 'Kecha' : uzDate(t);
+}
+const msgPreview = m => !m ? 'O‘chirilgan xabar' : m.img ? '📷 Rasm' + (m.text ? ': ' + m.text : '') : m.poll ? '📊 ' + m.poll.q : m.game ? '🐤 Flappy o‘yini' : m.text;
+const canPin = c => c.type === 'dm' || c.admin === me().id || isAdmin();
+const canDelMsg = (c, m) => m.uid === me().id || (c.type === 'group' && (isAdmin() || c.admin === me().id));
+function pollHtml(c, m) {
+  const u = me(), P = m.poll, total = P.opts.reduce((n, o) => n + o.v.length, 0), voted = P.opts.some(o => o.v.includes(u.id));
+  return `<div class="poll"><b>📊 ${esc(P.q)}</b>${P.opts.map((o, i) => { const pc = total ? Math.round(o.v.length / total * 100) : 0, mine = o.v.includes(u.id);
+    return `<button class="popt${mine ? ' mine' : ''}" data-act="vote" data-c="${c.id}" data-m="${m.id}" data-i="${i}"><span class="pbar" style="width:${voted ? pc : 0}%"></span><span class="ptxt">${mine ? '✓ ' : ''}${esc(o.t)}</span>${voted ? `<span class="ppc">${pc}%</span>` : ''}</button>`; }).join('')}
+    <span class="pmeta">${total} ta ovoz${voted ? '' : ' · ovoz bering'}</span></div>`;
+}
+function msgHtml(c, m) {
+  const u = me();
+  if (m.sys) return `<div class="sys">${linkify(m.text)}</div>`;
+  const a = user(m.uid) || { name: 'O‘chirilgan', u: 'deleted', color: '#ccc' }, mine = m.uid === u.id;
+  const rx = Object.entries(m.reacts || {}).filter(([, v]) => v.length);
+  const rep = m.replyTo ? c.msgs.find(x => x.id === m.replyTo) : null;
+  const quote = m.replyTo ? `<button class="quote" data-act="jump" data-m="${m.replyTo}"><b>${rep ? esc((user(rep.uid) || {}).name || '') : ''}</b><span>${esc(msgPreview(rep)).slice(0, 90)}</span></button>` : '';
+  const fwd = m.fwd ? `<span class="fwd">↪ Uzatildi: ${esc((user(m.fwd) || { name: 'kimdir' }).name)}</span>` : '';
+  let body;
+  if (m.game) body = `<div class="game-card">${Flappy.birdSVG(42)}<div style="flex:1"><b style="display:block">Flappy</b><span style="font-size:12px;color:#bbb">${c.record ? `Rekord: ${c.record.score} · @${esc(user(c.record.uid).u)}` : 'Rekord yo‘q, birinchi bo‘ling!'}</span></div>
+      <button class="btn acc" style="height:38px;border-radius:999px;font-size:13px" data-act="play" data-id="${c.id}">O‘ynash</button></div>`;
+  else if (m.poll) body = pollHtml(c, m);
+  else body = (m.img ? `<button class="mimg" data-act="viewimg" data-c="${c.id}" data-m="${m.id}"><img src="${esc(m.img)}" alt="Rasm" loading="lazy"></button>` : '') + (m.text ? `<span class="mtx">${linkify(m.text)}</span>` : '');
+  const read = mine && c.type === 'dm' && !u.rrOff && c.members.filter(x => x !== u.id).every(x => !(user(x) || {}).rrOff && (c.read[x] || 0) >= m.t);
+  const meta = `<span class="mt">${m.edited ? 'tahrirlandi · ' : ''}${clock(m.t)}${mine && c.type === 'dm' ? `<i class="tick${read ? ' read' : ''}">${read ? '✓✓' : '✓'}</i>` : ''}</span>`;
+  const hit = CH.q && m.text && m.text.toLowerCase().includes(CH.q) ? ' hit' : '';
+  return `<div class="m ${mine ? 'out' : 'in'}${hit}" data-msg="${m.id}" id="m-${m.id}">${c.type === 'group' && !mine ? `<a class="who" href="/@${esc(a.u)}" data-link style="text-decoration:none">${esc(a.name)}</a>` : ''}${fwd}${quote}${body}
+    <div class="reacts">${rx.map(([e, v]) => `<button class="rx ${v.includes(u.id) ? 'mine' : ''}" data-act="react" data-c="${c.id}" data-m="${m.id}" data-e="${e}" aria-label="${e} reaksiya, ${v.length}">${e} ${v.length}</button>`).join('')}
+      <button class="rx-add" data-act="rxbar" data-c="${c.id}" data-m="${m.id}" aria-label="Reaksiya qo‘shish">☺︎+</button><button class="rx-add" data-act="msgmenu" data-c="${c.id}" data-m="${m.id}" aria-label="Xabar amallari">⋯</button>${meta}</div></div>`;
+}
+function msgList(c) {
+  let last = '', out = '';
+  const list = CH.q ? c.msgs.filter(m => !m.sys && ((m.text || '').toLowerCase().includes(CH.q) || (m.poll && m.poll.q.toLowerCase().includes(CH.q)))) : c.msgs;
+  list.forEach(m => { const d = dayLabel(m.t); if (d !== last) { out += `<div class="day">${d}</div>`; last = d; } out += msgHtml(c, m); });
+  return out || `<div class="sys">${CH.q ? 'Hech narsa topilmadi' : 'Hali xabar yo‘q. Birinchi bo‘lib yozing 👋'}</div>`;
+}
+function chat(id) {
+  const u = me(), c = DB.chats.find(x => x.id === id);
+  const peek = c && c.full && isAdmin() && c.type === 'group' && c.access === 'open';
+  if (!c || (!c.members.includes(u.id) && !peek)) return notFound();
+  if (CH.cid !== id) CH = { cid: id, reply: null, edit: null, q: '', search: false };
+  let title, sub, link;
+  if (c.type === 'group') { title = esc(c.name); sub = `${c.members.length} a‘zo`; link = `/g/${c.id}`; }
+  else { const o = user(c.members.find(x => x !== u.id)); title = esc(o.name); sub = '@' + esc(o.u); link = `/@${o.u}`; }
+  const pin = c.pin && c.msgs.find(m => m.id === c.pin);
+  const editing = CH.edit && c.msgs.find(m => m.id === CH.edit), replying = CH.reply && c.msgs.find(m => m.id === CH.reply);
+  const bar = editing ? `<div class="cbar"><span>✏️ <b>Tahrirlash</b><em>${esc(msgPreview(editing)).slice(0, 80)}</em></span><button type="button" data-act="cancelbar" aria-label="Bekor qilish">✕</button></div>`
+    : replying ? `<div class="cbar"><span>↩️ <b>${esc(user(replying.uid).name)}</b><em>${esc(msgPreview(replying)).slice(0, 80)}</em></span><button type="button" data-act="cancelbar" aria-label="Bekor qilish">✕</button></div>` : '';
+  return `<div class="shell chatv" style="padding-bottom:0">
+    <div class="chat-top"><button class="ibtn" data-act="back" aria-label="Orqaga">${I.back}</button>
+      <a href="${link}" data-link class="row" style="text-decoration:none;color:#fff;gap:10px;flex:1;min-width:0">${c.type === 'group' ? `<span class="gav" style="background:${c.color};width:42px;height:42px;border-radius:14px">${esc(c.name[0])}</span>` : avatar(user(c.members.find(x => x !== u.id)), 42)}
+      <span style="min-width:0"><b style="display:block;font-family:var(--head);font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${title}</b><span class="sub-h" style="font-size:13px">${sub}</span></span></a>
+      <button class="ibtn" data-act="chatsearch" aria-label="Chatda qidirish" aria-pressed="${CH.search}">${I.search}</button></div>
+    ${CH.search ? `<label class="csearch"><span class="sr">Chatda qidirish</span><input id="cq" autocomplete="off" placeholder="Xabarlardan qidirish…" value="${esc(CH.q)}"></label>` : ''}
+    ${pin ? `<button class="pinbar" data-act="jump" data-m="${pin.id}"><span>📌 <b>Qadalgan xabar</b><em>${esc(msgPreview(pin)).slice(0, 90)}</em></span></button>` : ''}
+    <div class="msgs" id="msgs">${msgList(c)}</div>
+    <form class="chat-in" data-form="msg" data-id="${c.id}">${bar}<div class="cin-row">
+      <button type="button" class="attach" data-act="attach" data-id="${c.id}" aria-label="Biriktirish: rasm, so‘rovnoma, o‘yin">📎</button>
+      <label style="flex:1;display:flex"><span class="sr">Xabar</span><input id="msg-in" maxlength="2000" autocomplete="off" placeholder="${editing ? 'Yangi matn' : 'Xabar · @flappy — o‘yin'}" value="${editing ? esc(editing.text) : ''}"></label>
+      <button class="round" aria-label="${editing ? 'Saqlash' : 'Yuborish'}">${editing ? '✓' : I.send.replace('<svg', '<svg width="18" height="18"')}</button></div>
+      <input type="file" id="img-file" accept="image/*" class="sr" tabindex="-1"></form></div>`;
+}
+after.chat = () => {
+  markRead(DB.chats.find(x => x.id === CH.cid));
+  const q = $('#cq');
+  if (q) { q.addEventListener('input', () => { CH.q = q.value.trim().toLowerCase(); const c = DB.chats.find(x => x.id === CH.cid); $('#msgs').innerHTML = msgList(c); }); if (!CH.q) q.focus(); return; }
+  window.scrollTo(0, document.body.scrollHeight);
+  if (CH.reply || CH.edit) { const i = $('#msg-in'); i && i.focus(); }
+};
+function compressImage(file, max = 1080) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      let q = 0.72, out = c.toDataURL('image/jpeg', q);
+      while (out.length > 260000 && q > 0.35) { q -= 0.1; out = c.toDataURL('image/jpeg', q); }
+      res(out);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(); };
+    img.src = url;
+  });
+}
+function group(id) {
+  const u = me(), c = DB.chats.find(x => x.id === id && x.type === 'group');
+  if (!c || (c.access === 'closed' && !c.members.includes(u.id))) return notFound();
+  const inG = c.members.includes(u.id), gAdmin = c.admin === u.id;
+  return `<div class="shell">
+    <div class="top" style="text-align:center"><div class="top-row"><button class="ibtn" data-act="back" aria-label="Orqaga">${I.back}</button>${inG ? `<button class="btn" style="height:40px;color:#fff;background:rgba(255,255,255,.22);border-radius:999px" data-act="leave" data-id="${c.id}">Chiqish</button>` : ''}</div>
+      <span class="gav" style="background:${c.color};width:96px;height:96px;border-radius:50%;font-size:36px;margin:0 auto;border:4px solid #fff">${esc(c.name[0])}</span>
+      <div class="title-h" style="font-size:22px">${esc(c.name)}</div><div class="sub-h">${c.members.length} a‘zo · ${ACCESS[c.access]} · ${esc(c.cat)}</div></div>
+    <div class="pad stack">
+      <div class="card"><p class="txt" style="font-size:15px">${linkify(c.desc || 'Tavsif yo‘q.')}</p><div class="muted" style="margin-top:4px">Tavsif</div>
+        <div class="li" style="border:0;padding-bottom:0"><span style="flex:1"><b style="color:var(--acc-ink)">${location.host}/g/${c.id}</b><span class="muted" style="display:block">Taklif havolasi</span></span><button class="pill" data-act="copy" data-text="${location.origin}/g/${c.id}">Nusxa</button></div></div>
+      ${c.record ? `<div class="card row" style="background:#121212;color:#fff">${Flappy.birdSVG(40)}<span>Flappy rekordi: <b>${c.record.score}</b> · @${esc(user(c.record.uid).u)}</span></div>` : ''}
+      ${gAdmin && c.pending.length ? `<div class="card"><b>Qo‘shilish so‘rovlari</b>${c.pending.map(p => `<div class="li">${avatar(user(p), 36)}<span style="flex:1">${esc(user(p).name)}</span><button class="pill" data-act="approve" data-id="${c.id}" data-u="${p}">Qabul qilish</button></div>`).join('')}</div>` : ''}
+      <div class="card"><b>A‘zolar</b>${c.members.map(m => `<a href="/@${esc(user(m).u)}" data-link class="li">${avatar(user(m), 40)}<span style="flex:1"><b>${esc(user(m).name)}</b>${founderPill(user(m))}<span class="muted" style="display:block">@${esc(user(m).u)}</span></span>${m === c.admin ? '<span class="tag">admin</span>' : ''}</a>`).join('')}</div>
+      ${inG ? `<a href="/c/${c.id}" data-link class="btn acc full">Guruhga yozish</a>` : c.access !== 'closed' ? `<button class="btn ink full" data-act="join" data-id="${c.id}">${c.access === 'ask' ? 'So‘rov yuborish' : 'Qo‘shilish'}</button>` : '<p class="muted" style="text-align:center">Yopiq guruh: faqat taklif bilan.</p>'}
+      ${isAdmin() && !inG && c.access === 'open' ? `<a href="/c/${c.id}" data-link class="btn ghost full">Admin sifatida kirish</a>` : ''}
+      ${isAdmin() || gAdmin ? `<button class="btn ghost full" style="color:var(--danger)" data-act="delgroup" data-id="${c.id}">Guruhni o‘chirish</button>` : ''}
+    </div></div>`;
+}
+
+/* profile */
+let SHOW_ALL = false;
+function profile(name) {
+  const p = byName(name); if (!p) return notFound();
+  const u = me(), own = u && u.id === p.id;
+  const fl = followers(p.id), fw = following(p.id);
+  const myPosts = DB.posts.filter(x => x.uid === p.id && alive(x)).sort((a, b) => b.t - a.t);
+  const best = [...myPosts].sort((a, b) => b.likes.length - a.likes.length)[0];
+  const followBtn = u && !own ? `<button class="btn ${isFollowing(u.id, p.id) ? 'ghost' : 'acc'}" style="flex:1" data-act="follow" data-id="${p.id}">${isFollowing(u.id, p.id) ? 'Kuzatilmoqda' : 'Kuzatish'}</button>` : (!u ? `<a href="/kirish" data-link class="btn acc" style="flex:1">Kuzatish</a>` : '');
+  if (p.system) {
+    return `<div class="shell"><div class="phead"><button class="ibtn" data-act="back" aria-label="Orqaga">${I.back}</button></div>
+    <div class="pmain">${avatar(p, 112)}<div style="font-family:var(--head);font-weight:700;font-size:22px;margin-top:10px">${esc(p.name)}</div><div class="muted">@${esc(p.u)} · mini o‘yin</div>
+      <p style="margin:10px 0 0;max-width:340px">${esc(p.bio)}</p></div>
+    <div class="pad stack"><div class="card row" style="justify-content:space-between"><span><b style="font-size:22px">${fl.length}</b> <span class="muted">kuzatuvchi</span></span>${followBtn}</div>
+      <div class="card"><b>Kuzatuvchilar</b>${fl.map(f => `<a href="/@${esc(user(f).u)}" data-link class="li">${avatar(user(f), 40)}<span style="flex:1"><b>${esc(user(f).name)}</b>${founderPill(user(f))}<span class="muted" style="display:block">@${esc(user(f).u)}</span></span></a>`).join('') || '<p class="muted">Hali kuzatuvchi yo‘q.</p>'}</div></div>${u ? dock('') : ''}</div>`;
+  }
+  return `<div class="shell">
+    <div class="phead"><button class="ibtn" data-act="back" aria-label="Orqaga">${I.back}</button>
+      ${own ? `<div class="row" style="gap:6px"><button class="ibtn" data-act="qr" aria-label="QR kod"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></button><a href="/sozlamalar" data-link class="ibtn" aria-label="Sozlamalar">${I.gear}</a></div>` : ''}</div>
+    <div class="pmain">${own ? `<button class="av-edit" data-act="editprofile" aria-label="Profil rasmini almashtirish">${avatar(p, 112)}<span class="cam" aria-hidden="true">📷</span></button>` : avatar(p, 112)}
+      <div style="font-family:var(--head);font-weight:700;font-size:22px;margin-top:10px">${esc(p.name)}</div>
+      <div class="row" style="justify-content:center;gap:8px;margin-top:2px"><span class="muted" style="font-size:14px">@${esc(p.u)}</span>${isFounder(p) ? '<span class="founder">Asoschi</span>' : ''}</div>
+      ${p.bio ? `<p style="margin:10px 0 0;max-width:320px">${linkify(p.bio)}</p>` : ''}
+      ${own && (!p.bio || !p.photo) ? `<button class="link-btn" style="margin-top:8px" data-act="editprofile">+ ${!p.photo ? 'Rasm' : ''}${!p.photo && !p.bio ? ' va ' : ''}${!p.bio ? 'bio' : ''} qo‘shish</button>` : ''}
+      ${p.blocked ? '<span class="tag red" style="margin-top:8px">Bloklangan</span>' : ''}</div>
+    <div class="stats">
+      <div class="stat"><b>${fmt(fl.length)}</b><span>kuzatuvchi</span></div><div class="stat"><b>${fmt(fw.length)}</b><span>kuzatmoqda</span></div>
+      <div class="stat"><b>${myPosts.length}</b><span>post</span></div><div class="stat" title="Guruhlarda ⭐ Foydali bosgan turli odamlar soni"><b>⭐ ${foydaliCount(p.id)}</b><span>foydali</span></div></div>
+    <div class="row" style="gap:8px;margin:12px 16px 0">
+      ${own ? `<button class="btn ghost" style="flex:1" data-act="editprofile">Profilni tahrirlash</button>` : followBtn}
+      ${!own ? `<button class="btn ink" style="flex:1" data-act="dm" data-id="${p.id}">Xabar yozish</button>` : ''}</div>
+    ${isAdmin() && !own ? `<div class="row" style="gap:8px;margin:8px 16px 0"><button class="btn ghost" style="flex:1;height:42px;font-size:14px" data-act="adm-block" data-u="${p.id}">${p.blocked ? 'Blokdan chiqarish' : 'Bloklash'}</button><button class="btn ghost" style="flex:1;height:42px;font-size:14px;color:var(--danger)" data-act="adm-del" data-u="${p.id}">O‘chirish</button></div>` : ''}
+    <div class="pad stack">
+      ${best ? `<a href="/p/${best.id}" data-link class="card" style="text-decoration:none;display:block"><div class="row" style="justify-content:space-between"><span class="muted" style="font-weight:700">Eng ko‘p yoqqan post</span><span style="color:#D61F52;font-weight:700;font-size:13px">❤ ${fmt(best.likes.length)}</span></div>
+        <p class="txt" style="font-weight:600;margin-top:6px">${esc(best.text)}</p><div class="muted" style="margin-top:4px">${best.replies.length} javob · ${ago(best.t)}</div></a>` : `<div class="card muted">Hali post yo‘q.</div>`}
+      ${myPosts.length > 1 ? (SHOW_ALL ? myPosts.filter(x => x !== best).map(x => postCard(x)).join('') : `<button class="btn ghost full" data-act="allposts">Barcha postlarni ko‘rish →</button>`) : ''}
+    </div>${u ? dock('') : ''}</div>`;
+}
+function post(id) {
+  const p = DB.posts.find(x => x.id === id || x.id === 'p' + id); if (!p || !alive(p)) return notFound();
+  const u = me();
+  return `<div class="shell">${backBar('Suhbat', `${p.replies.length} javob`)}
+  <div class="pad stack">${postCard(p, true)}
+    ${u ? `<form class="card comp" data-form="reply" data-id="${p.id}"><label><span class="sr">Javob</span><textarea id="reply-text" rows="2" maxlength="400" placeholder="Javobingizni yozing"></textarea></label>
+      <div class="row" style="justify-content:flex-end;gap:10px"><span class="counter" id="reply-count"></span><button class="btn acc" style="height:40px;border-radius:999px">Javob</button></div></form>` : `<a href="/kirish" data-link class="btn acc full">Javob yozish uchun kiring</a>`}
+    <div class="card" style="padding:4px 16px">${p.replies.map(r => { const a = user(r.uid); return `<div class="li" style="align-items:flex-start">${avatar(a, 38)}<span style="flex:1"><span><a href="/@${esc(a.u)}" data-link style="text-decoration:none" class="name">${esc(a.name)}</a>${founderPill(a)} <span class="muted">· ${ago(r.t)}</span>${u && (r.uid === u.id || isAdmin()) && !String(r.id).startsWith('tmp') ? ` <button class="link-btn" style="font-size:13px" data-act="delreply" data-id="${p.id}" data-r="${r.id}">O‘chirish</button>` : ''}</span><p class="txt" style="font-size:15px">${linkify(r.text)}</p></span></div>`; }).join('') || '<p class="muted">Birinchi bo‘lib javob yozing.</p>'}</div>
+  </div></div>`;
+}
+after.post = () => bindCounter('#reply-text', '#reply-count', LIMIT.reply);
+let SEARCH_TAB = 'people', SEARCH_Q = '';
+function search() {
+  return `<div class="shell">${backBar('Qidiruv', SEARCH_TAB === 'people' ? 'Odamlar' : 'Guruhlar')}
+  <div class="pad stack"><div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr))" role="tablist">
+    <button type="button" class="${SEARCH_TAB === 'people' ? 'on' : ''}" data-act="stab" data-v="people" role="tab" aria-selected="${SEARCH_TAB === 'people'}">Odamlar</button>
+    <button type="button" class="${SEARCH_TAB === 'groups' ? 'on' : ''}" data-act="stab" data-v="groups" role="tab" aria-selected="${SEARCH_TAB === 'groups'}">Guruhlar</button></div>
+  <label class="card row"><span class="sr">Qidiruv</span>${I.search}<input id="q" class="inp" style="border:0;height:40px;padding:0" placeholder="${SEARCH_TAB === 'people' ? 'Ism yoki @username' : 'Guruh nomi, bo‘lim yoki tavsif'}" autocomplete="off" autocapitalize="none" value="${esc(SEARCH_Q)}"></label>
+  <div class="card" style="padding:4px 16px" id="results"></div></div></div>`;
+}
+after.search = () => {
+  const q = $('#q'), r = $('#results'), u = me();
+  const draw = () => {
+    const v = q.value.trim().toLowerCase().replace(/^@/, ''); SEARCH_Q = q.value;
+    if (SEARCH_TAB === 'groups') {
+      const gl = DB.chats.filter(c => c.type === 'group' && (c.access !== 'closed' || c.members.includes(u.id)) && (!v || [c.name, c.desc, c.cat].join(' ').toLowerCase().includes(v))).slice(0, 30);
+      r.innerHTML = gl.map(c => `<a href="/g/${c.id}" data-link class="li"><span class="gav" style="background:${c.color}">${esc(c.name[0])}</span><span style="flex:1"><b>${esc(c.name)}</b><span class="muted" style="display:block">${esc(c.cat)} · ${c.members.length} a‘zo · ${ACCESS[c.access]}${c.members.includes(u.id) ? ' · siz a‘zosiz' : ''}</span></span></a>`).join('') || '<p class="muted" style="padding:10px 0">Bunday guruh topilmadi.</p>';
+      return;
+    }
+    const list = DB.users.filter(x => x.id !== u.id && !x.blocked && (!v || x.u.includes(v) || x.name.toLowerCase().includes(v))).slice(0, 30);
+    r.innerHTML = list.map(x => `<div class="li"><a href="/@${esc(x.u)}" data-link class="row" style="flex:1;text-decoration:none">${avatar(x, 44)}<span><b>${esc(x.name)}</b>${founderPill(x)}<span class="muted" style="display:block">@${esc(x.u)} · ${followers(x.id).length} kuzatuvchi</span></span></a>
+      <button class="btn ${isFollowing(u.id, x.id) ? 'ghost' : 'ink'}" style="height:38px;font-size:13px;border-radius:999px" data-act="follow" data-id="${x.id}">${isFollowing(u.id, x.id) ? 'Kuzatilmoqda' : 'Kuzatish'}</button></div>`).join('') || '<p class="muted" style="padding:10px 0">Bunday odam topilmadi.</p>';
+  };
+  q.addEventListener('input', draw); draw(); q.focus(); q.setSelectionRange(q.value.length, q.value.length);
+};
+function notifs() {
+  const u = me(), list = DB.notifs.filter(n => n.to === u.id).sort((a, b) => b.t - a.t);
+  const html = `<div class="shell">${backBar('Bildirishnomalar', `${list.filter(n => !n.read).length} ta yangi`)}
+  <div class="pad"><div class="card" style="padding:4px 16px">${list.map(n => `<a href="${esc(n.link)}" data-link class="li" style="${n.read ? '' : 'font-weight:600'}"><span style="flex:1">${linkify(n.text)}<span class="muted" style="display:block">${ago(n.t)}</span></span>${n.read ? '' : '<span class="dot" style="min-width:10px;height:10px;padding:0"></span>'}</a>`).join('') || '<p class="muted">Hozircha bildirishnoma yo‘q. Sizni belgilashsa yoki javob yozishsa, shu yerda chiqadi.</p>'}</div></div></div>`;
+  if (list.some(n => !n.read)) { list.forEach(n => n.read = true); api('act', { method: 'POST', body: { t: 'notifread' } }); }
+  return html;
+}
+function tag(t) {
+  const posts = DB.posts.filter(p => alive(p) && new RegExp('#' + t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}0-9_])', 'iu').test(p.text)).sort((a, b) => b.t - a.t);
+  return `<div class="shell">${backBar('#' + esc(t), `${posts.length} post`)}<div class="pad stack">${posts.map(p => postCard(p)).join('') || '<div class="card muted">Bu heshteg bilan post yo‘q.</div>'}</div></div>`;
+}
+function settings() {
+  const u = me(), sw = (act2, on, label) => `<button class="switch${on ? ' on' : ''}" data-act="${act2}" role="switch" aria-checked="${on}" aria-label="${label}"><i></i></button>`;
+  const row = (title, sub, right) => `<div class="li set-row"><span style="flex:1;min-width:0"><b>${title}</b>${sub ? `<span class="muted" style="display:block">${sub}</span>` : ''}</span>${right}</div>`;
+  const S = SESSION || {}, fs = DB.fs || 'md', dmw = S.dmFrom || 'all';
+  return `<div class="shell">${backBar('Sozlamalar')}
+  <div class="pad stack">
+    <div class="card"><div class="row" style="gap:14px">
+      <button class="av-edit" data-act="editprofile" aria-label="Profil rasmini almashtirish">${avatar(u, 72)}<span class="cam" aria-hidden="true">📷</span></button>
+      <span style="flex:1;min-width:0"><b style="font-family:var(--head);font-size:18px;display:block">${esc(u.name)}${founderPill(u)}</b><span class="muted">@${esc(u.u)}</span>
+        <span style="display:block;font-size:14px;margin-top:4px;color:${u.bio ? 'var(--ink)' : 'var(--mute)'}">${u.bio ? esc(u.bio) : 'Bio yozilmagan'}</span></span></div>
+      <div class="row" style="gap:8px;margin-top:12px"><button class="btn ghost" style="flex:1;height:42px" data-act="editprofile">✏️ Tahrirlash</button><a href="/@${esc(u.u)}" data-link class="btn ghost" style="flex:1;height:42px">👤 Profilim</a></div></div>
+
+    <h3 class="set-h">Ko‘rinish</h3>
+    <div class="card" style="padding:2px 16px">
+      ${row('🌙 Tungi rejim', 'Qorong‘i ko‘rinish, ko‘zni charchatmaydi', sw('theme', DB.theme === 'dark', 'Tungi rejim'))}
+      <div class="li set-row" style="flex-wrap:wrap"><span style="flex:1;min-width:160px"><b>🔠 Matn o‘lchami</b><span class="muted" style="display:block">Postlar va xabarlar</span></span>
+        <div class="seg" style="grid-template-columns:repeat(3,64px)">${[['sm', 'A-'], ['md', 'A'], ['lg', 'A+']].map(([k, l]) => `<button type="button" class="${fs === k ? 'on' : ''}" data-act="fs" data-v="${k}" aria-pressed="${fs === k}">${l}</button>`).join('')}</div></div>
+    </div>
+
+    <h3 class="set-h">Maxfiylik</h3>
+    <div class="card" style="padding:2px 16px">
+      <div class="li set-row" style="flex-wrap:wrap"><span style="flex:1;min-width:160px"><b>✉️ Menga kim yoza oladi</b><span class="muted" style="display:block">Shaxsiy xabarlar</span></span>
+        <div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr));min-width:200px">${[['all', 'Hamma'], ['fol', 'Kuzatganlarim']].map(([k, l]) => `<button type="button" class="${dmw === k ? 'on' : ''}" data-act="dmfrom" data-v="${k}" aria-pressed="${dmw === k}">${l}</button>`).join('')}</div></div>
+      ${row('🔔 Bildirishnomalar', 'Javob, belgilash va kuzatuvlar haqida', sw('notif', !S.notifOff, 'Bildirishnomalar'))}
+      ${row('👀 O‘qilganlik belgisi', 'Xabarni o‘qiganingiz ✓✓ bilan ko‘rinadi', sw('rr', !S.rrOff, 'O‘qilganlik belgisi'))}
+    </div>
+
+    <h3 class="set-h">Akkaunt</h3>
+    <div class="card" style="padding:2px 16px">
+      ${row('📧 Gmail', esc(S.email || '—'), '<span class="tag green">Google ✓</span>')}
+      ${row('🏅 Raqamingiz', `Lahzamdagi #${realUsers().findIndex(x => x.id === u.id) + 1}-foydalanuvchi`, isFounder(u) ? '<span class="founder">Asoschi</span>' : '')}
+      ${row('📅 Qo‘shilgan sana', uzDate(u.joined, true), '')}
+    </div>
+
+    <h3 class="set-h">Lahzam</h3>
+    <div class="card" style="padding:2px 16px">
+      <a href="/yangiliklar" data-link class="li set-row"><span style="flex:1"><b>✨ Lahzam Updates</b><span class="muted" style="display:block">Ilovada nimalar yangilandi</span></span>${unreadUpdates() ? `<span class="dot">${unreadUpdates()}</span>` : '›'}</a>
+      <a href="/reyting" data-link class="li set-row"><span style="flex:1"><b>🏆 Foydali reytingi</b><span class="muted" style="display:block">Eng ko‘p ⭐ olganlar</span></span>›</a>
+      <button class="li set-row" style="width:100%;text-align:left" data-act="sharelahzam"><span style="flex:1"><b>💌 Do‘stlarni taklif qilish</b><span class="muted" style="display:block">Birinchi 50 kishi “Asoschi” bo‘ladi</span></span>›</button>
+    </div>
+
+    ${isOwnerSession() ? '<a href="/musoojon" data-link class="btn ink full">Admin panel 🔐</a>' : ''}
+    <button class="btn ghost full" data-act="logout">Chiqish</button>
+    <button class="btn ghost full" data-act="reset">🔄 Qayta yuklash (keshni tozalash)</button>
+    <p class="muted" style="text-align:center;margin:0">Lahzam v${VERSION} · Har lahza yoningizda!</p>
+  </div></div>`;
+}
+function notFound() { return `<div class="shell">${backBar('Topilmadi')}<div class="pad"><div class="card"><p>Bu sahifa mavjud emas yoki o‘chirilgan.</p><a href="/" data-link class="btn acc">Bosh sahifaga</a></div></div></div>`; }
+
+
+/* Lahzam Updates: ega yozadi, hamma o'qiydi (serverda) */
+let UPD = { list: null, p: null, failed: false };
+const unreadUpdates = () => UPD.list ? UPD.list.filter(x => Date.parse(x.createdAt) > (DB.updSeen || 0)).length : 0;
+function loadUpdates() {
+  if (!UPD.p) UPD.p = api('updates').then(r => { if (r.ok) UPD.list = r.updates; else UPD.failed = true; });
+  return UPD.p;
+}
+function updates() {
+  const u = me(), list = UPD.list;
+  const fmtD = t => uzDate(t, true);
+  const writer = isAdmin() ? `<form class="card stack" data-form="update" style="gap:10px"><b style="font-family:var(--head);font-size:16px">Yangilik yozish ✍️</b>
+      <label><span class="sr">Sarlavha</span><input class="inp" id="up-t" maxlength="80" required placeholder="Masalan: Endi rasm yuborsa bo‘ladi 📸"></label>
+      <label><span class="sr">Matn</span><textarea class="inp" id="up-b" maxlength="2000" style="height:120px;padding:12px 16px" placeholder="Nima yangilandi? Har bir o‘zgarishni yangi qatordan yozing"></textarea></label>
+      <button class="btn acc full">E‘lon qilish</button></form>`
+    : isOwnerSession() ? `<a href="/musoojon" data-link class="card" style="display:block;text-decoration:none;background:#121212;color:#fff"><b>Yangilik yozish uchun admin frazani kiriting 🔐</b><span style="display:block;color:#bbb;font-size:13px;margin-top:4px">Admin panelga o‘tish →</span></a>` : '';
+  const items = list === null ? `<div class="card muted">${UPD.failed ? 'Yuklab bo‘lmadi. Internetni tekshiring.' : 'Yuklanmoqda…'}</div>`
+    : list.map(x => `<article class="card stack upd" style="gap:6px"><div class="row" style="justify-content:space-between"><span class="tag">${fmtD(x.createdAt)}</span>${isAdmin() ? `<button class="link-btn" style="font-size:13px;color:var(--danger)" data-act="delupdate" data-id="${x.id}">O‘chirish</button>` : ''}</div>
+        <h2 style="font-family:var(--head);font-size:18px;margin:0">${esc(x.title)}</h2>${x.body ? `<p class="txt" style="font-size:15px">${linkify(x.body)}</p>` : ''}</article>`).join('') || '<div class="card muted">Hozircha yangilik yo‘q. Tez orada shu yerda Lahzamdagi o‘zgarishlar chiqadi ✨</div>';
+  if (list) DB.updSeen = now();
+  return `<div class="shell">${header(`<div style="margin-top:12px"><div class="title-h" style="margin:0">Lahzam Updates ✨</div><div class="sub-h">Ilovada nimalar yangilandi</div></div>`)}
+  <div class="pad stack">${writer}${items}</div>${u ? dock('updates') : ''}</div>`;
+}
+after.updates = () => { if (UPD.list === null && !UPD.failed) loadUpdates().then(() => route()[0] === 'updates' && (UPD.list || UPD.failed) && render()); };
+
+/* Foydali reytingi */
+let LB_TAB = 'week';
+function leaders() {
+  const u = me(), since = LB_TAB === 'week' ? now() - 7 * DAY : 0;
+  const rows = realUsers().filter(x => !x.blocked).map(x => ({ x, n: foydaliCount(x.id, since) })).filter(r => r.n > 0).sort((a, b) => b.n - a.n || a.x.id - b.x.id);
+  const mine = rows.findIndex(r => r.x.id === u.id), medal = i => ['🥇', '🥈', '🥉'][i] || `<b class="rank">${i + 1}</b>`;
+  const podium = rows.slice(0, 3);
+  return `<div class="shell">${backBar('Foydali reytingi 🏆', LB_TAB === 'week' ? 'Oxirgi 7 kun' : 'Butun vaqt')}
+  <div class="pad stack">
+    <div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr))" role="tablist">
+      <button type="button" class="${LB_TAB === 'week' ? 'on' : ''}" data-act="lbtab" data-v="week" role="tab" aria-selected="${LB_TAB === 'week'}">Shu hafta</button>
+      <button type="button" class="${LB_TAB === 'all' ? 'on' : ''}" data-act="lbtab" data-v="all" role="tab" aria-selected="${LB_TAB === 'all'}">Umumiy</button></div>
+    ${podium.length ? `<div class="podium">${[1, 0, 2].filter(i => podium[i]).map(i => `<a href="/@${esc(podium[i].x.u)}" data-link class="pod p${i + 1}">${avatar(podium[i].x, i === 0 ? 76 : 60)}<b>${esc(podium[i].x.name.split(' ')[0])}</b><span>⭐ ${podium[i].n}</span><i>${['🥇', '🥈', '🥉'][i]}</i></a>`).join('')}</div>` : ''}
+    <div class="card" style="background:#121212;color:#fff"><b>${mine >= 0 ? `Siz ${mine + 1}-o‘rindasiz · ⭐ ${rows[mine].n}` : 'Siz hali reytingda yo‘qsiz'}</b>
+      <p style="margin:6px 0 0;color:#ccc;font-size:14px">Guruhlarda foydali javob yozing. Boshqalar xabaringizga ⭐ bossa, reytingga chiqasiz. Har bir odamning ⭐ si bir marta hisoblanadi.</p></div>
+    <div class="card" style="padding:4px 16px">${rows.map((r, i) => `<a href="/@${esc(r.x.u)}" data-link class="li${r.x.id === u.id ? ' me-row' : ''}"><span style="width:30px;text-align:center;font-size:20px">${medal(i)}</span>${avatar(r.x, 42)}<span style="flex:1"><b>${esc(r.x.name)}</b>${founderPill(r.x)}<span class="muted" style="display:block">@${esc(r.x.u)}</span></span><b style="font-size:16px">⭐ ${r.n}</b></a>`).join('') || `<p class="muted">${LB_TAB === 'week' ? 'Bu hafta hali hech kim ⭐ olmadi. Birinchi bo‘ling!' : 'Hali hech kim ⭐ olmadi.'}</p>`}</div>
+  </div>${dock('')}</div>`;
+}
+
+/* admin /musoojon */
+function admin() {
+  if (isOwnerSession() && !ADM.verified) {
+    const setup = ADM.checked && !ADM.configured;
+    return `<div class="shell">${backBar('Admin', '2-bosqichli himoya')}<div class="pad"><form class="card stack" data-form="phrase" style="gap:12px">
+      <b style="font-family:var(--head);font-size:18px">${!ADM.checked ? 'Tekshirilmoqda…' : setup ? 'Sirli frazani o‘rnating 🔐' : 'Sirli frazani kiriting 🔐'}</b>
+      ${!ADM.checked ? '' : `<p class="muted" style="margin:0">${setup ? 'Bu admin panelning ikkinchi qulfi. Kamida 12 belgi: bir nechta so‘zdan iborat, faqat siz biladigan ibora tanlang. Fraza hech qayerda ochiq saqlanmaydi, uni tiklab bo‘lmaydi: yodda tuting.' : 'Google bilan kirdingiz. Endi faqat siz biladigan frazani yozing.'}</p>
+      <div class="field"><label for="ph1">Sirli fraza</label><input class="inp" id="ph1" type="password" required minlength="${setup ? 12 : 1}" maxlength="200" autocomplete="off"></div>
+      ${setup ? '<div class="field"><label for="ph2">Yana bir marta</label><input class="inp" id="ph2" type="password" required maxlength="200" autocomplete="off"></div>' : ''}
+      <div class="hint bad" id="ph-hint"></div>
+      <button class="btn acc full">${setup ? 'O‘rnatish' : 'Kirish'}</button>`}
+    </form></div></div>`;
+  }
+  if (!isAdmin()) return `<div class="shell">${backBar('Admin')}<div class="pad"><div class="card stack"><b style="font-family:var(--head);font-size:18px">Ruxsat yo‘q 🔒</b><p class="muted" style="margin:0">Admin panelga faqat Lahzam egasi o‘z Gmail'i bilan kirgan holda kira oladi.</p>${me() ? '<a href="/" data-link class="btn ghost">Bosh sahifaga</a>' : '<a href="/kirish" data-link class="btn acc">Kirish</a>'}</div></div></div>`;
+  const t = now(), users = realUsers();
+  const msgs = DB.chats.reduce((n, c) => n + c.msgs.length, 0);
+  const activeToday = new Set([...DB.posts.filter(p => t - p.t < DAY).map(p => p.uid), ...DB.chats.flatMap(c => c.msgs.filter(m => !m.sys && t - m.t < DAY).map(m => m.uid))]).size;
+  const reported = DB.posts.filter(p => p.reports).sort((a, b) => b.reports - a.reports);
+  const topGroups = DB.chats.filter(c => c.type === 'group' && (c.access !== 'closed' || c.members.includes(me().id))).map(c => ({ c, n: c.msgs.filter(m => t - m.t < 7 * DAY).length })).sort((a, b) => b.n - a.n);
+  return `<div class="shell wide" style="padding:20px 16px 60px">
+    <div class="row" style="justify-content:space-between;margin-bottom:16px"><div class="row">${I.logo('#FF5A1F', '#121212', 34)}<div><b style="font-family:var(--head);font-size:22px">Lahzam admin</b><div class="muted">Moderator paneli va statistika</div></div></div>
+      <a href="/" data-link class="btn ghost" style="height:40px">Saytga qaytish</a></div>
+    <p class="card" style="background:#E3F4EC;color:#0F5A43;margin:0 0 14px">✅ Hamma ma‘lumot serverda: postlar, guruhlar, chatlar va akkauntlar. Bloklash va o‘chirish hamma uchun darhol amal qiladi.</p>
+    <div class="grid4">
+      <div class="kpi"><span class="muted">Jami foydalanuvchi</span><b>${users.length}</b></div>
+      <div class="kpi"><span class="muted">Bugun qo‘shilgan</span><b>${users.filter(u => t - u.joined < DAY).length}</b></div>
+      <div class="kpi"><span class="muted">Bugun faol</span><b>${activeToday}</b></div>
+      <div class="kpi"><span class="muted">Postlar</span><b>${DB.posts.length}</b></div>
+      <div class="kpi"><span class="muted">Xabarlar</span><b>${msgs}</b></div>
+      <div class="kpi"><span class="muted">Asoschi o‘rinlari</span><b>${Math.max(0, 50 - users.length)}</b><span class="muted">50 tadan qoldi</span></div>
+    </div>
+    <h2 style="font-family:var(--head);font-size:18px;margin:24px 0 10px">Server</h2>
+    <div id="srv-stats" class="grid4"><div class="kpi"><span class="muted">Yuklanmoqda…</span></div></div>
+    <label class="card row" style="margin-top:14px;position:sticky;top:8px;z-index:5"><span class="sr">Admin qidiruv</span>${I.search}<input id="adm-q" class="inp" style="border:0;height:40px;padding:0" placeholder="Foydalanuvchi, Gmail yoki guruh qidirish…" autocomplete="off" autocapitalize="none"></label>
+    <h2 style="font-family:var(--head);font-size:18px;margin:24px 0 10px">Shikoyatlar</h2>
+    <div class="card scroll"><table><thead><tr><th>Post</th><th>Muallif</th><th>Shikoyat</th><th>Holat</th><th>Amal</th></tr></thead><tbody>
+      ${reported.map(p => `<tr><td style="max-width:320px">${esc(p.text.slice(0, 120))}</td><td>@${esc(user(p.uid).u)}</td><td>${p.reports}</td><td>${p.hidden ? '<span class="tag red">yashirilgan</span>' : '<span class="tag green">ko‘rinadi</span>'}</td>
+        <td class="row" style="gap:6px;flex-wrap:wrap"><button class="pill" data-act="adm-hide" data-id="${p.id}">${p.hidden ? 'Qaytarish' : 'Yashirish'}</button><button class="pill" data-act="adm-warn" data-u="${p.uid}">Ogohlantirish</button><button class="pill" style="color:var(--danger)" data-act="adm-block" data-u="${p.uid}">${user(p.uid).blocked ? 'Blokdan chiqarish' : 'Bloklash'}</button></td></tr>`).join('') || '<tr><td colspan="5" class="muted">Shikoyat yo‘q 🎉</td></tr>'}
+    </tbody></table></div>
+    <h2 style="font-family:var(--head);font-size:18px;margin:24px 0 10px">Spam jurnali</h2>
+    <div class="card scroll"><table><thead><tr><th>Vaqt</th><th>Foydalanuvchi</th><th>Sabab</th></tr></thead><tbody>
+      ${DB.spam.slice(-30).reverse().map(s => `<tr><td>${ago(s.t)}</td><td>@${esc(user(s.uid).u)}</td><td>${esc(s.reason)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Hozircha toza.</td></tr>'}
+    </tbody></table></div>
+    <h2 style="font-family:var(--head);font-size:18px;margin:24px 0 10px">Foydalanuvchilar</h2>
+    <div class="card scroll" id="srv-users"><p class="muted">Yuklanmoqda…</p></div>
+    <h2 style="font-family:var(--head);font-size:18px;margin:24px 0 10px">Guruhlar (7 kunlik faollik)</h2>
+    <div class="card">${topGroups.map(({ c, n }) => `<div class="li" data-q="${esc([c.name, c.cat, c.desc].join(' ').toLowerCase())}"><span class="gav" style="background:${c.color};width:40px;height:40px;border-radius:12px">${esc(c.name[0])}</span><span style="flex:1"><a href="/g/${c.id}" data-link style="text-decoration:none"><b>${esc(c.name)}</b></a><span class="muted" style="display:block">${esc(c.cat)} · ${c.members.length} a‘zo · ${ACCESS[c.access]} · ${n} xabar</span></span>
+      <div class="row" style="gap:6px">${c.access === 'open' && c.full ? `<a class="pill" href="/c/${c.id}" data-link>Kirish</a>` : '<span class="tag" title="Shaxsiy guruh yozishmalari admin uchun ham yopiq">🔒 Shaxsiy</span>'}<button class="pill" style="color:var(--danger)" data-act="delgroup" data-id="${c.id}">O‘chirish</button></div></div>`).join('') || '<p class="muted">Guruh yo‘q.</p>'}</div>
+  </div>`;
+}
+
+const fmtBytes = b => b >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+function admFilter() {
+  const q = ($('#adm-q') && $('#adm-q').value || '').trim().toLowerCase();
+  document.querySelectorAll('[data-q]').forEach(el => { el.hidden = !!q && !el.dataset.q.includes(q); });
+}
+after.admin = async () => {
+  if (isOwnerSession() && !ADM.checked) { await refreshAdm(); if (route()[0] === 'admin') render(); return; }
+  const aq = $('#adm-q'); if (aq) aq.addEventListener('input', admFilter);
+  api('admin/users?stats=1').then(st => {
+    const el = $('#srv-stats'); if (!el || !st.ok) { if (el) el.innerHTML = '<div class="kpi"><span class="muted">Statistika yuklanmadi</span></div>'; return; }
+    const pct = Math.min(100, st.dbBytes / st.limitBytes * 100), col = pct > 85 ? 'var(--danger)' : pct > 60 ? '#D97706' : 'var(--ok)';
+    el.innerHTML = `<div class="kpi" style="grid-column:1/-1"><span class="muted">Baza (Neon) hajmi</span><b>${fmtBytes(st.dbBytes)} <span class="muted" style="font-size:15px;font-family:var(--font)">/ ${fmtBytes(st.limitBytes)} · ${pct.toFixed(pct < 1 ? 2 : 1)}%</span></b>
+      <div style="height:12px;background:var(--soft);border-radius:99px;overflow:hidden;margin-top:8px" role="progressbar" aria-valuenow="${pct.toFixed(1)}" aria-valuemin="0" aria-valuemax="100"><i style="display:block;height:100%;width:${Math.max(pct, 1)}%;background:${col};border-radius:99px"></i></div>
+      <span class="muted" style="font-size:12px">${pct > 85 ? 'Diqqat: joy tugayapti, tarifni oshirish kerak bo‘ladi' : 'Joy yetarli ✅'}</span></div>
+      <div class="kpi"><span class="muted">Ro‘yxatdan o‘tganlar</span><b>${st.users}</b></div>
+      <div class="kpi"><span class="muted">Oxirgi 24 soatda</span><b>${st.today}</b></div>
+      <div class="kpi"><span class="muted">Bloklangan</span><b>${st.blocked}</b></div>
+      <div class="kpi"><span class="muted">Bloklangan Gmail</span><b>${st.banned}</b></div>`;
+  });
+  const box = $('#srv-users'); if (!box) return;
+  const r = await api('admin/users');
+  if (!$('#srv-users')) return;
+  if (r.status === 401) { ADM.verified = false; render(); return; }
+  if (!r.ok) { box.innerHTML = '<p class="muted">Serverdan yuklab bo‘lmadi.</p>'; return; }
+  box.innerHTML = `<table><thead><tr><th>#</th><th>Username</th><th>Ism</th><th>Gmail</th><th>Holat</th><th>Amal</th></tr></thead><tbody>${r.users.map((x, i) => `<tr data-q="${esc([x.username, x.name, x.email].join(' ').toLowerCase())}"><td>${i + 1}</td><td>@${esc(x.username)}</td><td>${esc(x.name)}</td><td class="muted">${esc(x.email || '')}</td><td>${x.is_blocked ? '<span class="tag red">bloklangan</span>' : '<span class="tag green">faol</span>'}</td>
+    <td>${x.email === OWNER_EMAIL ? '<span class="tag green">Ega</span>' : `<div class="row" style="gap:6px;flex-wrap:wrap"><button class="pill" data-act="srv" data-a="${x.is_blocked ? 'unblock' : 'block'}" data-id="${x.id}">${x.is_blocked ? 'Blokdan chiqarish' : 'Bloklash'}</button><button class="pill" style="color:var(--danger)" data-act="srv" data-a="delete" data-id="${x.id}">O‘chirish</button></div>`}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Hali hech kim yo‘q.</td></tr>'}</tbody></table>
+    ${r.banned.length ? `<p class="muted" style="margin:10px 0 4px">Bloklangan Gmail'lar:</p>${r.banned.map(e => `<div class="li"><span style="flex:1">${esc(e)}</span><button class="pill" data-act="adm-unban" data-e="${esc(e)}">Blokdan chiqarish</button></div>`).join('')}` : ''}`;
+  admFilter();
+};
+
+/* ---------------- modals ---------------- */
+function sheet(html) {
+  const root = $('#modal-root');
+  root.innerHTML = `<div class="scrim" data-act="close-sheet"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
+  const f = root.querySelector('input,textarea,button'); f && f.focus();
+}
+const closeSheet = () => { $('#modal-root').innerHTML = ''; };
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+/* ---------------- actions ---------------- */
+document.addEventListener('click', async e => {
+  const a = e.target.closest('a[data-link]');
+  if (a && !e.metaKey && !e.ctrlKey) { e.preventDefault(); closeSheet(); go(a.getAttribute('href')); return; }
+  const el = e.target.closest('[data-act]'); if (!el) { document.querySelectorAll('.rx-bar').forEach(b => b.remove()); return; }
+  const act = el.dataset.act, id = el.dataset.id, u = me();
+  if (act === 'close-sheet') { if (e.target === el) closeSheet(); return; }
+  e.preventDefault();
+  const P = () => DB.posts.find(p => p.id === id);
+  switch (act) {
+    case 'back': if (history.length > 1) history.back(); else go('/'); break;
+    case 'auth-login': AUTH.step = 'login'; render(); break;
+    case 'auth-start': AUTH.step = 'start'; render(); break;
+    case 'compose': if (location.pathname !== '/') go('/'); setTimeout(() => { const t = $('#post-text'); t && (t.focus(), t.scrollIntoView({ block: 'center' })); }, 30); break;
+    case 'intro': { const t = $('#post-text'); t.value = `Salom! Men ${u.name}. `; t.dispatchEvent(new Event('input')); t.focus(); break; }
+    case 'like': { if (!u) return go('/kirish'); const p = P(); if (!p) break; const i = p.likes.indexOf(u.id); if (i >= 0) p.likes.splice(i, 1); else p.likes.push(u.id); render(); server({ t: 'like', post: id }); break; }
+    case 'sharepost': { const url = location.origin + '/p/' + id; try { await navigator.clipboard.writeText(url); toast('Havola nusxalandi'); } catch (err) { sheet(`<h2>Havola</h2><input class="inp" readonly value="${esc(url)}"><button class="btn ghost full" style="margin-top:10px" data-act="close-sheet-btn">Yopish</button>`); } break; }
+    case 'copy': try { await navigator.clipboard.writeText(el.dataset.text); toast('Nusxalandi'); } catch (err) { toast(el.dataset.text); } break;
+    case 'sendpost': {
+      if (!u) return go('/kirish');
+      const list = DB.chats.filter(c => c.members.includes(u.id));
+      sheet(`<h2>Chatga yuborish</h2><div class="card" style="padding:4px 16px">${list.map(c => `<button class="li" style="width:100%;text-align:left" data-act="sendto" data-id="${id}" data-c="${c.id}">${c.type === 'group' ? `<span class="gav" style="background:${c.color};width:40px;height:40px;border-radius:12px">${esc(c.name[0])}</span><b>${esc(c.name)}</b>` : `${avatar(user(c.members.find(x => x !== u.id)), 40)}<b>${esc(user(c.members.find(x => x !== u.id)).name)}</b>`}</button>`).join('') || '<p class="muted">Hali chat yo‘q.</p>'}</div>`);
+      break;
+    }
+    case 'sendto': { const c = DB.chats.find(x => x.id === el.dataset.c); const p = P(); if (!c || !p || !guard('msg', 'post')) return; closeSheet(); server({ t: 'msg', chat: c.id, body: `${location.origin}/p/${p.id}\n“${p.text.slice(0, 80)}${p.text.length > 80 ? '…' : ''}”` }, 'Yuborildi'); break; }
+    case 'postmenu': {
+      const p = P(); if (!p) break; const own = u && (p.uid === u.id || isAdmin());
+      sheet(`<h2>Post</h2><div class="stack">${own ? `<button class="btn ghost full" style="color:var(--danger)" data-act="delpost" data-id="${id}">O‘chirish</button>` : p.reported ? '<p class="muted" style="margin:0">Shikoyatingiz qabul qilingan ✅</p>' : `<button class="btn ghost full" data-act="report" data-id="${id}">Shikoyat qilish</button>`}<button class="btn ghost full" data-act="sharepost" data-id="${id}">Havolani nusxalash</button></div>`);
+      break;
+    }
+    case 'delpost': { const p = P(); if (!p || !(p.uid === u.id || isAdmin())) break; DB.posts = DB.posts.filter(x => x.id !== id); closeSheet(); server({ t: 'delpost', post: id }, 'O‘chirildi'); if (route()[0] === 'post') go('/'); else render(); break; }
+    case 'delreply': { const p = P(); if (!p) break; p.replies = p.replies.filter(r => r.id !== el.dataset.r || !(r.uid === u.id || isAdmin())); render(); server({ t: 'delreply', reply: el.dataset.r }, 'Javob o‘chirildi'); break; }
+    case 'delgroup': {
+      const c = DB.chats.find(x => x.id === id); if (!c || !(isAdmin() || c.admin === u.id)) break;
+      if (!confirmInline(el, 'Rostdan o‘chirilsinmi? Yana bosing')) break;
+      DB.chats = DB.chats.filter(x => x.id !== id); server({ t: 'delgroup', chat: id }, 'Guruh o‘chirildi');
+      if (route()[0] === 'admin') render(); else go('/guruhlar'); break;
+    }
+    case 'ph-clear': { PHOTO = null; const pv = $('#ph-prev'); const tg = user(+el.dataset.u); if (pv && tg) pv.innerHTML = avatar({ ...tg, photo: null }, 64); el.remove(); break; }
+    case 'report': {
+      if (!u) return go('/kirish'); const p = P(); if (!p) break; p.reported = true;
+      closeSheet(); server({ t: 'report', post: id }, 'Rahmat, moderatorlar ko‘rib chiqadi'); break;
+    }
+    case 'follow': {
+      if (!u) return go('/kirish'); const t = +id; if (t === u.id) return;
+      const i = DB.follows.findIndex(f => f[0] === u.id && f[1] === t);
+      if (i >= 0) DB.follows.splice(i, 1); else DB.follows.push([u.id, t]);
+      server({ t: 'follow', user: t });
+      if (route()[0] === 'search') { save(); after.search(); } else render(); break;
+    }
+    case 'dm': {
+      const t = +id, ex = DB.chats.find(x => x.type === 'dm' && x.members.includes(u.id) && x.members.includes(t));
+      if (ex) { go('/c/' + ex.id); break; }
+      el.disabled = true; const r = await server({ t: 'dm', user: t }); el.disabled = false;
+      if (r.chat) { await sync(true); go('/c/' + r.chat); }
+      break;
+    }
+    case 'allposts': SHOW_ALL = true; render(); break;
+    case 'editprofile': {
+      const tg = u; if (!tg) break;
+      PHOTO = undefined;
+      sheet(`<h2>Profilni tahrirlash</h2><form class="stack" data-form="profile" data-u="${tg.id}">
+      <div class="field"><span style="font-size:14px;font-weight:700">Profil rasmi</span><div class="row" style="flex-wrap:wrap"><span id="ph-prev">${avatar(tg, 64)}</span>
+        <label class="btn ghost" style="height:42px;cursor:pointer;position:relative">📷 Rasm tanlash<input type="file" accept="image/*" id="ph-file" class="sr"></label>
+        ${tg.photo ? `<button type="button" class="btn ghost" style="height:42px;color:var(--danger)" data-act="ph-clear" data-u="${tg.id}">Olib tashlash</button>` : ''}</div></div>
+      <div class="field"><label for="pn">Ism</label><input class="inp" id="pn" maxlength="40" required value="${esc(tg.name)}"></div>
+      <div class="field"><label for="pb">Bio</label><textarea class="inp" id="pb" maxlength="160" style="height:96px;padding:12px 16px" placeholder="O‘zingiz haqingizda qisqacha">${esc(tg.bio || '')}</textarea></div>
+      <div class="field"><span style="font-size:14px;font-weight:700">Rang</span><div class="row" style="flex-wrap:wrap">${COLORS.map(c => `<label style="cursor:pointer"><input type="radio" name="pc" value="${c}" class="sr" ${c === tg.color ? 'checked' : ''}><span class="av" style="width:40px;height:40px;background:${c};${c === tg.color ? 'outline:3px solid var(--acc)' : ''}"></span></label>`).join('')}</div></div>
+      <button class="btn acc full">Saqlash</button></form>`); break;
+    }
+    case 'qr': {
+      const url = `${location.origin}/@${u.u}`;
+      sheet(`<h2>Mening QR kodim</h2><p class="muted" style="margin-top:-6px">Buni faqat siz ko‘rasiz. Do‘stingiz skanerlasa, profilingiz ochiladi.</p><div class="card" style="display:flex;justify-content:center" id="qr-box">Yuklanmoqda…</div><p style="text-align:center;font-weight:700">${esc(location.host)}/@${esc(u.u)}</p><button class="btn ghost full" data-act="copy" data-text="${esc(url)}">Havolani nusxalash</button>`);
+      loadQR(url); break;
+    }
+    case 'theme': DB.theme = DB.theme === 'dark' ? 'light' : 'dark'; render(); break;
+    case 'logout': await api('auth/me', { method: 'DELETE' }); ADM = { checked: false, configured: false, verified: false }; adoptSession(null); AUTH = { step: 'start' }; save(); go('/kirish'); break;
+    case 'reset': { const keep = DB; DB = Object.assign(fresh(keep), { me: keep.me, sess: keep.sess, users: keep.users.filter(x => x.id === keep.me) }); SYNC.sig = ''; save(); toast('Yangilanmoqda…'); await sync(true); render(); break; }
+    case 'newgroup': sheet(`<h2>Yangi guruh</h2><form class="stack" data-form="group">
+      <div class="field"><label for="gn">Nomi</label><input class="inp" id="gn" required maxlength="40" placeholder="Masalan: SAT tayyorgarlik"></div>
+      <div class="field"><label for="gd">Tavsif</label><input class="inp" id="gd" maxlength="160" placeholder="Guruh nima haqida?"></div>
+      <div class="field"><label for="gc">Katalog bo‘limi</label><select class="inp" id="gc">${CATS.map(c => `<option>${c}</option>`).join('')}</select></div>
+      <div class="field"><span style="font-size:14px;font-weight:700">Kim qo‘shila oladi?</span><div class="seg" role="radiogroup">${Object.entries(ACCESS).map(([k, v], i) => `<button type="button" class="${i === 0 ? 'on' : ''}" data-act="seg" data-v="${k}" role="radio" aria-checked="${i === 0}">${v}</button>`).join('')}</div>
+        <div class="muted" id="acc-hint">Hamma uchun: katalogdan topib, darhol qo‘shilsa bo‘ladi.</div></div>
+      <button class="btn acc full">Guruh ochish</button></form>`); break;
+    case 'seg': {
+      el.parentElement.querySelectorAll('button').forEach(b => { b.classList.toggle('on', b === el); b.setAttribute('aria-checked', b === el); });
+      $('#acc-hint').textContent = { open: 'Hamma uchun: katalogdan topib, darhol qo‘shilsa bo‘ladi.', ask: 'Ruxsatli: qo‘shilish so‘rovini siz tasdiqlaysiz.', closed: 'Yopiq: katalogda ko‘rinmaydi, faqat taklif bilan.' }[el.dataset.v];
+      break;
+    }
+    case 'join': {
+      el.disabled = true; const r = await server({ t: 'join', chat: id }); el.disabled = false;
+      if (r.status === 'pending') { toast('So‘rov yuborildi ✅'); render(); }
+      else if (r.status === 'member') { await sync(true); go('/c/' + id); }
+      break;
+    }
+    case 'approve': { const c = DB.chats.find(x => x.id === id), p = +el.dataset.u; if (!c) break; c.pending = c.pending.filter(x => x !== p); c.members.push(p); render(); server({ t: 'approve', chat: id, user: p }, 'Qabul qilindi'); break; }
+    case 'leave': { const c = DB.chats.find(x => x.id === id); if (!c) break; if (c.admin === u.id) { toast('Admin guruhdan chiqa olmaydi'); break; } c.members = c.members.filter(x => x !== u.id); server({ t: 'leave', chat: id }, 'Guruhdan chiqdingiz'); go('/guruhlar'); break; }
+    case 'rxbar': {
+      document.querySelectorAll('.rx-bar').forEach(b => b.remove());
+      const box = el.closest('.m'); const bar = document.createElement('div'); bar.className = 'rx-bar';
+      bar.innerHTML = REACTS.map(r => `<button data-act="react" data-c="${el.dataset.c}" data-m="${el.dataset.m}" data-e="${r}" aria-label="${r}">${r}</button>`).join('');
+      if (box.getBoundingClientRect().top < 150) bar.classList.add('below');
+      box.appendChild(bar); break;
+    }
+    case 'react': {
+      const c = DB.chats.find(x => x.id === el.dataset.c), m = c && c.msgs.find(x => x.id === el.dataset.m), e2 = el.dataset.e; if (!m) break;
+      m.reacts = m.reacts || {};
+      const had = (m.reacts[e2] || []).includes(u.id);
+      Object.keys(m.reacts).forEach(k => m.reacts[k] = m.reacts[k].filter(x => x !== u.id));
+      if (!had) (m.reacts[e2] = m.reacts[e2] || []).push(u.id);
+      document.querySelectorAll('.rx-bar').forEach(b => b.remove());
+      render(); if (!m.tmp) server({ t: 'react', msg: m.id, emoji: e2 }); break;
+    }
+    case 'play': {
+      const c = DB.chats.find(x => x.id === id); if (!c) break;
+      Flappy.open({ record: c.record && c.record.score, recordBy: c.record && user(c.record.uid).u, onEnd: score => {
+        if (score > 0 && (!c.record || score > c.record.score) && c.members.includes(u.id)) {
+          c.record = { score, uid: u.id };
+          server({ t: 'flappy', chat: c.id, score });
+          toast(`Yangi rekord: ${score} 🏆`);
+          return { record: score, recordBy: u.u };
+        }
+        return null;
+      } });
+      break;
+    }
+    case 'adm-hide': { if (!isAdmin()) break; const p = P(); if (!p) break; p.hidden = !p.hidden; render(); server({ t: 'hide', post: id }); break; }
+    case 'adm-warn': { if (!isAdmin()) break; server({ t: 'warn', user: +el.dataset.u }, 'Ogohlantirish yuborildi'); break; }
+    case 'adm-block': {
+      if (!isAdmin()) break; const t = user(+el.dataset.u); if (!t || t.system || t.ghost || t.id === u.id) break;
+      const r = await api('admin/users', { method: 'POST', body: { action: t.blocked ? 'unblock' : 'block', id: t.id } });
+      if (r.status === 401) { ADM.verified = false; render(); break; }
+      if (!r.ok) { toast(r.message || 'Serverda bajarilmadi', true); break; }
+      toast(t.blocked ? 'Blokdan chiqarildi' : 'Bloklandi: Gmail ham bloklandi'); await sync(true); render(); break;
+    }
+    case 'adm-unban': { if (!isAdmin()) break; const r = await api('admin/users', { method: 'POST', body: { action: 'unban', email: el.dataset.e } }); if (!r.ok) { toast('Serverda bajarilmadi', true); break; } toast('Gmail blokdan chiqarildi'); await sync(true); render(); break; }
+    case 'adm-del': {
+      if (!isAdmin()) break; const t = user(+el.dataset.u); if (!t || t.system || t.ghost || t.id === u.id) break;
+      if (!confirmInline(el, 'Rostdan? Yana bosing')) break;
+      const r = await api('admin/users', { method: 'POST', body: { action: 'delete', id: t.id } });
+      if (!r.ok) { toast(r.message || 'Serverda bajarilmadi', true); break; }
+      toast(`@${t.u} o‘chirildi`); await sync(true);
+      if (route()[0] === 'profile') go('/musoojon'); else render(); break;
+    }
+    case 'srv': {
+      if (!isAdmin()) break; const a2 = el.dataset.a;
+      if (a2 === 'delete' && !confirmInline(el, 'Rostdan? Yana bosing')) break;
+      const r = await api('admin/users', { method: 'POST', body: { action: a2, id: +id } });
+      if (r.status === 401) { ADM.verified = false; render(); break; }
+      if (!r.ok) { toast(r.message || 'Serverda bajarilmadi', true); break; }
+      toast(a2 === 'delete' ? 'O‘chirildi' : a2 === 'block' ? 'Bloklandi: Gmail ham bloklandi' : 'Blokdan chiqarildi'); await sync(true); render(); break;
+    }
+    case 'msgmenu': {
+      const c = DB.chats.find(x => x.id === el.dataset.c), m = c && c.msgs.find(x => x.id === el.dataset.m); if (!m) break;
+      const mine = m.uid === u.id, canDel = canDelMsg(c, m), plain = !m.game && !m.poll;
+      const B = (act2, label, extra = '') => `<button class="btn ghost full" style="justify-content:flex-start;${extra}" data-act="${act2}" data-c="${c.id}" data-m="${m.id}">${label}</button>`;
+      sheet(`<h2>Xabar</h2><p class="muted" style="margin:-6px 0 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(msgPreview(m))}</p><div class="stack" style="gap:8px">
+        ${B('m-reply', '↩️ Javob berish')}${m.text ? B('m-copy', '📋 Nusxa olish') : ''}${mine && plain && m.text && !m.tmp ? B('m-edit', '✏️ Tahrirlash') : ''}
+        ${!m.game && !m.tmp ? B('m-fwd', '↪️ Uzatish') : ''}${canPin(c) && !m.tmp ? B('m-pin', c.pin === m.id ? '📌 Qadashni olib tashlash' : '📌 Qadash') : ''}
+        ${canDel ? B('delmsg', '🗑 O‘chirish', 'color:var(--danger)') : ''}</div>`);
+      break;
+    }
+    case 'm-reply': CH.reply = el.dataset.m; CH.edit = null; closeSheet(); render(); break;
+    case 'm-edit': CH.edit = el.dataset.m; CH.reply = null; closeSheet(); render(); break;
+    case 'cancelbar': CH.reply = null; CH.edit = null; render(); break;
+    case 'm-copy': { const m = DB.chats.find(x => x.id === el.dataset.c).msgs.find(x => x.id === el.dataset.m); closeSheet(); try { await navigator.clipboard.writeText(m.text); toast('Nusxa olindi'); } catch (err) { toast('Nusxa olib bo‘lmadi', true); } break; }
+    case 'm-pin': { const c = DB.chats.find(x => x.id === el.dataset.c); if (!c || !canPin(c)) break; const next = c.pin === el.dataset.m ? null : el.dataset.m; c.pin = next; closeSheet(); render(); server({ t: 'pin', chat: c.id, msg: next }, next ? 'Qadaldi 📌' : 'Olib tashlandi'); break; }
+    case 'm-fwd': {
+      const list = DB.chats.filter(x => x.members.includes(u.id));
+      sheet(`<h2>Kimga uzatamiz?</h2><div class="card" style="padding:4px 16px">${list.map(x => `<button class="li" style="width:100%;text-align:left" data-act="fwdto" data-c="${el.dataset.c}" data-m="${el.dataset.m}" data-to="${x.id}">${x.type === 'group' ? `<span class="gav" style="background:${x.color};width:40px;height:40px;border-radius:12px">${esc(x.name[0])}</span><b>${esc(x.name)}</b>` : `${avatar(user(x.members.find(y => y !== u.id)), 40)}<b>${esc(user(x.members.find(y => y !== u.id)).name)}</b>`}</button>`).join('')}</div>`);
+      break;
+    }
+    case 'fwdto': {
+      const to = DB.chats.find(x => x.id === el.dataset.to); if (!to || !guard('msg', 'uzatish')) break;
+      closeSheet(); const r = await server({ t: 'fwd', msg: el.dataset.m, chat: to.id }, 'Uzatildi ↪️');
+      if (r.ok) { await sync(true); go('/c/' + to.id); } break;
+    }
+    case 'jump': {
+      if (CH.q) { CH.q = ''; CH.search = false; render(); }
+      const t = document.getElementById('m-' + el.dataset.m); if (!t) { toast('Bu xabar o‘chirilgan'); break; }
+      t.scrollIntoView({ block: 'center', behavior: 'smooth' }); t.classList.add('flash'); setTimeout(() => t.classList.remove('flash'), 1400); return;
+    }
+    case 'chatsearch': CH.search = !CH.search; CH.q = ''; render(); break;
+    case 'attach': sheet(`<h2>Biriktirish</h2><div class="stack" style="gap:8px">
+        <button class="btn ghost full" style="justify-content:flex-start" data-act="pickimg">📷 Rasm yuborish</button>
+        <button class="btn ghost full" style="justify-content:flex-start" data-act="newpoll" data-id="${id}">📊 So‘rovnoma</button>
+        <button class="btn ghost full" style="justify-content:flex-start" data-act="sendflappy" data-id="${id}">🐤 Flappy o‘yini</button></div>`); break;
+    case 'pickimg': closeSheet(); $('#img-file') && $('#img-file').click(); break;
+    case 'sendflappy': { closeSheet(); const i = $('#msg-in'); i.value = '@flappy'; i.form.requestSubmit(); break; }
+    case 'newpoll': sheet(`<h2>So‘rovnoma 📊</h2><form class="stack" data-form="poll" data-id="${id}">
+        <div class="field"><label for="pq">Savol</label><input class="inp" id="pq" required maxlength="200" placeholder="Masalan: Shanba qayerda uchrashamiz?"></div>
+        <div class="field"><span style="font-size:14px;font-weight:700">Variantlar</span>${[1, 2, 3, 4].map(i => `<input class="inp po" maxlength="80" ${i < 3 ? 'required' : ''} placeholder="${i}-variant${i > 2 ? ' (ixtiyoriy)' : ''}">`).join('')}</div>
+        <button class="btn acc full">Yuborish</button></form>`); break;
+    case 'vote': {
+      const c = DB.chats.find(x => x.id === el.dataset.c), m = c && c.msgs.find(x => x.id === el.dataset.m), i = +el.dataset.i; if (!m || m.tmp) break;
+      const had = m.poll.opts[i].v.includes(u.id);
+      m.poll.opts.forEach(o => o.v = o.v.filter(x => x !== u.id)); if (!had) m.poll.opts[i].v.push(u.id);
+      const y = window.scrollY; render(); window.scrollTo(0, y); server({ t: 'vote', msg: m.id, opt: i }); break;
+    }
+    case 'viewimg': { const m = DB.chats.find(x => x.id === el.dataset.c).msgs.find(x => x.id === el.dataset.m); sheet(`<img src="${esc(m.img)}" alt="Rasm" style="width:100%;border-radius:16px;display:block"><button class="btn ghost full" style="margin-top:10px" data-act="close-sheet-btn">Yopish</button>`); break; }
+    case 'delmsg': {
+      const c = DB.chats.find(x => x.id === el.dataset.c); if (!c) break;
+      const m = c.msgs.find(x => x.id === el.dataset.m); if (!m || !canDelMsg(c, m)) break;
+      if (!confirmInline(el, 'O‘chirilsinmi? ✓')) break;
+      c.msgs = c.msgs.filter(x => x.id !== m.id); if (c.pin === m.id) c.pin = null; closeSheet(); render(); if (!m.tmp) server({ t: 'delmsg', msg: m.id }, 'Xabar o‘chirildi'); break;
+    }
+    case 'stab': SEARCH_TAB = el.dataset.v; render(); break;
+    case 'fs': DB.fs = el.dataset.v; render(); break;
+    case 'dmfrom': { const r = await api('auth/me', { method: 'PATCH', body: { dmFrom: el.dataset.v } }); if (r.user) { SESSION = r.user; DB.sess = SESSION; toast('Saqlandi'); } else toast('Saqlab bo‘lmadi', true); render(); break; }
+    case 'notif': { const r = await api('auth/me', { method: 'PATCH', body: { notifOff: !(SESSION && SESSION.notifOff) } }); if (r.user) { SESSION = r.user; DB.sess = SESSION; } else toast('Saqlab bo‘lmadi', true); render(); break; }
+    case 'rr': { const r = await api('auth/me', { method: 'PATCH', body: { rrOff: !(SESSION && SESSION.rrOff) } }); if (r.user) { SESSION = r.user; DB.sess = SESSION; } else toast('Saqlab bo‘lmadi', true); render(); break; }
+    case 'sharelahzam': { const url = location.origin; try { if (navigator.share) await navigator.share({ title: 'Lahzam', text: 'Lahzam — Har lahza yoningizda! Qo‘shil:', url }); else { await navigator.clipboard.writeText(url); toast('Havola nusxalandi 💌'); } } catch (err) {} break; }
+    case 'lbtab': LB_TAB = el.dataset.v; render(); break;
+    case 'delupdate': {
+      if (!isAdmin() || !confirmInline(el, 'O‘chirilsinmi? Yana bosing')) break;
+      const r = await api('updates', { method: 'DELETE', body: { id: +id } });
+      if (r.status === 401) { ADM.verified = false; render(); break; }
+      if (!r.ok) { toast('O‘chirib bo‘lmadi', true); break; }
+      UPD.list = UPD.list.filter(x => x.id !== +id); toast('O‘chirildi'); render(); break;
+    }
+    case 'close-sheet-btn': closeSheet(); break;
+  }
+  save();
+});
+function confirmInline(el, msg) { if (el.dataset.sure) return true; el.dataset.sure = '1'; el.textContent = msg; setTimeout(() => delete el.dataset.sure, 4000); return false; }
+function loadQR(url) {
+  const drawQR = () => { const q = window.qrcode(0, 'M'); q.addData(url); q.make(); const box = $('#qr-box'); if (box) box.innerHTML = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }).replace('<svg', '<svg style="width:220px;height:220px" role="img" aria-label="Profil QR kodi"'); };
+  if (window.qrcode) return drawQR();
+  const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+  s.onload = drawQR; s.onerror = () => { const b = $('#qr-box'); if (b) b.textContent = 'QR kodni yuklab bo‘lmadi. Havolani nusxalang.'; };
+  document.head.appendChild(s);
+}
+
+document.addEventListener('submit', async e => {
+  const f = e.target.closest('[data-form]'); if (!f) return; e.preventDefault();
+  const kind = f.dataset.form, u = me();
+  if (kind === 'phrase') {
+    const ph1 = $('#ph1').value, ph2 = $('#ph2') ? $('#ph2').value : undefined, btn = f.querySelector('button.btn');
+    if (ph2 !== undefined && ph1 !== ph2) { $('#ph-hint').textContent = 'Ikkala fraza bir xil emas'; return; }
+    btn.disabled = true;
+    const r = await api('admin/2fa', { method: 'POST', body: { phrase: ph1, confirm: ph2 } });
+    btn.disabled = false;
+    if (!r.ok) { $('#ph-hint').textContent = r.message || 'Bo‘lmadi'; $('#ph1').value = ''; return; }
+    ADM = { checked: true, configured: true, verified: true }; render(); toast('Admin panel ochildi 🔓'); return;
+  }
+  if (kind === 'poll') {
+    const c = DB.chats.find(x => x.id === f.dataset.id); if (!c || !c.members.includes(u.id)) return;
+    const q = $('#pq').value.trim(), opts = [...f.querySelectorAll('.po')].map(i => i.value.trim()).filter(Boolean);
+    if (!q || opts.length < 2) { toast('Savol va kamida 2 ta variant yozing', true); return; }
+    if (!guard('msg', q)) return save();
+    c.msgs.push({ id: 'tmp' + uid(), tmp: true, uid: u.id, text: '', poll: { q, opts: opts.map(t => ({ t, v: [] })) }, t: now(), reacts: {} });
+    closeSheet(); render(); server({ t: 'msg', chat: c.id, poll: { q, opts } }); return;
+  }
+  if (kind === 'update') {
+    const btn = f.querySelector('button.btn'); btn.disabled = true;
+    const r = await api('updates', { method: 'POST', body: { title: $('#up-t').value, body: $('#up-b').value } });
+    btn.disabled = false;
+    if (r.status === 401) { ADM.verified = false; go('/musoojon'); return; }
+    if (!r.update) { toast(r.message || 'E‘lon qilib bo‘lmadi', true); return; }
+    UPD.list = [r.update, ...(UPD.list || [])]; render(); toast('E‘lon qilindi 🎉'); return;
+  }
+  if (kind === 'signup') {
+    const un = $('#un').value.trim(), nm = $('#nm').value.trim(), pw = $('#pw') ? $('#pw').value : '';
+    const btn = $('#su-btn'); btn.disabled = true;
+    const r = await api('auth/signup', { method: 'POST', body: { ticket: AUTH.ticket, username: un, name: nm, password: pw } });
+    if (!r.user) { btn.disabled = false; $('#su-hint').textContent = r.message || 'Ro‘yxatdan o‘tib bo‘lmadi'; if (r.error === 'ticket') { AUTH = { step: 'start' }; render(); } return; }
+    adoptSession(r.user); AUTH = { step: 'start' };
+    save(); go('/'); toast('Xush kelibsiz 👋 Har lahza yoningizda!'); sync(true); return;
+  }
+  if (kind === 'login') {
+    const r = await api('auth/login', { method: 'POST', body: { username: $('#lu').value.trim(), password: $('#lp').value } });
+    if (!r.user) { $('#li-hint').textContent = r.message || 'Kirib bo‘lmadi'; return; }
+    adoptSession(r.user); AUTH = { step: 'start' }; save(); go('/'); sync(true); return;
+  }
+  if (kind === 'post') {
+    const ta = $('#post-text'), text = ta.value, btn = f.querySelector('button.btn');
+    if (!guard('post', text)) return save();
+    btn.disabled = true;
+    const r = await server({ t: 'post', body: text.trim(), lahza: $('#post-lahza').checked });
+    btn.disabled = false;
+    if (r.ok) { ta.value = ''; await sync(true); render(); toast('Joylandi ✅'); }
+    return;
+  }
+  if (kind === 'reply') {
+    const p = DB.posts.find(x => x.id === f.dataset.id), ta = $('#reply-text'), text = ta.value; if (!p) return;
+    if (!guard('reply', text)) return save();
+    p.replies.push({ id: 'tmp' + uid(), uid: u.id, text: text.trim(), t: now() });
+    render(); server({ t: 'reply', post: p.id, body: text.trim() }); return;
+  }
+  if (kind === 'msg') {
+    const c = DB.chats.find(x => x.id === f.dataset.id), inp = $('#msg-in'), text = inp.value; if (!c) return;
+    if (CH.edit) {
+      const m = c.msgs.find(x => x.id === CH.edit); CH.edit = null;
+      if (m && m.uid === u.id && text.trim() && text.trim().length <= LIMIT.msg && m.text !== text.trim()) { m.text = text.trim(); m.edited = true; server({ t: 'edit', msg: m.id, body: m.text }, 'Tahrirlandi'); }
+      render(); return;
+    }
+    if (!c.members.includes(u.id)) { toast('Yozish uchun guruhga qo‘shiling', true); return; }
+    if (!guard('msg', text)) return save();
+    const game = /@flappy\b/i.test(text), replyTo = CH.reply && !String(CH.reply).startsWith('tmp') ? CH.reply : null;
+    c.msgs.push({ id: 'tmp' + uid(), tmp: true, uid: u.id, text: text.trim(), t: now(), reacts: {}, game, ...(replyTo ? { replyTo } : {}) });
+    CH.reply = null; inp.value = '';
+    render(); setTimeout(() => $('#msg-in') && $('#msg-in').focus(), 0);
+    server({ t: 'msg', chat: c.id, body: text.trim(), replyTo }); return;
+  }
+  if (kind === 'profile') {
+    const tg = u; if (!tg) return;
+    const name = $('#pn').value.trim() || tg.name, bio = $('#pb').value.trim();
+    const c = f.querySelector('input[name=pc]:checked'), color = c ? c.value : tg.color;
+    const btn = f.querySelector('button.btn.acc'); btn.disabled = true; btn.textContent = 'Saqlanmoqda…';
+    const body = { name, bio, color }; if (PHOTO !== undefined) body.photo = PHOTO || null;
+    const r = await api('auth/me', { method: 'PATCH', body });
+    if (!r.user) { btn.disabled = false; btn.textContent = 'Saqlash'; toast(r.message || 'Saqlab bo‘lmadi', true); return; }
+    SESSION = r.user; DB.sess = SESSION;
+    Object.assign(tg, { name, bio, color }); if (PHOTO !== undefined) tg.photo = PHOTO || null;
+    PHOTO = undefined;
+    closeSheet(); render(); toast('Saqlandi ✅'); sync(true); return;
+  }
+  if (kind === 'group') {
+    const name = $('#gn').value.trim(); if (!name) return;
+    const btn = f.querySelector('button.btn.acc'); btn.disabled = true;
+    const r = await server({ t: 'group', name, desc: $('#gd').value.trim(), cat: $('#gc').value, access: f.querySelector('.seg .on').dataset.v });
+    btn.disabled = false;
+    if (r.chat) { closeSheet(); await sync(true); go('/c/' + r.chat); }
+    return;
+  }
+});
+
+let PHOTO; // undefined: o'zgarmagan, null: olib tashlandi, string: yangi rasm
+document.addEventListener('change', async e => {
+  if (e.target.id === 'img-file') {
+    const file = e.target.files[0], f = e.target.form; e.target.value = ''; if (!file || !f) return;
+    if (!/^image\//.test(file.type)) { toast('Faqat rasm tanlang', true); return; }
+    const c = DB.chats.find(x => x.id === f.dataset.id), u = me(), cap = $('#msg-in').value.trim();
+    if (!guard('msg', cap || 'rasm')) return save();
+    let img; try { img = await compressImage(file); } catch (err) { toast('Rasmni ochib bo‘lmadi', true); return; }
+    const replyTo = CH.reply && !String(CH.reply).startsWith('tmp') ? CH.reply : null;
+    c.msgs.push({ id: 'tmp' + uid(), tmp: true, uid: u.id, text: cap, img, t: now(), reacts: {} });
+    CH.reply = null; $('#msg-in').value = ''; render(); toast('Rasm yuborilmoqda…');
+    const r = await server({ t: 'msg', chat: c.id, img, body: cap, replyTo });
+    if (r.ok) toast('Rasm yuborildi 📷'); return;
+  }
+  if (e.target.id !== 'ph-file') return;
+  const file = e.target.files[0]; if (!file) return;
+  if (!/^image\//.test(file.type)) { toast('Faqat rasm fayli tanlang', true); return; }
+  const url = URL.createObjectURL(file), img = new Image();
+  img.onload = () => {
+    const s = Math.min(img.width, img.height), c = document.createElement('canvas'); c.width = c.height = 256;
+    c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 256, 256);
+    PHOTO = c.toDataURL('image/jpeg', 0.82); URL.revokeObjectURL(url);
+    const pv = $('#ph-prev'); if (pv) pv.innerHTML = `<span class="av" style="width:64px;height:64px"><img src="${PHOTO}" alt="" style="width:100%;height:100%;object-fit:cover"></span>`;
+  };
+  img.onerror = () => toast('Rasmni ochib bo‘lmadi', true);
+  img.src = url;
+});
+
+SESSION = DB.sess || null;
+if (!SESSION) DB.me = null;
+render();
+api('auth/me').then(async r => {
+  if (r.status === 0) return; // internet yo'q: keshdagi holat qoladi
+  const before = DB.me; adoptSession(r.user || null); save();
+  if (isOwnerSession()) await refreshAdm();
+  if (DB.me !== before) render();
+  if (SESSION) await sync(true); else render();
+});
+// Jonli yangilanish: chat ochiq bo'lsa har 3 soniyada, boshqa sahifalarda har 8 soniyada yangi narsalar o'zi keladi
+setInterval(() => {
+  if (!SESSION || document.visibilityState !== 'visible') return;
+  const gap = route()[0] === 'chat' ? 3000 : 8000;
+  if (now() - SYNC.last >= gap - 200) sync();
+}, 1000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && SESSION) sync(); });
+addEventListener('online', () => SESSION && sync(true));
+loadUpdates().then(() => { if (!busy() && route()[0] !== 'chat') render(); });
+// Avtomatik yangilanish: yangi versiya chiqsa, telefon o'zi aniqlaydi va sahifani yangilaydi
+if ('serviceWorker' in navigator) addEventListener('load', () => {
+  const hadSW = !!navigator.serviceWorker.controller; let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadSW || reloading) return; reloading = true;
+    const go2 = () => location.reload();
+    if (busy()) { toast('Lahzam yangilandi ✨ Bir lahzada qayta yuklanadi'); setTimeout(go2, 2500); } else go2();
+  });
+  navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then(reg => {
+    const check = () => reg.update().catch(() => {});
+    setInterval(check, 60e3);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+  }).catch(() => {});
+});
+})();

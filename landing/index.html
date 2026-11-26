@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#FF5A1F">
+<title>Lahzam — Har lahza yoningizda!</title>
+<meta name="description" content="Lahzam: fikringizni yozing, guruhlarda gaplashing, do‘stlaringiz bilan shaxsiy suhbatlashing. Birinchi 50 kishiga umrbod “Asoschi” belgisi.">
+<meta property="og:title" content="Lahzam — Har lahza yoningizda!">
+<meta property="og:description" content="Fikrlar, guruhlar va shaxsiy suhbatlar bir joyda.">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Manrope:wght@800&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: confident, warm product launch for Uzbek audience
+   IDEA: the app's own "two floors" — orange public square on top, dark private chat below
+   PICTURE: a real phone showing the app's main screen with the dock
+   COLOUR and TYPE: Lahzam orange #FF5A1F, ink #121212, warm paper #F6F3EE; Unbounded titles, Instrument Sans body
+   LAYOUT: orange hero with phone, three feature bands, founder band in black, footer */
+:root{--acc:#FF5A1F;--ink:#121212;--paper:#F6F3EE;--mute:#5F5F5F;--gold:#E3B341}
+*{box-sizing:border-box;min-width:0}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 "Instrument Sans",system-ui,sans-serif;overflow-x:clip}
+a{color:inherit}
+:focus-visible{outline:3px solid #121212;outline-offset:3px;border-radius:10px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 max(5vw,18px)}
+nav.top{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+.brand{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:#fff}
+.brand b{font-family:Manrope,sans-serif;font-weight:800;font-size:26px;letter-spacing:-.045em}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:54px;padding:0 24px;border-radius:18px;font-weight:700;text-decoration:none;font-size:16px}
+.btn.white{background:#fff;color:var(--ink)}
+.btn.dark{background:var(--ink);color:#fff}
+.btn.line{border:2px solid rgba(255,255,255,.6);color:#fff}
+.hero{background:var(--acc);color:#fff;border-radius:0 0 48px 48px;padding-bottom:70px;overflow:hidden}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:40px;align-items:center;padding-top:30px}
+h1{font-family:Unbounded,sans-serif;font-weight:700;font-size:clamp(36px,5.2vw,64px);line-height:1.04;letter-spacing:-.035em;margin:0;text-wrap:balance}
+.lead{font-size:clamp(17px,1.6vw,20px);max-width:34ch;margin:20px 0 30px;opacity:.95}
+.ctas{display:flex;gap:12px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:8px;background:#121212;color:var(--gold);border-radius:999px;padding:7px 14px;font-family:Unbounded,sans-serif;font-size:12px;font-weight:700;margin-bottom:22px}
+.phone{width:min(330px,100%);aspect-ratio:9/18.5;margin:0 auto;background:#121212;border-radius:46px;padding:10px;box-shadow:0 40px 80px -30px rgba(0,0,0,.5);transform:rotate(3deg)}
+.screen{width:100%;height:100%;border-radius:38px;background:var(--paper);overflow:hidden;position:relative;color:var(--ink)}
+.s-top{background:var(--acc);padding:18px 14px 16px;border-radius:0 0 22px 22px;display:flex;justify-content:space-between;align-items:center;color:#fff}
+.s-card{background:#fff;border-radius:18px;margin:8px 8px 0;padding:11px;font-size:12px;line-height:1.45}
+.s-card b{font-size:12px}
+.s-row{display:flex;gap:6px;margin-top:8px}
+.s-pill{background:#F4F2EE;border-radius:999px;padding:4px 9px;font-weight:700;font-size:10.5px}
+.s-dock{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:#121212;color:#fff;border-radius:999px;padding:5px;display:flex;gap:6px;align-items:center;font-size:10px;font-weight:700}
+.s-dock span{padding:8px 11px;border-radius:999px}
+.s-dock .on{background:#fff;color:#111}
+.s-dock .plus{width:30px;height:30px;padding:0;border-radius:50%;background:var(--acc);display:flex;align-items:center;justify-content:center;font-size:18px}
+.band{padding:clamp(56px,8vw,110px) 0}
+h2{font-family:Unbounded,sans-serif;font-size:clamp(28px,3.6vw,44px);line-height:1.08;letter-spacing:-.025em;margin:0 0 14px;text-wrap:balance}
+.sub{color:var(--mute);max-width:56ch;margin:0}
+.feat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:40px}
+.f{background:#fff;border-radius:28px;padding:26px}
+.f h3{font-family:Unbounded,sans-serif;font-size:19px;margin:16px 0 8px;letter-spacing:-.01em}
+.f p{margin:0;color:var(--mute);font-size:16px}
+.ico{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center}
+.ico svg{width:26px;height:26px}
+.play{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;align-items:center}
+.chat{background:#121212;border-radius:32px;padding:22px;color:#fff;display:flex;flex-direction:column;gap:10px}
+.m{max-width:80%;padding:10px 14px;border-radius:18px;font-size:15px}
+.m.in{background:#262626;align-self:flex-start;border-bottom-left-radius:6px}
+.m.out{background:var(--acc);align-self:flex-end;border-bottom-right-radius:6px}
+.sys{align-self:center;background:#2a2a2a;border-radius:999px;padding:7px 14px;font-size:13px;font-weight:700}
+.game{display:flex;align-items:center;gap:12px;background:#1d1d1d;border:1px solid #333;border-radius:18px;padding:12px;align-self:flex-start}
+.founder{background:#121212;color:#fff;border-radius:40px;padding:clamp(34px,5vw,64px);display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.7fr);gap:30px;align-items:center}
+.founder h2{color:#fff}
+.founder .sub{color:#cfcfcf}
+.badge-big{font-family:Unbounded,sans-serif;font-weight:700;color:var(--gold);background:#000;border:1px solid #3a3122;border-radius:999px;padding:14px 26px;font-size:clamp(22px,3vw,34px);justify-self:center}
+.meter{height:12px;background:#2a2a2a;border-radius:99px;overflow:hidden;margin:22px 0 8px;max-width:420px}
+.meter i{display:block;height:100%;width:14%;background:var(--gold);border-radius:99px}
+footer{padding:40px 0 60px;color:var(--mute);font-size:15px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-top:1px solid #E5E0D6}
+@media(max-width:860px){.hero-grid,.play,.founder{grid-template-columns:minmax(0,1fr)}.feat{grid-template-columns:minmax(0,1fr)}.phone{transform:none;max-width:300px}}
+@media(prefers-reduced-motion:no-preference){.phone{transition:transform .6s ease}.phone:hover{transform:rotate(0deg) translateY(-6px)}}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <nav class="top" aria-label="Asosiy">
+      <a class="brand" href="/" aria-label="Lahzam">
+        <svg viewBox="0 0 100 100" width="34" height="34" aria-hidden="true"><path d="M14 12a8 8 0 0 1 8-8h14a8 8 0 0 1 8 8v46h34a8 8 0 0 1 8 8v14a8 8 0 0 1-8 8H30L14 98z" fill="#fff"/><circle cx="72" cy="30" r="13" fill="#121212"/></svg><b>lahzam</b>
+      </a>
+      <a class="btn white" data-app="/kirish" href="#" style="height:46px">Kirish</a>
+    </nav>
+    <div class="hero-grid">
+      <div>
+        <span class="chip">Birinchi 50 kishiga · Asoschi</span>
+        <h1>Har lahza yoningizda!</h1>
+        <p class="lead">Lahzam — o‘zbekcha ijtimoiy tarmoq. Fikrlar, guruhlar va shaxsiy suhbatlar bir joyda: ochiq maydonda fikringizni yozing, guruhlarda gaplashing, do‘stlaringiz bilan shaxsiy suhbatlashing.</p>
+        <div class="ctas">
+          <a class="btn dark" data-app="/kirish" href="#">Bepul qo‘shilish</a>
+          <a class="btn line" href="#imkoniyatlar">Nimasi bor?</a>
+        </div>
+      </div>
+      <div aria-hidden="true">
+        <div class="phone"><div class="screen">
+          <div class="s-top"><span style="font-family:Manrope;font-weight:800;font-size:17px;letter-spacing:-.04em">lahzam</span><span style="display:flex;gap:6px"><i style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.25)"></i><i style="width:28px;height:28px;border-radius:50%;background:#FFD9C7;border:2px solid #fff"></i></span></div>
+          <div class="s-card"><b>Jasur</b> <span style="color:#777">· 4 daq</span><div>O‘zbekistonda eng ko‘p vaqtni nimaga yo‘qotamiz? Menimcha metan navbatiga.</div><div class="s-row"><span class="s-pill" style="color:#D61F52">♥ 214</span><span class="s-pill">18 javob</span></div></div>
+          <div class="s-card"><b>Aziza</b> <span style="color:#777">· 40 daq</span><div>Kitob tavsiya qiling: qishda o‘qish uchun issiq, sokin roman. <b style="color:#C2410C">#kitob</b></div><div class="s-row"><span class="s-pill">♥ 96</span><span class="s-pill">22 javob</span></div></div>
+          <div class="s-card"><b>Bekzod</b> <span style="color:#777">· 3 soat</span><div>Do‘konimga birinchi onlayn buyurtma keldi. Alhamdulillah.</div></div>
+          <div class="s-dock"><span class="plus">+</span><span class="on">Ochiq</span><span>Guruhlar</span><span>Shaxsiy</span></div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="band" id="imkoniyatlar"><div class="wrap">
+    <h2>Uchta joy — har biri o‘z vaqti uchun</h2>
+    <p class="sub">Lahzam cheksiz lentaga emas, suhbatga qurilgan. Kerakli joyga bir bosishda o‘tasiz.</p>
+    <div class="feat">
+      <article class="f"><div class="ico" style="background:#FFE6DC"><svg viewBox="0 0 24 24" fill="none" stroke="#C2410C" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg></div>
+        <h3>Ochiq maydon</h3><p>500 belgigacha qisqa fikr, javoblar, layklar va ko‘rishlar soni. “Lahza” postlar 24 soatda o‘zi o‘chadi.</p></article>
+      <article class="f"><div class="ico" style="background:#E3F4EC"><svg viewBox="0 0 24 24" fill="none" stroke="#0F7A5A" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.8-3.4 3.2-5.2 6-5.2s5.2 1.8 6 5.2M16 5.3a3 3 0 0 1 0 5.6M18 14.9c1.6.7 2.6 2.4 3 5.1"/></svg></div>
+        <h3>Guruhlar</h3><p>Ochiq, ruxsatli yoki yopiq guruhlar. Reaksiyalar, “⭐ Foydali” javoblar va katalog orqali yangi jamoalar.</p></article>
+      <article class="f"><div class="ico" style="background:#E7EEFF"><svg viewBox="0 0 24 24" fill="none" stroke="#2D5BFF" stroke-width="2" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.7-4.9A8 8 0 1 1 21 12z"/></svg></div>
+        <h3>Shaxsiy suhbat</h3><p>Do‘stlaringiz bilan yuzma-yuz suhbat. Postni bir bosishda chatga yuborasiz.</p></article>
+    </div>
+  </div></section>
+
+  <section class="band" style="padding-top:0"><div class="wrap play">
+    <div>
+      <h2>Chatda <span style="color:var(--acc)">@flappy</span> deb yozing</h2>
+      <p class="sub">Har qanday guruh yoki shaxsiy chatda mini o‘yin ochiladi. Eng yaxshi natija o‘sha chatga rekord bo‘lib yoziladi — do‘stlaringiz uni yangilashga harakat qiladi.</p>
+    </div>
+    <div class="chat" aria-label="Chat namunasi">
+      <div class="m in"><b style="display:block;font-size:12px;color:#FF9A78">Aziza</b>Kim o‘ynaydi?</div>
+      <div class="m out">@flappy</div>
+      <div class="game"><svg viewBox="0 0 64 64" width="44" height="44" aria-hidden="true"><ellipse cx="30" cy="34" rx="22" ry="19" fill="#FFC531"/><ellipse cx="24" cy="40" rx="11" ry="7" fill="#FFE08A"/><circle cx="38" cy="27" r="7" fill="#fff"/><circle cx="40" cy="27" r="3.2" fill="#121212"/><path d="M49 33l12 3-12 4z" fill="#FF5A1F"/></svg><div><b>Flappy</b><div style="font-size:13px;color:#bbb">Rekord: 24 · @musoxon</div></div></div>
+      <div class="sys">@aziza dan rekord 25 ta! 🏆</div>
+    </div>
+  </div></section>
+
+  <section class="band" style="padding-top:0"><div class="wrap">
+    <div class="founder">
+      <div>
+        <h2>Birinchi 50 kishi — umrbod Asoschi</h2>
+        <p class="sub">Lahzamga eng birinchi qo‘shilgan 50 kishining profilida doimiy “Asoschi” belgisi turadi. Bu belgini keyin hech kim ola olmaydi.</p>
+        <div class="meter" role="img" aria-label="Asoschi o‘rinlari to‘lmoqda"><i></i></div>
+        <p style="margin:0 0 22px;color:#cfcfcf;font-size:15px">O‘rinlar to‘lmoqda</p>
+        <a class="btn white" data-app="/kirish" href="#">O‘rnimni egallash</a>
+      </div>
+      <span class="badge-big">Asoschi</span>
+    </div>
+  </div></section>
+
+  <section class="band" style="padding-top:0"><div class="wrap">
+    <h2>Toza va xavfsiz</h2>
+    <p class="sub">Spamga qarshi himoya ilk kundan ishlaydi: juda tez yozganlarga “Shoshmang 🙂”, davom etsa 15 daqiqalik hordiq. Shikoyat qilingan postlarni moderatorlar ko‘rib chiqadi.</p>
+  </div></section>
+</main>
+
+<div class="wrap"><footer>
+  <span>© 2026 Lahzam — Har lahza yoningizda!</span>
+  <span><a data-app="/" href="#">Ilovani ochish</a></span>
+</footer></div>
+
+<script>
+{
+  // Ilova alohida manzilda: lahzam.uz → app.lahzam.uz, hozircha Vercel domeni
+  const APP_URL = 'https://lahzam-app.vercel.app';
+  for (const a of document.querySelectorAll('[data-app]')) a.href = APP_URL + a.dataset.app;
+}
+</script>
+</body>
+</html>
