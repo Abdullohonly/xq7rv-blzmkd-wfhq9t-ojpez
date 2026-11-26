@@ -66,7 +66,12 @@ export default async function handler(req, res) {
       case 'like': {
         const pid = idOf(b.post, 'p'); if (!pid) return bad(res, 'post');
         const del = await db`delete from post_likes where post_id = ${pid} and user_id = ${uid} returning post_id`;
-        if (!del.length) await db`insert into post_likes (post_id, user_id) select id, ${uid} from posts where id = ${pid} on conflict do nothing`;
+        if (!del.length) {
+          const [p] = await db`insert into post_likes (post_id, user_id) select id, ${uid} from posts where id = ${pid} on conflict do nothing returning (select user_id from posts where id = ${pid}) as owner`;
+          const body = `@${me.username} postingizni yoqtirdi ❤️`, link = `/p/${pid}`;
+          // bir odam layk bosib-o'chirib qayta bossa, bildirishnoma takrorlanmaydi
+          if (p && Number(p.owner) !== uid) { const [ex] = await db`select 1 from notifications where user_id = ${p.owner} and body = ${body} and link = ${link}`; if (!ex) await notify(db, Number(p.owner), body, link, uid); }
+        }
         return send(res, 200, { ok: true });
       }
       case 'views': {
@@ -201,15 +206,12 @@ export default async function handler(req, res) {
           if (!body && !img && !poll) return bad(res, 'Avval biror narsa yozing');
           game = !poll && !img && /@flappy\b/i.test(body);
           const rt = idOf(b.replyTo, 'm');
-          if (rt) { const [r] = await db`select id, user_id from messages where id = ${rt} and chat_id = ${cid}`; if (r) { replyTo = Number(r.id); await notify(db, Number(r.user_id), `@${me.username} xabaringizga javob berdi`, `/c/c${cid}`, uid); } }
+          if (rt) { const [r] = await db`select id, user_id from messages where id = ${rt} and chat_id = ${cid}`; if (r) replyTo = Number(r.id); }
         }
         const [m] = await db`insert into messages (chat_id, user_id, body, is_game, reply_to, img, poll, fwd_user)
           values (${cid}, ${uid}, ${body}, ${game}, ${replyTo}, ${img}, ${poll ? JSON.stringify(poll) : null}::jsonb, ${fwd}) returning id`;
         await db`update chat_members set last_read = now() where chat_id = ${cid} and user_id = ${uid}`;
-        if (body && t === 'msg') {
-          const mem = (await db`select user_id from chat_members where chat_id = ${cid} and status = 'member'`).map(r => Number(r.user_id));
-          await notifyMentions(db, body, uid, me.username, c.kind === 'group' ? `“${c.name}” guruhida` : 'chatda', `/c/c${cid}`, mem);
-        }
+        // chat xabarlari bildirishnomaga tushmaydi (bildirishnomalar faqat Ochiq maydondan)
         return send(res, 200, { ok: true, id: 'm' + m.id });
       }
       case 'edit': {
@@ -264,8 +266,6 @@ export default async function handler(req, res) {
         const up = await db`update chats set flappy_score = ${score}, flappy_user = ${uid} where id = ${cid} and coalesce(flappy_score, 0) < ${score} returning id`;
         if (up.length) {
           await db`insert into messages (chat_id, user_id, body, is_sys) values (${cid}, null, ${'@' + me.username + ' dan rekord ' + score + ' ta!'}, true)`;
-          const mem = await db`select user_id from chat_members where chat_id = ${cid} and status = 'member' and user_id <> ${uid}`;
-          for (const r of mem) await notify(db, Number(r.user_id), `@${me.username} ${c.kind === 'group' ? '“' + c.name + '” guruhida' : 'chatingizda'} Flappy rekordini yangiladi: ${score}`, `/c/c${cid}`, uid);
         }
         return send(res, 200, { ok: true, record: up.length > 0 });
       }

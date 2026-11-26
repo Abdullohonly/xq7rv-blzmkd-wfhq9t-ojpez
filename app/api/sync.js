@@ -37,7 +37,7 @@ export default async function handler(req, res) {
       db`select m.chat_id, m.user_id, m.status, m.last_read from chat_members m
          join chats c on c.id = m.chat_id
          where exists(select 1 from chat_members x where x.chat_id = c.id and x.user_id = ${uid}) or (c.kind = 'group' and c.access in ('open', 'ask'))`,
-      db`select id, body, link, is_read, created_at from notifications where user_id = ${uid} order by created_at desc limit 60`,
+      db`select id, body, link, is_read, created_at from notifications where user_id = ${uid} and link not like '/c/%' order by created_at desc limit 60`,
       db`select m.user_id as receiver,
            count(distinct r.user_id)::int as total,
            count(distinct r.user_id) filter (where m.created_at > now() - interval '7 days')::int as week
