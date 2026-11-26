@@ -212,7 +212,7 @@ function guard(kind, text) {
 
 /* ---------------- router ---------------- */
 const app = $('#app');
-function go(path, replace) { if (replace) history.replaceState({}, '', path); else history.pushState({}, '', path); render(); window.scrollTo(0, 0); }
+function go(path, replace) { if (typeof quietUpdate === 'function' && !replace && quietUpdate(path)) return; if (replace) history.replaceState({}, '', path); else history.pushState({}, '', path); render(); window.scrollTo(0, 0); }
 window.addEventListener('popstate', render);
 function route() {
   const p = decodeURI(location.pathname).replace(/\/+$/, '') || '/';
@@ -1291,21 +1291,21 @@ async function checkBuild() {
   if (buildReload) return;
   const r = await api('auth/config'); if (!r.ok || !r.build) return;
   if (!BUILD) { BUILD = r.build; return; }
-  if (r.build !== BUILD) {
-    buildReload = true;
-    const doReload = () => { if (busy()) return setTimeout(doReload, 3000); location.reload(); };
-    toast('Lahzam yangilandi ✨ Bir lahzada qayta yuklanadi'); setTimeout(doReload, 1500);
-  }
+  if (r.build !== BUILD) buildReload = true; // jimgina: keyingi sahifa almashishida yoki ilovaga qaytganda yangilanadi
+}
+// Yangi versiya tayyor bo'lsa: chatda emas, yozmayotgan paytda, sezdirmasdan yuklaymiz
+function quietUpdate(path) {
+  if (!buildReload || busy() || (route()[0] === 'chat' && !path)) return false;
+  buildReload = false; if (path) location.href = path; else location.reload(); return true;
 }
 checkBuild(); setInterval(() => document.visibilityState === 'visible' && checkBuild(), 60e3);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkBuild(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') quietUpdate(); else checkBuild(); });
 // Avtomatik yangilanish: yangi versiya chiqsa, telefon o'zi aniqlaydi va sahifani yangilaydi
 if ('serviceWorker' in navigator) addEventListener('load', () => {
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadSW || reloading) return; reloading = true;
-    const go2 = () => location.reload();
-    if (busy()) { toast('Lahzam yangilandi ✨ Bir lahzada qayta yuklanadi'); setTimeout(go2, 2500); } else go2();
+    buildReload = true; // yangi servis-worker: sezdirmasdan, keyingi sahifa almashishida yangilanadi
   });
   navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then(reg => {
     const check = () => reg.update().catch(() => {});
