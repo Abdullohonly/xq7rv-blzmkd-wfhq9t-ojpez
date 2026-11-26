@@ -428,24 +428,33 @@ function checkUsername(v) {
   if ((RESERVED.includes(v) || v === 'flappy') && !(v === 'musoxon' && AUTH.owner)) return [`@${v} band ❌`, false];
   return [`@${v} bo‘sh ✅`, true];
 }
-let GCFG;
+let GCFG; try { GCFG = localStorage.getItem('lahzam_gcid') || undefined; } catch (e) {}
+// Google skriptini oldindan yuklash (kirish sahifasida tugma darhol chiqishi uchun)
+function loadGsi(cb) {
+  if (window.google && google.accounts) return cb && cb();
+  let sc = document.getElementById('gsi');
+  if (!sc) { sc = document.createElement('script'); sc.id = 'gsi'; sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true; document.head.appendChild(sc); }
+  if (cb) { sc.addEventListener('load', cb); sc.addEventListener('error', () => { const b = $('#gbtn'); if (b) b.innerHTML = '<p class="hint bad" style="text-align:center">Google yuklanmadi. Internetni tekshirib, sahifani yangilang.</p>'; }); }
+}
 async function initGoogle() {
   const box = $('#gbtn'); if (!box) return;
-  if (GCFG === undefined) { const r = await api('auth/config'); GCFG = r.ok ? r.googleClientId : null; }
+  if (GCFG === undefined) { const r = await api('auth/config'); GCFG = r.ok ? r.googleClientId : null; try { if (GCFG) localStorage.setItem('lahzam_gcid', GCFG); } catch (e) {} }
   if (!$('#gbtn')) return;
   if (!GCFG) { box.innerHTML = '<p class="muted" style="margin:0;text-align:center">Google bilan kirish sozlanmoqda, tez orada ishga tushadi.</p>'; return; }
   const draw = () => {
     const b = $('#gbtn'); if (!b || !window.google || !google.accounts) return;
-    google.accounts.id.initialize({ client_id: GCFG, callback: onGoogle, ux_mode: 'popup', context: 'signin', itp_support: true });
+    // auto_select: avval kirgan odam tugma bosmasdan kiradi; yangi odamga bir bosishli oyna chiqadi
+    google.accounts.id.initialize({ client_id: GCFG, callback: onGoogle, ux_mode: 'popup', context: 'signin', itp_support: true, auto_select: !noAuto(), cancel_on_tap_outside: false, use_fedcm_for_prompt: true });
     b.innerHTML = '';
     google.accounts.id.renderButton(b, { theme: 'filled_black', size: 'large', shape: 'pill', text: 'continue_with', logo_alignment: 'center', width: Math.min(360, b.clientWidth || 320), locale: 'uz' });
+    try { google.accounts.id.prompt(); } catch (e) {}
   };
-  if (window.google && google.accounts) return draw();
-  if (!document.getElementById('gsi')) { const sc = document.createElement('script'); sc.id = 'gsi'; sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true; sc.onload = draw; sc.onerror = () => { const b = $('#gbtn'); if (b) b.innerHTML = '<p class="hint bad" style="text-align:center">Google yuklanmadi. Internetni tekshirib, sahifani yangilang.</p>'; }; document.head.appendChild(sc); }
+  loadGsi(draw);
 }
+const noAuto = () => { try { return localStorage.getItem('lahzam_noauto') === '1'; } catch (e) { return false; } };
 async function onGoogle(resp) {
   const r = await api('auth/google', { method: 'POST', body: { credential: resp.credential } });
-  if (r.user) { adoptSession(r.user); AUTH = { step: 'start' }; save(); go('/'); toast(`Xush kelibsiz, ${r.user.name.split(' ')[0]} 👋`); if (isOwnerSession()) refreshAdm(); sync(true); return; }
+  if (r.user) { try { localStorage.removeItem('lahzam_noauto'); } catch (e) {} adoptSession(r.user); AUTH = { step: 'start' }; save(); go('/'); toast(`Xush kelibsiz, ${r.user.name.split(' ')[0]} 👋`); if (isOwnerSession()) refreshAdm(); sync(true); return; }
   if (r.needsSignup) { AUTH = { step: 'username', ticket: r.ticket, email: r.email, name: r.name, owner: r.owner }; render(); return; }
   toast(r.message || 'Kirib bo‘lmadi', true);
 }
@@ -960,7 +969,7 @@ document.addEventListener('click', async e => {
       loadQR(url); break;
     }
     case 'theme': DB.theme = DB.theme === 'dark' ? 'light' : 'dark'; render(); break;
-    case 'logout': await api('auth/me', { method: 'DELETE' }); ADM = { checked: false, configured: false, verified: false }; adoptSession(null); AUTH = { step: 'start' }; save(); go('/kirish'); break;
+    case 'logout': try { localStorage.setItem('lahzam_noauto', '1'); window.google && google.accounts && google.accounts.id.disableAutoSelect(); } catch (e) {} await api('auth/me', { method: 'DELETE' }); ADM = { checked: false, configured: false, verified: false }; adoptSession(null); AUTH = { step: 'start' }; save(); go('/kirish'); break;
     case 'reset': { const keep = DB; DB = Object.assign(fresh(keep), { me: keep.me, sess: keep.sess, users: keep.users.filter(x => x.id === keep.me) }); SYNC.sig = ''; save(); toast('Yangilanmoqda…'); await sync(true); render(); break; }
     case 'newgroup': sheet(`<h2>Yangi guruh</h2><form class="stack" data-form="group">
       <div class="field"><label for="gn">Nomi</label><input class="inp" id="gn" required maxlength="40" placeholder="Masalan: SAT tayyorgarlik"></div>
@@ -1257,7 +1266,7 @@ document.addEventListener('change', async e => {
 });
 
 SESSION = DB.sess || null;
-if (!SESSION) DB.me = null;
+if (!SESSION) { DB.me = null; loadGsi(); }
 render();
 api('auth/me').then(async r => {
   if (r.status === 0) return; // internet yo'q: keshdagi holat qoladi
