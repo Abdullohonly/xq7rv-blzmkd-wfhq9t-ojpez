@@ -1,8 +1,8 @@
-/* Lahzam v1.0.1 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.0.2 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.0.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.0.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { post: 500, reply: 300, msg: 2000 };
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
@@ -710,7 +710,7 @@ after.search = () => {
 function notifs() {
   const u = me(), list = DB.notifs.filter(n => n.to === u.id).sort((a, b) => b.t - a.t);
   const html = `<div class="shell">${backBar('Bildirishnomalar', `${list.filter(n => !n.read).length} ta yangi`)}
-  <div class="pad"><div class="card" style="padding:4px 16px">${list.map(n => `<a href="${esc(n.link)}" data-link class="li" style="${n.read ? '' : 'font-weight:600'}"><span style="flex:1">${linkify(n.text)}<span class="muted" style="display:block">${ago(n.t)}</span></span>${n.read ? '' : '<span class="dot" style="min-width:10px;height:10px;padding:0"></span>'}</a>`).join('') || '<p class="muted">Hozircha bildirishnoma yo‘q. Sizni belgilashsa yoki javob yozishsa, shu yerda chiqadi.</p>'}</div></div></div>`;
+  <div class="pad"><div class="card" style="padding:4px 16px">${list.map(n => `<a href="${esc(n.link)}" data-link class="li" style="${n.read ? '' : 'font-weight:600'}"><span style="flex:1">${esc(n.text).replace(/(^|[^\w/])@([a-z0-9._]{3,20})/gi, '$1<b>@$2</b>')}<span class="muted" style="display:block">${ago(n.t)}</span></span>${n.read ? '' : '<span class="dot" style="min-width:10px;height:10px;padding:0"></span>'}</a>`).join('') || '<p class="muted">Hozircha bildirishnoma yo‘q. Sizni belgilashsa yoki javob yozishsa, shu yerda chiqadi.</p>'}</div></div></div>`;
   if (list.some(n => !n.read)) { list.forEach(n => n.read = true); api('act', { method: 'POST', body: { t: 'notifread' } }); }
   return html;
 }
