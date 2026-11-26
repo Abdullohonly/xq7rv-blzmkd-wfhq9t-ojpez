@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { sql, currentUser, isOwnerEmail, hasAdminPass, send } from './_lib.js';
+import { sql, currentUser, isOwnerEmail, hasAdminPass, send, OWNER_EMAIL } from './_lib.js';
 // GET /api/sync — ilova uchun hamma umumiy ma'lumot bitta so'rovda: odamlar, postlar, guruhlar, chatlar, bildirishnomalar
 // Rasmlar bu yerga kirmaydi (og'ir): ular /api/img orqali alohida, keshlanib yuklanadi
 const ms = t => new Date(t).getTime();
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     // onlayn holat: har sync'da "oxirgi marta ko'rildi" yangilanadi (10 soniyada bir martadan ko'p emas)
     const seenQ = db`update users set last_seen = now() where id = ${uid} and (last_seen is null or last_seen < now() - interval '10 seconds')`;
     const [users, follows, posts, likes, replies, myReports, chats, members, notifs, stars] = await Promise.all([
-      db`select id, username, name, bio, color, is_system, is_blocked, created_at, dm_from, rr_off, warns,
+      db`select id, username, name, bio, color, is_system, is_blocked, created_at, dm_from, rr_off, warns, lower(email) = ${OWNER_EMAIL} as is_owner,
            case when photo is null then null else substr(md5(photo), 1, 10) end as ph,
            coalesce(last_seen > now() - interval '45 seconds', false) as online, (extract(epoch from date_trunc('minute', last_seen)) * 1000)::bigint as ls
          from users order by id limit 2000`,
@@ -95,6 +95,7 @@ export default async function handler(req, res) {
       users: users.filter(u => !u.is_blocked || admin || Number(u.id) === uid).map(u => ({
         id: Number(u.id), u: u.username, name: u.name, bio: u.bio, color: u.color, system: u.is_system || undefined,
         blocked: u.is_blocked || undefined, joined: ms(u.created_at), photo: photoUrl(u.id, u.ph),
+        owner: u.is_owner || undefined,
         on: u.online && Number(u.id) !== uid || undefined, ls: u.ls ? Number(u.ls) : undefined,
         dmFrom: u.dm_from === 'fol' ? 'fol' : undefined, rrOff: u.rr_off || undefined, warns: admin ? u.warns : undefined
       })),

@@ -1,8 +1,8 @@
-/* Lahzam v1.1.3 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.1.4 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.1.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.1.4'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { post: 500, reply: 300, msg: 2000 };
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
@@ -164,6 +164,9 @@ function NI(name, on = false, size = 22) {
   };
   return `<svg class="ni${on ? ' on' : ''}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true">${P[name]}</svg>`;
 }
+const THEME_ICO = () => DB.theme === 'dark'
+  ? '<svg class="ni" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="4.6" fill="#FFC531"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>'
+  : '<svg class="ni" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="17.5" cy="5.5" r="1.8" fill="#FF5A1F"/></svg>';
 const I = {
   back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>',
   search: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
@@ -289,9 +292,10 @@ function deskShell(name, html) {
         ${L('/reyting', NI('trophy', name === 'leaders'), 'Reyting', name === 'leaders')}
         ${L('/yangiliklar', NI('updates', name === 'updates'), 'Lahzam Updates', name === 'updates', nu)}
         ${L('/sozlamalar', NI('gear', name === 'settings'), 'Sozlamalar', name === 'settings')}
+        <button class="snav" style="width:100%;border:0;background:none;cursor:pointer" data-act="theme">${THEME_ICO().replace('width="20" height="20"', 'width="22" height="22"')}<span>${DB.theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}</span></button>
       </nav>
       <button class="btn acc full" style="border-radius:999px;margin-top:14px" data-act="compose">+ Yangi post</button>
-      <a href="/@${esc(u.u)}" data-link class="side-me">${avatar(u, 42)}<span style="min-width:0"><b>${esc(u.name)}</b><span class="muted" style="display:block">@${esc(u.u)}</span></span></a>
+      <a href="/@${esc(u.u)}" data-link class="side-me">${avatar(u, 42)}<span style="min-width:0"><b>${NM(u)}</b><span class="muted" style="display:block">@${esc(u.u)}</span></span></a>
       <p class="muted side-ver">Lahzam v${VERSION}</p>
     </aside>
     <main class="center">${html}</main>
@@ -327,6 +331,7 @@ function header(extra = '', deskTitle = '') {
   return `<header class="top"><div class="top-row">
     <a href="/" data-link class="brand" aria-label="Lahzam bosh sahifa">${I.logo()}<b>lahzam</b></a>${deskTitle ? `<b class="desk-title">${deskTitle}</b>` : ''}
     <div class="row" style="gap:6px">
+      <button class="ibtn" data-act="theme" aria-label="${DB.theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}">${THEME_ICO()}</button>
       <a href="/reyting" data-link class="ibtn" aria-label="Foydali reytingi">${NI('trophy', false, 20)}</a>
       <a href="/qidiruv" data-link class="ibtn" aria-label="Qidirish">${NI('search', false, 20)}</a>
       <a href="/bildirishnomalar" data-link class="ibtn" aria-label="Bildirishnomalar${n ? ', ' + n + ' ta yangi' : ''}">${NI('bell', false, 20)}${n ? `<span class="badge">${n > 99 ? '99+' : n}</span>` : ''}</a>
@@ -346,7 +351,7 @@ function postCard(p, full) {
   return `<article class="card stack" data-post="${p.id}" style="gap:8px">
     <div class="row" style="justify-content:space-between">
       <a href="/@${esc(a.u)}" data-link class="row" style="text-decoration:none;gap:10px">${avatar(a, 42)}
-        <div><div class="name" style="font-size:15px">${esc(a.name)}${founderPill(a)}</div><div class="muted">@${esc(a.u)} · ${ago(p.t)}${p.lahza ? ' · <span class="lahza">Lahza · 24 soat</span>' : ''}</div></div></a>
+        <div><div class="name" style="font-size:15px">${NM(a)}${founderPill(a)}</div><div class="muted">@${esc(a.u)} · ${ago(p.t)}${p.lahza ? ' · <span class="lahza">Lahza · 24 soat</span>' : ''}</div></div></a>
       <button class="ibtn dark" style="width:38px;height:38px" data-act="postmenu" data-id="${p.id}" aria-label="Ko‘proq">${I.dots}</button>
     </div>
     ${p.text ? `<p class="txt ${long ? 'clamp' : ''}" style="${full ? 'font-size:19px' : ''}">${linkify(p.text)}</p>` : ''}
@@ -500,6 +505,8 @@ after.auth = () => {
 };
 
 /* groups & dms */
+// Owner ismi hamma joyda aylanadigan tilla ramkada
+const NM = (x, big) => !x ? '' : x.owner ? `<span class="ntag${big ? ' big' : ''}"><span class="in"><span class="gtx">${esc(x.name)}</span></span></span>` : esc(x.name);
 const isSaved = c => c && c.type === 'dm' && c.members.length === 1;
 const peer = (c, u) => user(c.members.find(x => x !== u.id)) || { name: 'O‘chirilgan', u: 'deleted', color: '#ccc' };
 const savedAv = (s = 50) => `<span class="gav saved-av" style="width:${s}px;height:${s}px;border-radius:${Math.round(s * .3)}px">${NI('saved', true, Math.round(s * .55))}</span>`;
@@ -513,7 +520,7 @@ function chatRow(c) {
   let title, av;
   if (c.type === 'group') { title = esc(c.name); av = `<span class="gav" style="background:${c.color}">${esc(c.name[0])}</span>`; }
   else if (isSaved(c)) { title = 'Saqlangan xabarlar'; av = savedAv(50); }
-  else { const o = peer(c, u); title = esc(o.name); av = `<span class="avw${o.on ? ' online' : ''}">${avatar(o, 50)}</span>`; }
+  else { const o = peer(c, u); title = NM(o); av = `<span class="avw${o.on ? ' online' : ''}">${avatar(o, 50)}</span>`; }
   const ty = typingText(c);
   const lastTxt = ty ? `<span class="typing">${ty}</span>` : last ? (last.sys ? esc(last.text) : (c.type === 'group' && user(last.uid) ? esc(user(last.uid).name.split(' ')[0]) + ': ' : '') + esc(msgPreview(last))) : 'Hali xabar yo‘q';
   return `<a href="/c/${c.id}" data-link class="li">${av}<span style="flex:1;min-width:0"><span class="row" style="justify-content:space-between"><b>${title}</b><span class="muted">${last ? ago(last.t) : ''}</span></span>
@@ -586,7 +593,7 @@ function msgHtml(c, m) {
   const rd = mine && !isSaved(c) ? readersOf(c, m).length : 0;
   const meta = `<span class="mt">${m.edited ? 'tahrirlandi · ' : ''}${clock(m.t)}${mine && !isSaved(c) ? (m.tmp ? '<i class="tick">🕓</i>' : `<i class="tick${rd ? ' read' : ''}" aria-label="${rd ? 'O‘qildi' : 'Yetkazildi'}">✓✓</i>`) : ''}</span>`;
   const hit = CH.q && m.text && m.text.toLowerCase().includes(CH.q) ? ' hit' : '';
-  return `<div class="m ${mine ? 'out' : 'in'}${hit}${stk ? ' stkm' : ''}" data-msg="${m.id}" id="m-${m.id}">${c.type === 'group' && !mine ? `<a class="who" href="/@${esc(a.u)}" data-link style="text-decoration:none">${esc(a.name)}</a>` : ''}${fwd}${quote}${body}
+  return `<div class="m ${mine ? 'out' : 'in'}${hit}${stk ? ' stkm' : ''}" data-msg="${m.id}" id="m-${m.id}">${c.type === 'group' && !mine ? `<a class="who" href="/@${esc(a.u)}" data-link style="text-decoration:none">${NM(a)}</a>` : ''}${fwd}${quote}${body}
     <div class="reacts">${rx.map(([e, v]) => `<button class="rx ${v.includes(u.id) ? 'mine' : ''}" data-act="react" data-c="${c.id}" data-m="${m.id}" data-e="${e}" aria-label="${e} reaksiya, ${v.length}">${e} ${v.length}</button>`).join('')}
       <button class="rx-add rx-btn" data-act="rxbar" data-c="${c.id}" data-m="${m.id}" aria-label="Reaksiya bildirish">😊<b>+</b></button><button class="rx-add" data-act="msgmenu" data-c="${c.id}" data-m="${m.id}" aria-label="Xabar amallari">⋯</button>${meta}</div></div>`;
 }
@@ -626,7 +633,7 @@ function chat(id) {
   let title, sub, link;
   if (c.type === 'group') { title = esc(c.name); sub = `${c.members.length} a‘zo`; link = `/g/${c.id}`; }
   else if (isSaved(c)) { title = 'Saqlangan xabarlar'; sub = 'Faqat siz ko‘rasiz'; link = '/shaxsiy'; }
-  else { const o = peer(c, u); title = esc(o.name); sub = seenText(o); link = `/@${o.u}`; }
+  else { const o = peer(c, u); title = NM(o); sub = seenText(o); link = `/@${o.u}`; }
   if (typingText(c)) sub = `<span class="typing">${typingText(c)}</span>`;
   const pin = c.pin && c.msgs.find(m => m.id === c.pin);
   const editing = CH.edit && c.msgs.find(m => m.id === CH.edit), replying = CH.reply && c.msgs.find(m => m.id === CH.reply);
@@ -683,7 +690,7 @@ function group(id) {
         <div class="li" style="border:0;padding-bottom:0"><span style="flex:1"><b style="color:var(--acc-ink)">${location.host}/g/${c.id}</b><span class="muted" style="display:block">Taklif havolasi</span></span><button class="pill" data-act="copy" data-text="${location.origin}/g/${c.id}">Nusxa</button></div></div>
       ${c.record ? `<div class="card row" style="background:#121212;color:#fff">${Flappy.birdSVG(40)}<span>Flappy rekordi: <b>${c.record.score}</b> · @${esc(user(c.record.uid).u)}</span></div>` : ''}
       ${gAdmin && c.pending.length ? `<div class="card"><b>Qo‘shilish so‘rovlari</b>${c.pending.map(p => `<div class="li">${avatar(user(p), 36)}<span style="flex:1">${esc(user(p).name)}</span><button class="pill" data-act="approve" data-id="${c.id}" data-u="${p}">Qabul qilish</button></div>`).join('')}</div>` : ''}
-      <div class="card"><b>A‘zolar</b>${c.members.map(m => `<a href="/@${esc(user(m).u)}" data-link class="li">${avatar(user(m), 40)}<span style="flex:1"><b>${esc(user(m).name)}</b>${founderPill(user(m))}<span class="muted" style="display:block">@${esc(user(m).u)}</span></span>${m === c.admin ? '<span class="tag">admin</span>' : ''}</a>`).join('')}</div>
+      <div class="card"><b>A‘zolar</b>${c.members.map(m => `<a href="/@${esc(user(m).u)}" data-link class="li">${avatar(user(m), 40)}<span style="flex:1"><b>${NM(user(m))}</b>${founderPill(user(m))}<span class="muted" style="display:block">@${esc(user(m).u)}</span></span>${m === c.admin ? '<span class="tag">admin</span>' : ''}</a>`).join('')}</div>
       ${inG ? `<a href="/c/${c.id}" data-link class="btn acc full">Guruhga yozish</a>` : c.access !== 'closed' ? `<button class="btn ink full" data-act="join" data-id="${c.id}">${c.access === 'ask' ? 'So‘rov yuborish' : 'Qo‘shilish'}</button>` : '<p class="muted" style="text-align:center">Yopiq guruh: faqat taklif bilan.</p>'}
       ${isAdmin() && !inG && c.access === 'open' ? `<a href="/c/${c.id}" data-link class="btn ghost full">Admin sifatida kirish</a>` : ''}
       ${isAdmin() || gAdmin ? `<button class="btn ghost full" style="color:var(--danger)" data-act="delgroup" data-id="${c.id}">Guruhni o‘chirish</button>` : ''}
@@ -701,16 +708,16 @@ function profile(name) {
   const followBtn = u && !own ? `<button class="btn ${isFollowing(u.id, p.id) ? 'ghost' : 'acc'}" style="flex:1" data-act="follow" data-id="${p.id}">${isFollowing(u.id, p.id) ? 'Kuzatilmoqda' : 'Kuzatish'}</button>` : (!u ? `<a href="/kirish" data-link class="btn acc" style="flex:1">Kuzatish</a>` : '');
   if (p.system) {
     return `<div class="shell"><div class="phead"><button class="ibtn" data-act="back" aria-label="Orqaga">${I.back}</button></div>
-    <div class="pmain">${avatar(p, 112)}<div style="font-family:var(--head);font-weight:700;font-size:22px;margin-top:10px">${esc(p.name)}</div><div class="muted">@${esc(p.u)} · mini o‘yin</div>
+    <div class="pmain">${avatar(p, 112)}<div style="font-family:var(--head);font-weight:700;font-size:22px;margin-top:10px">${NM(p, true)}</div><div class="muted">@${esc(p.u)} · mini o‘yin</div>
       <p style="margin:10px 0 0;max-width:340px">${esc(p.bio)}</p></div>
     <div class="pad stack"><div class="card row" style="justify-content:space-between"><span><b style="font-size:22px">${fl.length}</b> <span class="muted">kuzatuvchi</span></span>${followBtn}</div>
-      <div class="card"><b>Kuzatuvchilar</b>${fl.map(f => `<a href="/@${esc(user(f).u)}" data-link class="li">${avatar(user(f), 40)}<span style="flex:1"><b>${esc(user(f).name)}</b>${founderPill(user(f))}<span class="muted" style="display:block">@${esc(user(f).u)}</span></span></a>`).join('') || '<p class="muted">Hali kuzatuvchi yo‘q.</p>'}</div></div>${u ? dock('') : ''}</div>`;
+      <div class="card"><b>Kuzatuvchilar</b>${fl.map(f => `<a href="/@${esc(user(f).u)}" data-link class="li">${avatar(user(f), 40)}<span style="flex:1"><b>${NM(user(f))}</b>${founderPill(user(f))}<span class="muted" style="display:block">@${esc(user(f).u)}</span></span></a>`).join('') || '<p class="muted">Hali kuzatuvchi yo‘q.</p>'}</div></div>${u ? dock('') : ''}</div>`;
   }
   return `<div class="shell">
     <div class="phead"><button class="ibtn" data-act="back" aria-label="Orqaga">${I.back}</button>
       ${own ? `<div class="row" style="gap:6px"><button class="ibtn" data-act="qr" aria-label="QR kod"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></button><a href="/sozlamalar" data-link class="ibtn" aria-label="Sozlamalar">${I.gear}</a></div>` : ''}</div>
     <div class="pmain">${own ? `<button class="av-edit" data-act="editprofile" aria-label="Profil rasmini almashtirish">${avatar(p, 112)}<span class="cam" aria-hidden="true">📷</span></button>` : avatar(p, 112)}
-      <div style="font-family:var(--head);font-weight:700;font-size:22px;margin-top:10px">${esc(p.name)}</div>
+      <div style="font-family:var(--head);font-weight:700;font-size:22px;margin-top:10px">${NM(p, true)}</div>
       <div class="row" style="justify-content:center;gap:8px;margin-top:2px"><span class="muted" style="font-size:14px">@${esc(p.u)}</span>${isFounder(p) ? '<span class="founder">Asoschi</span>' : ''}</div>
       ${p.bio ? `<p style="margin:10px 0 0;max-width:320px">${linkify(p.bio)}</p>` : ''}
       ${own && (!p.bio || !p.photo) ? `<button class="link-btn" style="margin-top:8px" data-act="editprofile">+ ${!p.photo ? 'Rasm' : ''}${!p.photo && !p.bio ? ' va ' : ''}${!p.bio ? 'bio' : ''} qo‘shish</button>` : ''}
@@ -735,7 +742,7 @@ function post(id) {
   <div class="pad stack">${postCard(p, true)}
     ${u ? `<form class="card comp" data-form="reply" data-id="${p.id}">${RTO && RTO.post === p.id ? `<div class="cbar" style="margin-bottom:8px"><span>↩️ <b>@${esc(user(RTO.uid).u)}</b> ga javob<em>${esc(RTO.text.slice(0, 80))}</em></span><button type="button" data-act="replyto-x" aria-label="Bekor qilish">✕</button></div>` : ''}<label><span class="sr">Javob</span><textarea id="reply-text" rows="2" maxlength="400" placeholder="${RTO && RTO.post === p.id ? 'Javobingiz…' : 'Javobingizni yozing'}"></textarea></label>
       <div class="row" style="justify-content:flex-end;gap:10px"><span class="counter" id="reply-count"></span><button class="btn acc" style="height:40px;border-radius:999px">Javob</button></div></form>` : `<a href="/kirish" data-link class="btn acc full">Javob yozish uchun kiring</a>`}
-    <div class="card" style="padding:4px 16px">${threadOrder(p.replies).map(r => { const a = user(r.uid), par = r.parent && p.replies.find(x => x.id === r.parent), pa = par && user(par.uid); const real = !String(r.id).startsWith('tmp'); return `<div class="li${r.parent ? ' sub' : ''}" id="r-${r.id}" style="align-items:flex-start">${avatar(a, r.parent ? 32 : 38)}<span style="flex:1;min-width:0"><span><a href="/@${esc(a.u)}" data-link style="text-decoration:none" class="name">${esc(a.name)}</a>${founderPill(a)} <span class="muted">· ${ago(r.t)}</span></span>
+    <div class="card" style="padding:4px 16px">${threadOrder(p.replies).map(r => { const a = user(r.uid), par = r.parent && p.replies.find(x => x.id === r.parent), pa = par && user(par.uid); const real = !String(r.id).startsWith('tmp'); return `<div class="li${r.parent ? ' sub' : ''}" id="r-${r.id}" style="align-items:flex-start">${avatar(a, r.parent ? 32 : 38)}<span style="flex:1;min-width:0"><span><a href="/@${esc(a.u)}" data-link style="text-decoration:none" class="name">${NM(a)}</a>${founderPill(a)} <span class="muted">· ${ago(r.t)}</span></span>
       ${r.parent ? `<button class="rquote" data-act="jumpr" data-r="${r.parent}">↩ ${par ? `<b>@${esc(pa.u)}</b> ${esc(par.text.slice(0, 60))}` : 'o‘chirilgan komment'}</button>` : ''}
       <p class="txt" style="font-size:15px">${linkify(r.text)}</p>
       <span class="row" style="gap:14px;margin-top:2px">${u && real ? `<button class="link-btn" style="font-size:13px" data-act="replyto" data-id="${p.id}" data-r="${r.id}">↩ Javob berish</button>` : ''}${u && (r.uid === u.id || isAdmin()) && real ? `<button class="link-btn" style="font-size:13px;color:var(--mute)" data-act="delreply" data-id="${p.id}" data-r="${r.id}">O‘chirish</button>` : ''}</span></span></div>`; }).join('') || '<p class="muted">Birinchi bo‘lib javob yozing.</p>'}</div>
@@ -769,7 +776,7 @@ after.search = () => {
       return;
     }
     const list = DB.users.filter(x => x.id !== u.id && !x.blocked && (!v || x.u.includes(v) || x.name.toLowerCase().includes(v))).slice(0, 30);
-    r.innerHTML = list.map(x => `<div class="li"><a href="/@${esc(x.u)}" data-link class="row" style="flex:1;text-decoration:none">${avatar(x, 44)}<span><b>${esc(x.name)}</b>${founderPill(x)}<span class="muted" style="display:block">@${esc(x.u)} · ${followers(x.id).length} kuzatuvchi</span></span></a>
+    r.innerHTML = list.map(x => `<div class="li"><a href="/@${esc(x.u)}" data-link class="row" style="flex:1;text-decoration:none">${avatar(x, 44)}<span><b>${NM(x)}</b>${founderPill(x)}<span class="muted" style="display:block">@${esc(x.u)} · ${followers(x.id).length} kuzatuvchi</span></span></a>
       <button class="btn ${isFollowing(u.id, x.id) ? 'ghost' : 'ink'}" style="height:38px;font-size:13px;border-radius:999px" data-act="follow" data-id="${x.id}">${isFollowing(u.id, x.id) ? 'Kuzatilmoqda' : 'Kuzatish'}</button></div>`).join('') || '<p class="muted" style="padding:10px 0">Bunday odam topilmadi.</p>';
   };
   q.addEventListener('input', draw); draw(); q.focus(); q.setSelectionRange(q.value.length, q.value.length);
@@ -793,7 +800,7 @@ function settings() {
   <div class="pad stack">
     <div class="card"><div class="row" style="gap:14px">
       <button class="av-edit" data-act="editprofile" aria-label="Profil rasmini almashtirish">${avatar(u, 72)}<span class="cam" aria-hidden="true">📷</span></button>
-      <span style="flex:1;min-width:0"><b style="font-family:var(--head);font-size:18px;display:block">${esc(u.name)}${founderPill(u)}</b><span class="muted">@${esc(u.u)}</span>
+      <span style="flex:1;min-width:0"><b style="font-family:var(--head);font-size:18px;display:block">${NM(u)}${founderPill(u)}</b><span class="muted">@${esc(u.u)}</span>
         <span style="display:block;font-size:14px;margin-top:4px;color:${u.bio ? 'var(--ink)' : 'var(--mute)'}">${u.bio ? esc(u.bio) : 'Bio yozilmagan'}</span></span></div>
       <div class="row" style="gap:8px;margin-top:12px"><button class="btn ghost" style="flex:1;height:42px" data-act="editprofile">✏️ Tahrirlash</button><a href="/@${esc(u.u)}" data-link class="btn ghost" style="flex:1;height:42px">👤 Profilim</a></div></div>
 
@@ -876,7 +883,7 @@ function leaders() {
     ${podium.length ? `<div class="podium">${[1, 0, 2].filter(i => podium[i]).map(i => `<a href="/@${esc(podium[i].x.u)}" data-link class="pod p${i + 1}">${avatar(podium[i].x, i === 0 ? 76 : 60)}<b>${esc(podium[i].x.name.split(' ')[0])}</b><span>⭐ ${podium[i].n}</span><i>${['🥇', '🥈', '🥉'][i]}</i></a>`).join('')}</div>` : ''}
     <div class="card" style="background:#121212;color:#fff"><b>${mine >= 0 ? `Siz ${mine + 1}-o‘rindasiz · ⭐ ${rows[mine].n}` : 'Siz hali reytingda yo‘qsiz'}</b>
       <p style="margin:6px 0 0;color:#ccc;font-size:14px">Guruhlarda foydali javob yozing. Boshqalar xabaringizga ⭐ bossa, reytingga chiqasiz. Har bir odamning ⭐ si bir marta hisoblanadi.</p></div>
-    <div class="card" style="padding:4px 16px">${rows.map((r, i) => `<a href="/@${esc(r.x.u)}" data-link class="li${r.x.id === u.id ? ' me-row' : ''}"><span style="width:30px;text-align:center;font-size:20px">${medal(i)}</span>${avatar(r.x, 42)}<span style="flex:1"><b>${esc(r.x.name)}</b>${founderPill(r.x)}<span class="muted" style="display:block">@${esc(r.x.u)}</span></span><b style="font-size:16px">⭐ ${r.n}</b></a>`).join('') || `<p class="muted">${LB_TAB === 'week' ? 'Bu hafta hali hech kim ⭐ olmadi. Birinchi bo‘ling!' : 'Hali hech kim ⭐ olmadi.'}</p>`}</div>
+    <div class="card" style="padding:4px 16px">${rows.map((r, i) => `<a href="/@${esc(r.x.u)}" data-link class="li${r.x.id === u.id ? ' me-row' : ''}"><span style="width:30px;text-align:center;font-size:20px">${medal(i)}</span>${avatar(r.x, 42)}<span style="flex:1"><b>${NM(r.x)}</b>${founderPill(r.x)}<span class="muted" style="display:block">@${esc(r.x.u)}</span></span><b style="font-size:16px">⭐ ${r.n}</b></a>`).join('') || `<p class="muted">${LB_TAB === 'week' ? 'Bu hafta hali hech kim ⭐ olmadi. Birinchi bo‘ling!' : 'Hali hech kim ⭐ olmadi.'}</p>`}</div>
   </div>${dock('')}</div>`;
 }
 
@@ -1063,7 +1070,7 @@ document.addEventListener('click', async e => {
       sheet(`<h2>Mening QR kodim</h2><p class="muted" style="margin-top:-6px">Buni faqat siz ko‘rasiz. Do‘stingiz skanerlasa, profilingiz ochiladi.</p><div class="card" style="display:flex;justify-content:center" id="qr-box">Yuklanmoqda…</div><p style="text-align:center;font-weight:700">${esc(location.host)}/@${esc(u.u)}</p><button class="btn ghost full" data-act="copy" data-text="${esc(url)}">Havolani nusxalash</button>`);
       loadQR(url); break;
     }
-    case 'theme': DB.theme = DB.theme === 'dark' ? 'light' : 'dark'; render(); break;
+    case 'theme': { DB.theme = DB.theme === 'dark' ? 'light' : 'dark'; save(); const y = scrollY; render(); scrollTo(0, y); break; }
     case 'logout': try { localStorage.setItem('lahzam_noauto', '1'); window.google && google.accounts && google.accounts.id.disableAutoSelect(); } catch (e) {} await api('auth/me', { method: 'DELETE' }); ADM = { checked: false, configured: false, verified: false }; adoptSession(null); AUTH = { step: 'start' }; save(); go('/kirish'); break;
     case 'reset': { const keep = DB; DB = Object.assign(fresh(keep), { me: keep.me, sess: keep.sess, users: keep.users.filter(x => x.id === keep.me) }); SYNC.sig = ''; save(); toast('Yangilanmoqda…'); await sync(true); render(); break; }
     case 'newgroup': sheet(`<h2>Yangi guruh</h2><form class="stack" data-form="group">
@@ -1100,7 +1107,8 @@ document.addEventListener('click', async e => {
       Object.keys(m.reacts).forEach(k => m.reacts[k] = m.reacts[k].filter(x => x !== u.id));
       if (!had) (m.reacts[e2] = m.reacts[e2] || []).push(u.id);
       document.querySelectorAll('.rx-bar').forEach(b => b.remove());
-      render(); if (!m.tmp) server({ t: 'react', msg: m.id, emoji: e2 }); break;
+      { const box = $('#msgs'), y = scrollY; if (box && route()[0] === 'chat') { box.innerHTML = msgList(c); scrollTo(0, y); } else render(); }
+      if (!m.tmp) server({ t: 'react', msg: m.id, emoji: e2 }); break;
     }
     case 'play': {
       const c = DB.chats.find(x => x.id === id); if (!c) break;
