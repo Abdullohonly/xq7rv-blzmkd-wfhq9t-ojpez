@@ -383,7 +383,13 @@ button.seen{background:none;padding:0;cursor:pointer}
 .agree.shake{animation:agshake .4s;outline:2px solid var(--acc)}
 @keyframes agshake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
 .glock{position:absolute;inset:0;z-index:2;display:none;background:transparent;border-radius:999px}
-.gwrap.locked .glock{display:block}.gwrap.locked{opacity:.55}
+.gwrap.locked .glock{display:block}
+/* belgi qo'yilmaguncha: o'zimizning tugma xira ko'rinadi, Google'niki yashirin turadi */
+.gwrap.locked .greal{opacity:0!important;pointer-events:none}
+.gwrap.locked .gfake{opacity:.5!important;pointer-events:none}
+/* qorong'i rejimda Google oynachasi oq fon bilan chiqmasin */
+.greal,.greal iframe{color-scheme:light}
+.greal iframe{background:transparent!important}
 .doc{font-size:15px;line-height:1.6}
 .doc h2{font-family:var(--head);font-size:17px;margin:20px 0 6px}
 .doc p{margin:8px 0}.doc ul{margin:6px 0;padding-left:20px}.doc li{margin:4px 0}
