@@ -27,7 +27,7 @@ ${S('4. Taqiqlangan harakatlar', `<p>Quyidagilar taqiqlanadi (batafsil: <a href=
 ]))}
 ${S('5. Moderatsiya', `<p>Qoidalar buzilganda Lahzam ogohlantirish berishi, kontentni yashirishi yoki o‘chirishi, akkauntni vaqtincha yoki butunlay bloklashi mumkin. Jiddiy holatlarda akkauntga bog‘langan Gmail ham bloklanadi. Guruh admini o‘z guruhidan a‘zoni chetlatishi mumkin.</p><p>Har bir postda “Shikoyat qilish” tugmasi bor. Shikoyatlarni moderator ko‘rib chiqadi.</p>`)}
 ${S('6. ⭐ Yulduz (pullik obuna)', `<p>Lahzamning asosiy imkoniyatlari (post yozish, chat, guruhlar, o‘yinlar) hammaga <b>bepul</b>. “Yulduz” — qo‘shimcha imkoniyatlar beradigan ixtiyoriy pullik obuna: rangli nametag va yulduzcha, profil muqovasi, 3 harfli username va uni oyiga bir marta almashtirish, uzun postlar va bio, onlayn holat va “o‘qildi” belgisini yashirish, postni profilga qadash.</p>` + UL([
-  '<b>Narxlar (ochilish narxi):</b> 1 oy — 7 000 so‘m, 3 oy — 12 000 so‘m. Keyinchalik narx oshishi mumkin; oshganda allaqachon to‘langan muddat o‘zgarmaydi.',
+  '<b>Narxlar (ochilish narxi):</b> 1 oy — 5 000 so‘m, 3 oy — 12 000 so‘m. Keyinchalik narx oshishi mumkin; oshganda allaqachon to‘langan muddat o‘zgarmaydi.',
   '<b>To‘lov:</b> Telegram orqali, <a href="https://t.me/xarp01" target="_blank" rel="noopener">@xarp01</a> bilan kelishiladi. To‘lov tasdiqlangach, Yulduz akkauntingizda yoqiladi.',
   '<b>Muddat:</b> obuna to‘langan muddat tugagach avtomatik o‘chadi; o‘z-o‘zidan pul yechilmaydi. Muddat tugaguncha uzaytirsangiz, yangi muddat ustiga qo‘shiladi.',
   '<b>Pul qaytarilmaydi.</b> Faqat Lahzam tomonidagi texnik nosozlik sababli imkoniyatlardan foydalana olmagan bo‘lsangiz, obuna muddati o‘sha kunlarga uzaytiriladi.',

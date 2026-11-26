@@ -1,8 +1,8 @@
-/* Lahzam v1.5.0 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.5.1 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.5.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.5.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -388,7 +388,7 @@ function starPage() {
       ${perk('👻', 'Ko‘rinmas rejim', 'Onlayn holat va “o‘qildi” belgisini yashirish')}
       ${perk('📌', 'Postni qadash', 'Eng yaxshi postingiz profil tepasida turadi')}</div>
     <div class="plans">
-      <div class="card plan"><span class="muted">1 oy</span><b>7 000 so‘m</b><span class="muted" style="font-size:13px">oyiga 7 000</span></div>
+      <div class="card plan"><span class="muted">1 oy</span><b>5 000 so‘m</b><span class="muted" style="font-size:13px">oyiga 5 000</span></div>
       <div class="card plan best"><span class="badge-best">Foydali</span><span class="muted">3 oy</span><b>12 000 so‘m</b><span class="muted" style="font-size:13px">oyiga 4 000</span></div></div>
     <p class="muted" style="margin:0;font-size:13px;text-align:center">Ochilish narxi: keyinchalik oshishi mumkin. Asosiy imkoniyatlar hammaga bepul qoladi.</p>
     <a class="btn acc full" style="height:54px;border-radius:999px;font-size:16px" href="${STAR_BUY}" target="_blank" rel="noopener">${active ? 'Muddatni uzaytirish' : '⭐ Yulduz olish'} · Telegram</a>
