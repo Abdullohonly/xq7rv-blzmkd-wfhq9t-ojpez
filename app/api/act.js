@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { TERMS_VER, clearSession, sql, currentUser, isOwnerEmail, hasAdminPass, rateLimit, tooMany, send, sameOrigin } from './_lib.js';
+import { TERMS_VER, isStar, clearSession, sql, currentUser, isOwnerEmail, hasAdminPass, rateLimit, tooMany, send, sameOrigin } from './_lib.js';
 import { r2PutDataUrl } from './_r2.js';
 import { pushTo } from './_push.js';
 // POST /api/act — ilovadagi har bir amal: post, javob, layk, kuzatish, guruh, xabar, reaksiya, so'rovnoma...
@@ -57,7 +57,7 @@ export default async function handler(req, res) {
     switch (t) {
       /* ---------- Ochiq maydon ---------- */
       case 'post': {
-        const body = str(b.body, 500); let img = null;
+        const body = str(b.body, isStar(me) ? 1500 : 500); let img = null;
         if (b.img != null) { if (typeof b.img !== 'string' || b.img.length > 400000 || !IMG_RE.test(b.img)) return bad(res, 'Rasm juda katta yoki noto‘g‘ri'); img = (await r2PutDataUrl(b.img, 'p').catch(() => null)) || b.img; }
         if (!body && !img) return bad(res, 'Avval biror narsa yozing');
         if (!(await rateLimit('post:' + uid, 10, 3600))) return send(res, 429, { error: 'rate', message: 'Soatiga ko‘pi bilan 10 ta post' });
@@ -98,7 +98,7 @@ export default async function handler(req, res) {
         return send(res, 200, { ok: true });
       }
       case 'editpost': {
-        const pid = idOf(b.post, 'p'), body = str(b.body, 500); if (!pid || !body) return bad(res, 'Matn bo‘sh bo‘lmasin');
+        const pid = idOf(b.post, 'p'), body = str(b.body, isStar(me) ? 1500 : 500); if (!pid || !body) return bad(res, 'Matn bo‘sh bo‘lmasin');
         const up = await db`update posts set body = ${body}, edited = true where id = ${pid} and user_id = ${uid} and body <> ${body} returning id`;
         return send(res, 200, { ok: true, changed: up.length > 0 });
       }

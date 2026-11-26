@@ -103,16 +103,23 @@ export async function currentUser(req) {
   if (!u || u.is_blocked) return null;
   return u;
 }
-export const TERMS_VER = 1; // hujjatlar o'zgarsa oshiriladi: hamma qayta rozilik beradi
+export const TERMS_VER = 2; // hujjatlar o'zgarsa oshiriladi: hamma qayta rozilik beradi
+// ⭐ Yulduz obunasi: muddati tugamagan bo'lsa faol (Owner'da hamma imkoniyat doim ochiq)
+export const isStar = u => !!u && (isOwnerEmail(u.email) || (!!u.star_until && new Date(u.star_until) > new Date()));
+export const STAR_COLORS = ['tilla', 'olov', 'platina', 'yoqut', 'zumrad'];
+export const COVER_RE = /^g(10|[1-9])(\.p(10|[1-9]))?$/;
 export const publicUser = u => u && ({
   id: Number(u.id), username: u.username, name: u.name, bio: u.bio, color: u.color, photo: u.photo || null,
   email: u.email, isOwner: isOwnerEmail(u.email), hasPassword: !!u.password_hash, createdAt: u.created_at,
-  dmFrom: u.dm_from || 'all', notifOff: !!u.notif_off, rrOff: !!u.rr_off, termsOk: Number(u.terms_ver || 0) >= TERMS_VER
+  dmFrom: u.dm_from || 'all', notifOff: !!u.notif_off, rrOff: !!u.rr_off, termsOk: Number(u.terms_ver || 0) >= TERMS_VER,
+  star: isStar(u), starUntil: u.star_until || null, starColor: u.star_color || 'tilla', cover: u.cover || null, hideOnline: !!u.hide_online, hideRead: !!u.hide_read,
+  pinned: u.pinned_post ? 'p' + u.pinned_post : null, unChangedAt: u.un_changed_at || null
 });
 
-export function checkUsername(v, email) {
+export function checkUsername(v, email, star) {
   v = String(v || '');
   if (v.length < 3) return 'Kamida 3 belgi';
+  if (v.length < 4 && !star && !isOwnerEmail(email)) return '3 harfli username faqat ⭐ Yulduz a’zolari uchun. Kamida 4 belgi';
   if (v.length > 15) return 'Ko‘pi bilan 15 belgi';
   if (!/^[a-z0-9._]+$/.test(v)) return 'Faqat kichik harf, raqam, nuqta (.) va pastki chiziq (_)';
   if (/^[0-9]/.test(v)) return 'Username raqam bilan boshlanmasin';

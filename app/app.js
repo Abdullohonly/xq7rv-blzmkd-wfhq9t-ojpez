@@ -1,10 +1,11 @@
-/* Lahzam v1.3.1 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.4.0 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.3.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.4.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
-const LIMIT = { post: 500, reply: 300, msg: 2000 };
+const LIMIT = { reply: 300, msg: 2000 };
+Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
 const RESERVED = ['admin', 'lahzam', 'musoojon', 'support', 'yordam', 'root', 'api'];
 const OWNER_EMAIL = 'musoxonshovkatov@gmail.com'; // Lahzam egasi: admin huquqlari shu Gmail'ga bog'langan
@@ -251,6 +252,7 @@ function route() {
   if (p === '/yangiliklar') return ['updates'];
   if (p === '/reyting') return ['leaders'];
   if (p === '/oyinlar') return ['games'];
+  if (p === '/yulduz') return ['star'];
   if (p === '/shartlar' || p === '/maxfiylik' || p === '/qoidalar') return ['doc', p.slice(1)];
   if ((m = p.match(/^\/@([a-z0-9._]+)$/i))) return ['profile', m[1]];
   if ((m = p.match(/^\/p\/([\w-]+)$/))) return ['post', m[1]];
@@ -259,7 +261,7 @@ function route() {
   if ((m = p.match(/^\/t\/(.+)$/))) return ['tag', m[1]];
   return ['404'];
 }
-const PUBLIC = ['auth', 'profile', 'post', 'tag', 'admin', 'updates', 'doc', '404'];
+const PUBLIC = ['auth', 'profile', 'post', 'tag', 'admin', 'updates', 'doc', 'star', '404'];
 function render() {
   document.documentElement.dataset.theme = DB.theme;
   document.documentElement.dataset.fs = DB.fs || 'md';
@@ -267,7 +269,7 @@ function render() {
   if (me() && me().blocked) { DB.me = null; save(); toast('Akkauntingiz bloklangan.', true); }
   if (!me() && !PUBLIC.includes(name)) return go('/kirish', true);
   if (me() && name === 'auth') return go('/', true);
-  const V = { home, auth, groups, dms, search, notifs, settings, admin, profile, post, chat, group, tag, updates, leaders, doc: docPage, games: gamesPage, '404': notFound }[name];
+  const V = { home, auth, groups, dms, search, notifs, settings, admin, profile, post, chat, group, tag, updates, leaders, doc: docPage, games: gamesPage, star: starPage, '404': notFound }[name];
   const html = V(arg);
   const desk = DESK.matches && me() && !['auth', 'admin'].includes(name);
   document.body.classList.toggle('is-desk', !!desk);
@@ -314,7 +316,7 @@ function deskShell(name, html) {
       <p class="muted" style="text-align:center">Lahzam v${VERSION} · Har lahza yoningizda!</p>
     </aside></div>`;
 }
-const TITLES = { games: 'O‘yinlar', doc: 'Hujjatlar', auth: 'Kirish', groups: 'Guruhlar', dms: 'Shaxsiy', search: 'Qidiruv', notifs: 'Bildirishnomalar', settings: 'Sozlamalar', admin: 'Admin', updates: 'Lahzam Updates', leaders: 'Reyting', profile: 'Profil', post: 'Post', chat: 'Suhbat', group: 'Guruh', tag: 'Heshteg' };
+const TITLES = { star: 'Yulduz', games: 'O‘yinlar', doc: 'Hujjatlar', auth: 'Kirish', groups: 'Guruhlar', dms: 'Shaxsiy', search: 'Qidiruv', notifs: 'Bildirishnomalar', settings: 'Sozlamalar', admin: 'Admin', updates: 'Lahzam Updates', leaders: 'Reyting', profile: 'Profil', post: 'Post', chat: 'Suhbat', group: 'Guruh', tag: 'Heshteg' };
 const after = {};
 
 /* ---------------- shared pieces ---------------- */
@@ -360,13 +362,58 @@ function gamesPage() {
       <div class="row" style="gap:8px;margin-top:12px"><button class="btn acc" style="flex:1;height:46px;border-radius:999px" data-act="solo" data-id="${g.k}">▶ O‘ynash</button><button class="btn ghost" style="flex:1;height:46px;border-radius:999px" data-act="gamesend" data-id="${g.k}">↗ Yuborish</button></div></div>`).join('')}
   </div></div>`;
 }
-function bioProblem(v) {
-  if (v.length > 100) return 'Bio ko‘pi bilan 100 belgi';
+function bioProblem(v, max = me() && me().star ? 200 : 100) {
+  if (v.length > max) return `Bio ko‘pi bilan ${max} belgi`;
   if (v.split('\n').length > 3) return 'Bio ko‘pi bilan 3 qator';
   if (/(https?:\/\/|www\.|t\.me\/|\b[a-z0-9-]+\.(uz|com|ru|net|org|me|io|link|app)\b)/i.test(v)) return 'Bioga havola (link) qo‘yib bo‘lmaydi';
   if ((v.match(/\d/g) || []).length >= 9) return 'Bioga telefon raqam yozmang: xavfsizligingiz uchun';
   if (/(.)\1{5,}/u.test(v)) return 'Bir belgini ko‘p takrorlamang';
   return null;
+}
+const STAR_BUY = 'https://t.me/xarp01';
+function starPage() {
+  const u = me(), active = u && u.star, until = SESSION && SESSION.starUntil;
+  const perk = (ico, t, d) => `<div class="li"><span class="perk-i">${ico}</span><span style="flex:1"><b>${t}</b><span class="muted" style="display:block;font-size:14px">${d}</span></span></div>`;
+  return `<div class="shell">${backBar('⭐ Yulduz')}<div class="pad stack">
+    <div class="card star-hero"><div class="star-big">${STAR_I.replace('width="13" height="13"', 'width="64" height="64"')}</div>
+      <b style="font-family:var(--head);font-size:26px;display:block">Lahzam Yulduz</b>
+      <span style="opacity:.85">Profilingizni boshqalardan ajratib turing</span>
+      ${active ? `<span class="tag" style="margin-top:10px;background:#fff;color:#121212">Faol${until && !isOwnerSession() ? ` · ${uzDate(new Date(until).getTime(), true)} gacha` : ''}</span>` : ''}</div>
+    <div class="card" style="padding:4px 16px">
+      ${perk('✨', 'Rangli nametag va yulduzcha', 'Ismingiz atrofida aylanadigan ramka, 5 xil rangdan tanlaysiz')}
+      ${perk('🖼', 'Profil muqovasi', '10 xil gradient va 10 xil naqsh')}
+      ${perk('🔤', '3 harfli username', 'Username’ni oyiga bir marta almashtirish, qisqa nomlar faqat siz uchun')}
+      ${perk('📝', 'Uzun postlar', '1500 belgigacha post va 200 belgigacha bio')}
+      ${perk('👻', 'Ko‘rinmas rejim', 'Onlayn holat va “o‘qildi” belgisini yashirish')}
+      ${perk('📌', 'Postni qadash', 'Eng yaxshi postingiz profil tepasida turadi')}</div>
+    <div class="plans">
+      <div class="card plan"><span class="muted">1 oy</span><b>7 000 so‘m</b><span class="muted" style="font-size:13px">oyiga 7 000</span></div>
+      <div class="card plan best"><span class="badge-best">Foydali</span><span class="muted">3 oy</span><b>12 000 so‘m</b><span class="muted" style="font-size:13px">oyiga 4 000</span></div></div>
+    <p class="muted" style="margin:0;font-size:13px;text-align:center">Ochilish narxi: keyinchalik oshishi mumkin. Asosiy imkoniyatlar hammaga bepul qoladi.</p>
+    <a class="btn acc full" style="height:54px;border-radius:999px;font-size:16px" href="${STAR_BUY}" target="_blank" rel="noopener">${active ? 'Muddatni uzaytirish' : '⭐ Yulduz olish'} · Telegram</a>
+    <p class="muted" style="margin:0;font-size:13px;text-align:center">Telegram’da ${u ? `<b>@${esc(u.u)}</b>` : 'username’ingizni'} va tarifni yozing. To‘lovdan keyin Yulduz akkauntingizda yoqiladi. To‘lov qaytarilmaydi (<a href="/shartlar" data-link>shartlar</a>).</p>
+  </div></div>`;
+}
+function starSettings(u) {
+  const S = SESSION || {}, sw = (act2, on, label) => `<button class="switch${on ? ' on' : ''}" data-act="${act2}" role="switch" aria-checked="${on}" aria-label="${label}"><i></i></button>`;
+  const row = (title, sub, right) => `<div class="li set-row"><span style="flex:1;min-width:0"><b>${title}</b>${sub ? `<span class="muted" style="display:block">${sub}</span>` : ''}</span>${right}</div>`;
+  if (!u.star) return `<a href="/yulduz" data-link class="card star-promo"><span class="star-big sm">${STAR_I.replace('width="13" height="13"', 'width="30" height="30"')}</span><span style="flex:1"><b>⭐ Yulduz</b><span style="display:block;font-size:14px;opacity:.9">Rangli nametag, muqova, 3 harfli username va boshqalar</span></span>›</a>`;
+  const cv = /^g(\d+)(?:\.p(\d+))?$/.exec(S.cover || '') || [], g = +cv[1] || 0, pt = +cv[2] || 0;
+  return `<h3 class="set-h">⭐ Yulduz</h3>
+    <div class="card" style="padding:14px 16px">
+      <b>Nametag rangi</b><div class="sc-row">${STAR_COLOR_LIST.map(([k, l]) => `<button class="sc-pick${(S.starColor || 'tilla') === k ? ' on' : ''}" data-act="starcolor" data-v="${k}" aria-label="${l}" aria-pressed="${(S.starColor || 'tilla') === k}"><span class="ntag star c-${k}"><span class="in"><span class="gtx">${l}</span></span></span></button>`).join('')}</div>
+      <b style="display:block;margin-top:14px">Muqova: gradient</b><div class="cv-grid">${GRADS.map((x, i) => `<button class="cv-pick${g === i + 1 ? ' on' : ''}" style="background:${x}" data-act="cover" data-g="${i + 1}" data-p="${pt}" aria-label="${GRAD_NAMES[i]}" title="${GRAD_NAMES[i]}"></button>`).join('')}</div>
+      <b style="display:block;margin-top:14px">Muqova: naqsh</b><div class="cv-grid"><button class="cv-pick${!pt ? ' on' : ''}" style="background:${GRADS[(g || 1) - 1]}" data-act="cover" data-g="${g || 1}" data-p="0" aria-label="Naqshsiz" title="Naqshsiz"></button>${PATS.map((x, i) => `<button class="cv-pick${pt === i + 1 ? ' on' : ''}" style="background:${x},${GRADS[(g || 1) - 1]}" data-act="cover" data-g="${g || 1}" data-p="${i + 1}" aria-label="${PAT_NAMES[i]}" title="${PAT_NAMES[i]}"></button>`).join('')}</div>
+      ${S.cover ? '<button class="link-btn" style="margin-top:8px" data-act="cover" data-g="0">Muqovani olib tashlash</button>' : ''}</div>
+    <div class="card" style="padding:2px 16px">
+      ${row('👻 Onlayn holatni yashirish', 'Boshqalar onlayn ekaningizni va oxirgi kirgan vaqtingizni ko‘rmaydi', sw('hideonline', !!S.hideOnline, 'Onlayn holatni yashirish'))}
+      ${row('👁 “O‘qildi”ni yashirish', 'Xabarni o‘qiganingiz boshqalarga ko‘rinmaydi', sw('hideread', !!S.hideRead, 'O‘qildi belgisini yashirish'))}
+      <button class="li set-row" style="width:100%;text-align:left" data-act="chun"><span style="flex:1"><b>🔤 Username’ni almashtirish</b><span class="muted" style="display:block">@${esc(u.u)} · oyiga bir marta, 3 harfli ham bo‘ladi</span></span>›</button>
+      <a href="/yulduz" data-link class="li set-row"><span style="flex:1"><b>⭐ Obuna</b><span class="muted" style="display:block">${S.starUntil && !isOwnerSession() ? uzDate(new Date(S.starUntil).getTime(), true) + ' gacha' : 'Faol'}</span></span>›</a></div>`;
+}
+async function patchMe(body, ok) {
+  const r = await api('auth/me', { method: 'PATCH', body }); if (r.user) { SESSION = r.user; DB.sess = SESSION; if (ok) toast(ok); await sync(true); } else toast(r.message || 'Saqlab bo‘lmadi', true);
+  const y = scrollY; render(); scrollTo(0, y); return r;
 }
 function docPage(k) {
   const d = window.LahzamDocs && LahzamDocs[k]; if (!d) return notFound();
@@ -432,7 +479,7 @@ function home() {
     <a href="/oyinlar" data-link class="card games-strip">${GAMES.map(g => `<span class="gs-i">${g.ico(30)}</span>`).join('')}<span style="flex:1;min-width:0"><b>O‘yinlar</b><span class="muted" style="display:block;font-size:13px">Flappy, Tetris, 2048 · yakka yoki do‘stlar bilan</span></span><span class="gs-go">▶</span></a>
     <form class="card comp" data-form="post">
       <div class="row" style="align-items:flex-start;gap:12px">${avatar(u, 40)}
-        <label style="flex:1"><span class="sr">Post matni</span><textarea id="post-text" rows="2" maxlength="600" placeholder="Nima gap, ${esc(u.name.split(' ')[0])}?"></textarea></label></div>
+        <label style="flex:1"><span class="sr">Post matni</span><textarea id="post-text" rows="2" maxlength="${LIMIT.post + 100}" placeholder="Nima gap, ${esc(u.name.split(' ')[0])}?"></textarea></label></div>
       <div id="post-prev"></div>
       <div class="row" style="justify-content:space-between;margin-top:6px">
         <div class="row" style="gap:8px"><label class="pill" style="cursor:pointer" aria-label="Rasm qo‘shish">📷<input type="file" accept="image/*" id="post-img" class="sr"></label>
@@ -496,9 +543,10 @@ function auth() {
     </form>
     <p class="muted" style="margin:0">Parolni Google bilan ro‘yxatdan o‘tayotganda qo‘ygansiz.</p>`);
 }
-function checkUsername(v) {
+function checkUsername(v, star) {
   if (!v) return ['', null];
   if (v.length < 3) return ['Kamida 3 belgi', false];
+  if (v.length < 4 && !star && !AUTH.owner) return ['3 harfli username faqat ⭐ Yulduz uchun. Kamida 4 belgi', false];
   if (v.length > 15) return ['Ko‘pi bilan 15 belgi', false];
   if (!/^[a-z0-9._]+$/.test(v)) return ['Faqat kichik harf, raqam, nuqta (.) va pastki chiziq (_)', false];
   if (/^[0-9]/.test(v)) return ['Username raqam bilan boshlanmasin', false];
@@ -568,7 +616,21 @@ after.auth = () => {
 
 /* groups & dms */
 // Owner ismi hamma joyda aylanadigan tilla ramkada
-const NM = (x, big) => !x ? '' : x.owner ? `<span class="ntag${big ? ' big' : ''}"><span class="in"><span class="gtx">${esc(x.name)}</span></span></span>` : esc(x.name);
+const STAR_COLOR_LIST = [['tilla', 'Tilla'], ['olov', 'Lahzam olovi'], ['platina', 'Platina'], ['yoqut', 'Yoqut'], ['zumrad', 'Zumrad']];
+const STAR_I = '<svg class="star-i" width="13" height="13" viewBox="0 0 24 24" aria-label="Yulduz a’zosi" role="img"><path d="M12 2.5l2.9 6.2 6.8.8-5 4.7 1.3 6.7L12 17.6l-6 3.3 1.3-6.7-5-4.7 6.8-.8z" fill="currentColor"/></svg>';
+const NM = (x, big) => !x ? '' : (x.star && !x.owner) ? `<span class="ntag star c-${esc(x.starColor || 'tilla')}${big ? ' big' : ''}"><span class="in">${STAR_I}<span class="gtx">${esc(x.name)}</span></span></span>` : x.owner ? `<span class="ntag${big ? ' big' : ''}"><span class="in"><span class="gtx">${esc(x.name)}</span></span></span>` : esc(x.name);
+// ⭐ Yulduz profil muqovalari: 10 gradient + 10 naqsh
+const GRADS = ['linear-gradient(135deg,#FF5A1F,#FFB547)', 'linear-gradient(135deg,#0B1026,#2B2F6B)', 'linear-gradient(135deg,#0EA5E9,#22D3EE)', 'linear-gradient(135deg,#FF8FA3,#FFC3A0)', 'linear-gradient(135deg,#7C3AED,#DB2777)',
+  'linear-gradient(135deg,#059669,#34D399)', 'linear-gradient(135deg,#8A6410,#F5C542)', 'linear-gradient(135deg,#64748B,#CBD5E1)', 'linear-gradient(135deg,#121212,#FF3D00)', 'linear-gradient(120deg,#5FD3F3,#B07CFF,#FF8FD8)'];
+const GRAD_NAMES = ['Olov', 'Tun', 'Okean', 'Shaftoli', 'Binafsha', 'Zumrad', 'Oltin', 'Kumush', 'Lava', 'Kamalak'];
+const PATS = ['radial-gradient(rgba(255,255,255,.28) 2px,transparent 2.6px) 0 0/22px 22px', 'repeating-linear-gradient(45deg,rgba(255,255,255,.15) 0 10px,transparent 10px 22px)',
+  'linear-gradient(rgba(255,255,255,.16) 1px,transparent 1px) 0 0/28px 28px,linear-gradient(90deg,rgba(255,255,255,.16) 1px,transparent 1px) 0 0/28px 28px',
+  'radial-gradient(circle at 50% 100%,transparent 14px,rgba(255,255,255,.2) 15px 17px,transparent 18px) 0 0/40px 20px', 'conic-gradient(rgba(255,255,255,.13) 25%,transparent 0 50%,rgba(255,255,255,.13) 0 75%,transparent 0) 0 0/36px 36px',
+  'radial-gradient(circle,transparent 10px,rgba(255,255,255,.2) 11px 12px,transparent 13px) 0 0/34px 34px', 'radial-gradient(rgba(255,255,255,.8) 1px,transparent 1.6px) 0 0/40px 40px,radial-gradient(rgba(255,255,255,.45) 1px,transparent 1.6px) 20px 20px/40px 40px',
+  'linear-gradient(135deg,rgba(255,255,255,.15) 25%,transparent 25%) -14px 0/28px 28px,linear-gradient(225deg,rgba(255,255,255,.15) 25%,transparent 25%) -14px 0/28px 28px', 'repeating-linear-gradient(90deg,rgba(255,255,255,.13) 0 2px,transparent 2px 18px)',
+  'linear-gradient(45deg,rgba(255,255,255,.13) 25%,transparent 25% 75%,rgba(255,255,255,.13) 75%) 0 0/30px 30px,linear-gradient(45deg,rgba(255,255,255,.13) 25%,transparent 25% 75%,rgba(255,255,255,.13) 75%) 15px 15px/30px 30px'];
+const PAT_NAMES = ['Nuqtalar', 'Qiya chiziq', 'Katak', 'To‘lqin', 'Shaxmat', 'Doiralar', 'Yulduzlar', 'Zigzag', 'Chiziqlar', 'Romb'];
+function coverCss(c) { const m = /^g(\d+)(?:\.p(\d+))?$/.exec(c || ''); if (!m) return ''; const g = GRADS[+m[1] - 1], pt = m[2] ? PATS[+m[2] - 1] : ''; return g ? `background:${pt ? pt + ',' : ''}${g}` : ''; }
 const isSaved = c => c && c.type === 'dm' && c.members.length === 1;
 const peer = (c, u) => user(c.members.find(x => x !== u.id)) || { name: 'O‘chirilgan', u: 'deleted', color: '#ccc' };
 const savedAv = (s = 50) => `<span class="gav saved-av" style="width:${s}px;height:${s}px;border-radius:${Math.round(s * .3)}px">${NI('saved', true, Math.round(s * .55))}</span>`;
@@ -776,12 +838,13 @@ function profile(name) {
     <div class="pad stack"><div class="card row" style="justify-content:space-between"><span><b style="font-size:22px">${fl.length}</b> <span class="muted">kuzatuvchi</span></span>${followBtn}</div>
       <div class="card"><b>Kuzatuvchilar</b>${fl.map(f => `<a href="/@${esc(user(f).u)}" data-link class="li">${avatar(user(f), 40)}<span style="flex:1"><b>${NM(user(f))}</b>${founderPill(user(f))}<span class="muted" style="display:block">@${esc(user(f).u)}</span></span></a>`).join('') || '<p class="muted">Hali kuzatuvchi yo‘q.</p>'}</div></div>${u ? dock('') : ''}</div>`;
   }
+  const pinP = p.star && p.pin && DB.posts.find(x => x.id === p.pin);
   return `<div class="shell">
-    <div class="phead"><button class="ibtn" data-act="back" aria-label="Orqaga">${I.back}</button>
+    <div class="phead" style="${p.star && p.cover ? coverCss(p.cover) : ''}"><button class="ibtn" data-act="back" aria-label="Orqaga">${I.back}</button>
       ${own ? `<div class="row" style="gap:6px"><button class="ibtn" data-act="qr" aria-label="QR kod"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></button><button class="ibtn" data-act="logoutask" aria-label="Akkauntdan chiqish"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l5-5-5-5M15 12H4"/></svg></button><a href="/sozlamalar" data-link class="ibtn" aria-label="Sozlamalar">${I.gear}</a></div>` : ''}</div>
     <div class="pmain">${own ? `<button class="av-edit" data-act="editprofile" aria-label="Profil rasmini almashtirish">${avatar(p, 112)}<span class="cam" aria-hidden="true">📷</span></button>` : avatar(p, 112)}
       <div style="font-family:var(--head);font-weight:700;font-size:22px;margin-top:10px">${NM(p, true)}</div>
-      <div class="row" style="justify-content:center;gap:8px;margin-top:2px"><span class="muted" style="font-size:14px">@${esc(p.u)}</span>${p.owner ? OWNER_PILL : isFounder(p) ? '<span class="founder">Asoschi</span>' : ''}</div>
+      <div class="row" style="justify-content:center;gap:8px;margin-top:2px"><span class="muted" style="font-size:14px">@${esc(p.u)}</span>${p.owner ? OWNER_PILL : isFounder(p) ? '<span class="founder">Asoschi</span>' : ''}${p.star && !p.owner ? '<a href="/yulduz" data-link class="founder star-pill">⭐ Yulduz</a>' : ''}</div>
       ${p.bio ? `<p style="margin:10px 0 0;max-width:320px">${linkify(p.bio)}</p>` : ''}
       ${own && (!p.bio || !p.photo) ? `<button class="link-btn" style="margin-top:8px" data-act="editprofile">+ ${!p.photo ? 'Rasm' : ''}${!p.photo && !p.bio ? ' va ' : ''}${!p.bio ? 'bio' : ''} qo‘shish</button>` : ''}
       ${p.blocked ? '<span class="tag red" style="margin-top:8px">Bloklangan</span>' : ''}</div>
@@ -793,6 +856,7 @@ function profile(name) {
       ${!own ? `<button class="btn ink" style="flex:1" data-act="dm" data-id="${p.id}">Xabar yozish</button>` : ''}</div>
     ${isAdmin() && !own ? `<div class="row" style="gap:8px;margin:8px 16px 0"><button class="btn ghost" style="flex:1;height:42px;font-size:14px" data-act="adm-block" data-u="${p.id}">${p.blocked ? 'Blokdan chiqarish' : 'Bloklash'}</button><button class="btn ghost" style="flex:1;height:42px;font-size:14px;color:var(--danger)" data-act="adm-del" data-u="${p.id}">O‘chirish</button></div>` : ''}
     <div class="pad stack">
+      ${pinP ? `<div class="pin-lbl">📌 Qadalgan post</div>${postCard(pinP)}` : ''}
       ${best ? `<a href="/p/${best.id}" data-link class="card" style="text-decoration:none;display:block"><div class="row" style="justify-content:space-between"><span class="muted" style="font-weight:700">Eng ko‘p yoqqan post</span><span style="color:#D61F52;font-weight:700;font-size:13px">❤ ${fmt(best.likes.length)}</span></div>
         <p class="txt" style="font-weight:600;margin-top:6px">${esc(best.text)}</p><div class="muted" style="margin-top:4px">${best.replies.length} javob · ${ago(best.t)}</div></a>` : `<div class="card muted">Hali post yo‘q.</div>`}
       ${myPosts.length > 1 ? (SHOW_ALL ? myPosts.filter(x => x !== best).map(x => postCard(x)).join('') : `<button class="btn ghost full" data-act="allposts">Barcha postlarni ko‘rish →</button>`) : ''}
@@ -886,6 +950,7 @@ function settings() {
       ${row('📲 Telefonga push', pushState() === 'on' ? 'Yoqilgan: xabarlar telefoningizga keladi' : pushState() === 'ios' ? 'iPhone’da avval ilovani o‘rnating' : pushState() === 'no' ? 'Bu brauzerda ishlamaydi' : 'Ilova yopiq bo‘lsa ham xabar keladi', pushState() === 'no' ? '' : sw(pushState() === 'on' ? 'pushoff' : 'pushon', pushState() === 'on', 'Telefonga push'))}
     </div>
 
+    ${starSettings(u)}
     <h3 class="set-h">Akkaunt</h3>
     <div class="card" style="padding:2px 16px">
       ${row('📧 Gmail', esc(S.email || '—'), '<span class="tag green">Google ✓</span>')}
@@ -1040,7 +1105,7 @@ after.admin = async () => {
   if (r.status === 401) { ADM.verified = false; render(); return; }
   if (!r.ok) { box.innerHTML = '<p class="muted">Serverdan yuklab bo‘lmadi.</p>'; return; }
   box.innerHTML = `<table><thead><tr><th>#</th><th>Username</th><th>Ism</th><th>Gmail</th><th>Holat</th><th>Amal</th></tr></thead><tbody>${r.users.map((x, i) => `<tr data-q="${esc([x.username, x.name, x.email].join(' ').toLowerCase())}"><td>${i + 1}</td><td>@${esc(x.username)}</td><td>${esc(x.name)}</td><td class="muted">${esc(x.email || '')}</td><td>${x.is_blocked ? '<span class="tag red">bloklangan</span>' : '<span class="tag green">faol</span>'}</td>
-    <td>${x.email === OWNER_EMAIL ? '<span class="tag green">Ega</span>' : `<div class="row" style="gap:6px;flex-wrap:wrap"><button class="pill" data-act="srv" data-a="${x.is_blocked ? 'unblock' : 'block'}" data-id="${x.id}">${x.is_blocked ? 'Blokdan chiqarish' : 'Bloklash'}</button><button class="pill" style="color:var(--danger)" data-act="srv" data-a="delete" data-id="${x.id}">O‘chirish</button></div>`}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Hali hech kim yo‘q.</td></tr>'}</tbody></table>
+    <td>${x.email === OWNER_EMAIL ? '<span class="tag green">Ega</span>' : `<div class="row" style="gap:6px;flex-wrap:wrap"><button class="pill" data-act="srv" data-a="${x.is_blocked ? 'unblock' : 'block'}" data-id="${x.id}">${x.is_blocked ? 'Blokdan chiqarish' : 'Bloklash'}</button><button class="pill" style="color:var(--danger)" data-act="srv" data-a="delete" data-id="${x.id}">O‘chirish</button><button class="pill star-adm" data-act="admstar" data-a="star" data-m="1" data-id="${x.id}">⭐ +1 oy</button><button class="pill star-adm" data-act="admstar" data-a="star" data-m="3" data-id="${x.id}">⭐ +3 oy</button>${x.star_until ? `<button class="pill" data-act="admstar" data-a="unstar" data-id="${x.id}">Yulduzni olish</button><span class="muted" style="font-size:12px">⭐ ${uzDate(new Date(x.star_until).getTime(), true)} gacha</span>` : ''}</div>`}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Hali hech kim yo‘q.</td></tr>'}</tbody></table>
     ${r.banned.length ? `<p class="muted" style="margin:10px 0 4px">Bloklangan Gmail'lar:</p>${r.banned.map(e => `<div class="li"><span style="flex:1">${esc(e)}</span><button class="pill" data-act="adm-unban" data-e="${esc(e)}">Blokdan chiqarish</button></div>`).join('')}` : ''}`;
   admFilter();
 };
@@ -1053,7 +1118,7 @@ function sheet(html) {
 }
 const closeSheet = () => { $('#modal-root').innerHTML = ''; };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !document.querySelector('.consent')) closeSheet(); });
-document.addEventListener('input', e => { if (e.target.id === 'pb') { const v = e.target.value, bp = bioProblem(v.trim()); $('#pb-n').textContent = v.length + '/100'; $('#pb-h').textContent = bp ? '❌ ' + bp : ''; } if (e.target.id === 'lp' || e.target.id === 'lu') { $('#lp') && $('#lp').classList.remove('inp-bad'); } });
+document.addEventListener('input', e => { if (e.target.id === 'pb') { const v = e.target.value, bp = bioProblem(v.trim()); $('#pb-n').textContent = v.length + '/' + (me().star ? 200 : 100); $('#pb-h').textContent = bp ? '❌ ' + bp : ''; } if (e.target.id === 'lp' || e.target.id === 'lu') { $('#lp') && $('#lp').classList.remove('inp-bad'); } });
 // Xabarni ikki marta bossangiz ❤️ reaksiya qo'yiladi (Telegram'dagidek)
 document.addEventListener('dblclick', e => {
   const mEl = e.target.closest('.m[data-msg]'); if (!mEl || e.target.closest('button,a,input') || !CH.cid || String(mEl.dataset.msg).startsWith('tmp')) return;
@@ -1099,7 +1164,7 @@ document.addEventListener('click', async e => {
     }
     case 'postmenu': {
       const p = P(); if (!p) break; const own = u && (p.uid === u.id || isAdmin());
-      sheet(`<h2>Post</h2><div class="stack">${u && p.uid === u.id ? `<button class="btn ghost full" data-act="editpost" data-id="${id}">✏️ Tahrirlash</button>` : ''}${own ? `<button class="btn ghost full" style="color:var(--danger)" data-act="delpost" data-id="${id}">O‘chirish</button>` : p.reported ? '<p class="muted" style="margin:0">Shikoyatingiz qabul qilingan ✅</p>' : `<button class="btn ghost full" data-act="report" data-id="${id}">Shikoyat qilish</button>`}<button class="btn ghost full" data-act="sharepost" data-id="${id}">Havolani nusxalash</button></div>`);
+      sheet(`<h2>Post</h2><div class="stack">${u && p.uid === u.id ? `<button class="btn ghost full" data-act="editpost" data-id="${id}">✏️ Tahrirlash</button>` : ''}${u && p.uid === u.id && u.star ? `<button class="btn ghost full" data-act="pinpost" data-id="${id}">${u.pin === id ? '📌 Profildan olib tashlash' : '📌 Profilga qadash'}</button>` : ''}${own ? `<button class="btn ghost full" style="color:var(--danger)" data-act="delpost" data-id="${id}">O‘chirish</button>` : p.reported ? '<p class="muted" style="margin:0">Shikoyatingiz qabul qilingan ✅</p>' : `<button class="btn ghost full" data-act="report" data-id="${id}">Shikoyat qilish</button>`}<button class="btn ghost full" data-act="sharepost" data-id="${id}">Havolani nusxalash</button></div>`);
       break;
     }
     case 'delpost': { const p = P(); if (!p || !(p.uid === u.id || isAdmin())) break; DB.posts = DB.posts.filter(x => x.id !== id); closeSheet(); server({ t: 'delpost', post: id }, 'O‘chirildi'); if (route()[0] === 'post') go('/'); else render(); break; }
@@ -1139,7 +1204,7 @@ document.addEventListener('click', async e => {
         <label class="btn ghost" style="height:42px;cursor:pointer;position:relative">📷 Rasm tanlash<input type="file" accept="image/*" id="ph-file" class="sr"></label>
         ${tg.photo ? `<button type="button" class="btn ghost" style="height:42px;color:var(--danger)" data-act="ph-clear" data-u="${tg.id}">Olib tashlash</button>` : ''}</div></div>
       <div class="field"><label for="pn">Ism</label><input class="inp" id="pn" maxlength="40" required value="${esc(tg.name)}"></div>
-      <div class="field"><label for="pb">Bio</label><textarea class="inp" id="pb" maxlength="100" style="height:96px;padding:12px 16px" placeholder="O‘zingiz haqingizda qisqacha">${esc(tg.bio || '')}</textarea><div class="row" style="justify-content:space-between"><span class="hint bad" id="pb-h"></span><span class="hint" id="pb-n">${(tg.bio || '').length}/100</span></div><span class="muted" style="font-size:12px">Ko‘pi bilan 100 belgi va 3 qator · havola va telefon raqam mumkin emas</span></div>
+      <div class="field"><label for="pb">Bio</label><textarea class="inp" id="pb" maxlength="${tg.star ? 200 : 100}" style="height:96px;padding:12px 16px" placeholder="O‘zingiz haqingizda qisqacha">${esc(tg.bio || '')}</textarea><div class="row" style="justify-content:space-between"><span class="hint bad" id="pb-h"></span><span class="hint" id="pb-n">${(tg.bio || '').length}/${tg.star ? 200 : 100}</span></div><span class="muted" style="font-size:12px">Ko‘pi bilan ${tg.star ? 200 : 100} belgi va 3 qator · havola va telefon raqam mumkin emas</span></div>
       <div class="field"><span style="font-size:14px;font-weight:700">Rang</span><div class="row" style="flex-wrap:wrap">${COLORS.map(c => `<label style="cursor:pointer"><input type="radio" name="pc" value="${c}" class="sr" ${c === tg.color ? 'checked' : ''}><span class="av swatch" style="width:40px;height:40px;background:${c}"></span></label>`).join('')}</div></div>
       <button class="btn acc full">Saqlash</button></form>`); break;
     }
@@ -1275,6 +1340,13 @@ document.addEventListener('click', async e => {
       RND = pool[Math.floor(Math.random() * pool.length)].id; const q = $('#q'); if (q) q.value = ''; SEARCH_Q = '';
       el.classList.remove('spin'); void el.offsetWidth; el.classList.add('spin'); after.search(); break;
     }
+    case 'starcolor': patchMe({ starColor: el.dataset.v }, 'Rang saqlandi ✨'); break;
+    case 'cover': patchMe({ cover: el.dataset.g === '0' ? null : 'g' + el.dataset.g + (+el.dataset.p ? '.p' + el.dataset.p : '') }); break;
+    case 'hideonline': patchMe({ hideOnline: !(SESSION && SESSION.hideOnline) }); break;
+    case 'hideread': patchMe({ hideRead: !(SESSION && SESSION.hideRead) }); break;
+    case 'pinpost': { closeSheet(); const unpin = u.pin === id; patchMe({ pinned: unpin ? null : id }, unpin ? 'Profildan olib tashlandi' : 'Profilga qadaldi 📌'); break; }
+    case 'chun': sheet(`<h2>🔤 Username’ni almashtirish</h2><form class="stack" data-form="chun"><div class="field"><label for="cu">Yangi username</label><div style="position:relative"><span style="position:absolute;left:16px;top:14px;color:var(--mute);font-weight:700">@</span><input class="inp" id="cu" style="padding-left:34px" maxlength="15" autocomplete="off" autocapitalize="none" spellcheck="false" value="${esc(u.u)}"></div><div class="hint" id="cu-h">3–15 belgi · oyiga bir marta almashtirish mumkin</div></div><button class="btn acc full">Saqlash</button></form>`); break;
+    case 'admstar': { const r = await api('admin/users', { method: 'POST', body: { action: el.dataset.a, id: +id, months: +el.dataset.m || undefined } }); if (r.status === 401) { ADM.verified = false; render(); break; } toast(r.ok ? (el.dataset.a === 'star' ? `⭐ ${el.dataset.m} oyga Yulduz berildi` : 'Yulduz olib tashlandi') : (r.message || 'Bajarilmadi'), !r.ok); if (r.ok) { await sync(true); render(); } break; }
     case 'install': if (DEFER) doInstall(); else showInstall(true); break;
     case 'pushon': { const r = await pushEnable(true); toast(r === 'ok' ? 'Bildirishnomalar yoqildi 🔔' : r === 'ios' ? 'iPhone’da avval Lahzam’ni ekranga o‘rnating 📲' : r === 'denied' ? 'Brauzer sozlamalarida Lahzam’ga ruxsat bering' : 'Bu brauzer push’ni qo‘llamaydi', r !== 'ok'); closeSheet(); render(); break; }
     case 'pushoff': { await pushDisable(); toast('Push o‘chirildi'); render(); break; }
@@ -1458,6 +1530,12 @@ document.addEventListener('submit', async e => {
   if (kind === 'editpost') {
     const p = DB.posts.find(x => x.id === f.dataset.id || x.id === 'p' + f.dataset.id), t = $('#ep-t').value.trim(); if (!p || !t) return;
     const r = await server({ t: 'editpost', post: p.id, body: t }, 'Saqlandi ✅'); if (r.ok) { p.text = t; p.edited = true; closeSheet(); render(); } return;
+  }
+  if (kind === 'chun') {
+    const v = $('#cu').value.trim().toLowerCase(), h = $('#cu-h'); if (v === me().u) { closeSheet(); return; }
+    const [msg, ok] = checkUsername(v, true); if (!ok) { h.textContent = '❌ ' + msg; h.className = 'hint bad shake'; return; }
+    const r = await patchMe({ username: v }); if (r.user) { closeSheet(); toast(`Endi siz @${v} ✅`); go('/@' + v); } else { h.textContent = '❌ ' + (r.message || 'Bo‘lmadi'); h.className = 'hint bad shake'; }
+    return;
   }
   if (kind === 'delme') {
     const h = $('#dm-h'), v = $('#dm-c').value.trim().toLowerCase(); h.classList.remove('shake');

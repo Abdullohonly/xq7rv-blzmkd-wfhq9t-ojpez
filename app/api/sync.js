@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     // onlayn holat: har sync'da "oxirgi marta ko'rildi" yangilanadi (10 soniyada bir martadan ko'p emas)
     const seenQ = db`update users set last_seen = now() where id = ${uid} and (last_seen is null or last_seen < now() - interval '10 seconds')`;
     const [users, follows, posts, likes, replies, myReports, chats, members, notifs, stars] = await Promise.all([
-      db`select id, username, name, bio, color, is_system, is_blocked, created_at, dm_from, rr_off, warns, lower(email) = ${OWNER_EMAIL} as is_owner,
+      db`select id, username, name, bio, color, is_system, is_blocked, created_at, dm_from, rr_off, warns, lower(email) = ${OWNER_EMAIL} as is_owner, coalesce(star_until > now(), false) or lower(email) = ${OWNER_EMAIL} as is_star, star_color, cover, pinned_post, hide_online, hide_read,
            case when photo is null then null else substr(md5(photo), 1, 10) end as ph,
            coalesce(last_seen > now() - interval '45 seconds', false) as online, (extract(epoch from date_trunc('minute', last_seen)) * 1000)::bigint as ls
          from users order by id limit 2000`,
@@ -67,6 +67,8 @@ export default async function handler(req, res) {
       }
     }
 
+    // ⭐ "o'qildi" belgisini yashirgan Yulduz a'zolari
+    const hideRead = new Set(users.filter(x => x.is_star && x.hide_read).map(x => Number(x.id)));
     const likeMap = {}, repMap = {};
     likes.forEach(l => (likeMap[l.post_id] = likeMap[l.post_id] || []).push(Number(l.user_id)));
     replies.forEach(r => (repMap[r.post_id] = repMap[r.post_id] || []).push({ id: 'r' + r.id, uid: Number(r.user_id), text: r.body, t: ms(r.created_at), parent: r.parent_id ? 'r' + r.parent_id : undefined }));
@@ -96,7 +98,9 @@ export default async function handler(req, res) {
         id: Number(u.id), u: u.username, name: u.name, bio: u.bio, color: u.color, system: u.is_system || undefined,
         blocked: u.is_blocked || undefined, joined: ms(u.created_at), photo: photoUrl(u.id, u.ph),
         owner: u.is_owner || undefined,
-        on: u.online && Number(u.id) !== uid || undefined, ls: u.ls ? Number(u.ls) : undefined,
+        star: u.is_star || undefined, starColor: u.is_star ? (u.star_color || 'tilla') : undefined, cover: u.is_star && u.cover ? u.cover : undefined, pin: u.is_star && u.pinned_post ? 'p' + u.pinned_post : undefined,
+        // ⭐ Ko'rinmas rejim: onlayn holat va oxirgi ko'rilgan vaqt boshqalarga ko'rinmaydi
+        on: u.online && Number(u.id) !== uid && !(u.is_star && u.hide_online) || undefined, ls: u.ls && !(u.is_star && u.hide_online && Number(u.id) !== uid) ? Number(u.ls) : undefined,
         dmFrom: u.dm_from === 'fol' ? 'fol' : undefined, rrOff: u.rr_off || undefined, warns: admin ? u.warns : undefined
       })),
       follows: follows.map(f => [Number(f.follower_id), Number(f.followee_id)]),
@@ -110,7 +114,7 @@ export default async function handler(req, res) {
         const ms2 = memByChat[c.id] || [], mine = ms2.find(m => Number(m.user_id) === uid);
         const isMember = !!mine && mine.status === 'member', canRead = readable.includes(Number(c.id));
         const read = {};
-        if (isMember) ms2.filter(m => m.status === 'member').forEach(m => { read[m.user_id] = ms(m.last_read); });
+        if (isMember) ms2.filter(m => m.status === 'member' && (Number(m.user_id) === uid || !hideRead.has(Number(m.user_id)))).forEach(m => { read[m.user_id] = ms(m.last_read); });
         return {
           id: 'c' + c.id, type: c.kind, name: c.name, desc: c.description, cat: c.category, access: c.access, color: c.color,
           admin: c.admin_id == null ? null : Number(c.admin_id),

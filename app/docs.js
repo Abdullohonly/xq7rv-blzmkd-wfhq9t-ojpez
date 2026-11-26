@@ -7,7 +7,7 @@
 
   const shartlar = {
     title: 'Foydalanish shartlari',
-    html: `<p class="doc-meta">Kuchga kirgan sana: ${DATE} · Versiya 1</p>
+    html: `<p class="doc-meta">Kuchga kirgan sana: ${DATE} · Versiya 2</p>
 <p>Lahzam — o‘zbek tilidagi ijtimoiy tarmoq: ochiq postlar, guruhlar, shaxsiy suhbatlar va mini o‘yinlar. Lahzamdan foydalanish orqali siz quyidagi shartlarga rozilik bildirasiz. Rozi bo‘lmasangiz, iltimos, Lahzamdan foydalanmang.</p>
 ${S('1. Kim foydalana oladi', `<p>Lahzamdan faqat <b>13 yosh va undan katta</b> shaxslar foydalanishi mumkin. Akkaunt ochayotganda siz 13 yoshdan katta ekaningizni tasdiqlaysiz. 18 yoshga to‘lmagan bo‘lsangiz, Lahzamdan ota-onangiz yoki vasiyingiz bilan kelishib foydalaning.</p><p>13 yoshga to‘lmagan foydalanuvchi aniqlansa, akkaunt ogohlantirishsiz o‘chiriladi.</p>`)}
 ${S('2. Akkaunt', UL([
@@ -26,15 +26,23 @@ ${S('4. Taqiqlangan harakatlar', `<p>Quyidagilar taqiqlanadi (batafsil: <a href=
   'Lahzamni buzishga, ortiqcha yuklashga yoki xavfsizlik tizimini chetlab o‘tishga urinish'
 ]))}
 ${S('5. Moderatsiya', `<p>Qoidalar buzilganda Lahzam ogohlantirish berishi, kontentni yashirishi yoki o‘chirishi, akkauntni vaqtincha yoki butunlay bloklashi mumkin. Jiddiy holatlarda akkauntga bog‘langan Gmail ham bloklanadi. Guruh admini o‘z guruhidan a‘zoni chetlatishi mumkin.</p><p>Har bir postda “Shikoyat qilish” tugmasi bor. Shikoyatlarni moderator ko‘rib chiqadi.</p>`)}
-${S('6. Xizmat “boricha” taqdim etiladi', `<p>Lahzam doim ishlab turishiga harakat qilamiz, lekin uzilishlar, xatolar yoki ma’lumot yo‘qolishi bo‘lmasligiga kafolat bera olmaymiz. Muhim ma’lumotlaringizning nusxasini o‘zingizda saqlang. Lahzam funksiyalari oldindan ogohlantirmasdan o‘zgarishi, qo‘shilishi yoki olib tashlanishi mumkin.</p>`)}
-${S('7. Akkauntni yopish', `<p>Istalgan vaqtda Lahzamdan foydalanishni to‘xtatishingiz mumkin. Akkauntingizni va ma’lumotlaringizni butunlay o‘chirish uchun: <b>Sozlamalar → Akkaunt → Akkauntni o‘chirish</b>. Ma’lumotlaringiz darhol o‘chiriladi.</p>`)}
-${S('8. Shartlarning o‘zgarishi', `<p>Shartlar o‘zgarsa, ilovada xabar beramiz va yangi shartlarga rozilik so‘raymiz. Rozi bo‘lmasangiz, akkauntingizdan foydalanishni to‘xtatib, uni o‘chirishni so‘rashingiz mumkin.</p>`)}
-${S('9. Aloqa', `<p>Savol va takliflar uchun Lahzam ichida <a href="/@musoxon" data-link>@musoxon</a> ga yozing.</p>`)}`
+${S('6. ⭐ Yulduz (pullik obuna)', `<p>Lahzamning asosiy imkoniyatlari (post yozish, chat, guruhlar, o‘yinlar) hammaga <b>bepul</b>. “Yulduz” — qo‘shimcha imkoniyatlar beradigan ixtiyoriy pullik obuna: rangli nametag va yulduzcha, profil muqovasi, 3 harfli username va uni oyiga bir marta almashtirish, uzun postlar va bio, onlayn holat va “o‘qildi” belgisini yashirish, postni profilga qadash.</p>` + UL([
+  '<b>Narxlar (ochilish narxi):</b> 1 oy — 7 000 so‘m, 3 oy — 12 000 so‘m. Keyinchalik narx oshishi mumkin; oshganda allaqachon to‘langan muddat o‘zgarmaydi.',
+  '<b>To‘lov:</b> Telegram orqali, <a href="https://t.me/xarp01" target="_blank" rel="noopener">@xarp01</a> bilan kelishiladi. To‘lov tasdiqlangach, Yulduz akkauntingizda yoqiladi.',
+  '<b>Muddat:</b> obuna to‘langan muddat tugagach avtomatik o‘chadi; o‘z-o‘zidan pul yechilmaydi. Muddat tugaguncha uzaytirsangiz, yangi muddat ustiga qo‘shiladi.',
+  '<b>Pul qaytarilmaydi.</b> Faqat Lahzam tomonidagi texnik nosozlik sababli imkoniyatlardan foydalana olmagan bo‘lsangiz, obuna muddati o‘sha kunlarga uzaytiriladi.',
+  'Muddat tugagach: muqova, rangli nametag va boshqa Yulduz imkoniyatlari o‘chadi; postlaringiz va 3 harfli username’ingiz saqlanib qoladi.',
+  'Qoidalarni buzgani uchun bloklangan akkauntning obunasi uchun pul qaytarilmaydi.'
+]))}
+${S('7. Xizmat “boricha” taqdim etiladi', `<p>Lahzam doim ishlab turishiga harakat qilamiz, lekin uzilishlar, xatolar yoki ma’lumot yo‘qolishi bo‘lmasligiga kafolat bera olmaymiz. Muhim ma’lumotlaringizning nusxasini o‘zingizda saqlang. Lahzam funksiyalari oldindan ogohlantirmasdan o‘zgarishi, qo‘shilishi yoki olib tashlanishi mumkin.</p>`)}
+${S('8. Akkauntni yopish', `<p>Istalgan vaqtda Lahzamdan foydalanishni to‘xtatishingiz mumkin. Akkauntingizni va ma’lumotlaringizni butunlay o‘chirish uchun: <b>Sozlamalar → Akkaunt → Akkauntni o‘chirish</b>. Ma’lumotlaringiz darhol o‘chiriladi.</p>`)}
+${S('9. Shartlarning o‘zgarishi', `<p>Shartlar o‘zgarsa, ilovada xabar beramiz va yangi shartlarga rozilik so‘raymiz. Rozi bo‘lmasangiz, akkauntingizdan foydalanishni to‘xtatib, uni o‘chirishni so‘rashingiz mumkin.</p>`)}
+${S('10. Aloqa', `<p>Savol va takliflar uchun Lahzam ichida <a href="/@musoxon" data-link>@musoxon</a> ga yozing.</p>`)}`
   };
 
   const maxfiylik = {
     title: 'Maxfiylik siyosati',
-    html: `<p class="doc-meta">Kuchga kirgan sana: ${DATE} · Versiya 1</p>
+    html: `<p class="doc-meta">Kuchga kirgan sana: ${DATE} · Versiya 2</p>
 <p>Bu hujjat Lahzam qanday ma’lumotlaringizni oladi, ulardan nima uchun foydalanadi, kimga ko‘rinadi va qayerda saqlanadi — shularni tushuntiradi. Biz ma’lumotlaringizni <b>sotmaymiz</b> va reklama uchun ishlatmaymiz.</p>
 ${S('1. Biz oladigan ma’lumotlar', `<p><b>Google orqali kirganingizda:</b></p>` + UL([
   '<b>Email (Gmail) manzilingiz</b> — akkauntni aniqlash va kirish uchun. Boshqa foydalanuvchilarga ko‘rsatilmaydi.',
@@ -53,7 +61,7 @@ ${S('3. Kim nimani ko‘radi', UL([
   '<b>Ochiq postlar, javoblar, profilingiz</b> (ism, username, rasm, bio, kuzatuvchilar) — barcha foydalanuvchilarga ko‘rinadi.',
   '<b>Shaxsiy chatlar</b> — faqat suhbatdagi ikki kishiga ko‘rinadi.',
   '<b>Guruh xabarlari</b> — faqat guruh a’zolariga. Ochiq guruhlarni Lahzam moderatori qoidabuzarliklarni tekshirish uchun ko‘rishi mumkin.',
-  '<b>Onlayn holatingiz, “yozmoqda…” va “o‘qildi” belgisi</b> — siz bilan suhbatdagi odamlarga ko‘rinadi.',
+  '<b>Onlayn holatingiz, “yozmoqda…” va “o‘qildi” belgisi</b> — siz bilan suhbatdagi odamlarga ko‘rinadi (Yulduz a’zolari onlayn holat va “o‘qildi”ni yashira oladi).',
   '<b>Emailingiz</b> — hech bir foydalanuvchiga ko‘rinmaydi.'
 ]))}
 ${S('4. Shaxsiy chatlar kuzatilmaydi', `<p>Biz shaxsiy chatlaringizni <b>o‘qimaymiz, kuzatmaymiz va avtomatik tekshirmaymiz</b>. Ulardan reklama yoki boshqa maqsadda foydalanmaymiz.</p><p>Ochiq aytamiz: xabarlar “uchdan-uchga” (end-to-end) shifrlanmagan. Ular xabarni yetkazish uchun serverimizda saqlanadi va internet orqali shifrlangan holda (HTTPS) uzatiladi. Server ma’lumotlariga faqat Lahzam egasi texnik jihatdan kira oladi va bunga faqat qonun talab qilganda yoki sizning shikoyatingiz bo‘yicha jiddiy xavf (masalan, tahdid yoki firibgarlik) tekshirilganda murojaat qilinadi.</p>`)}

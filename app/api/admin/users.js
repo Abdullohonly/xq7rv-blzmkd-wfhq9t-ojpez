@@ -18,14 +18,14 @@ export default async function handler(req, res) {
       return send(res, 200, { dbBytes: Number(r.bytes), limitBytes: 512 * 1024 * 1024, users: r.users, today: r.today, blocked: r.blocked, banned: r.banned, r2 });
     }
     if (req.method === 'GET') {
-      const users = await db`select id, username, name, email, is_blocked, created_at from users where not is_system order by id`;
+      const users = await db`select id, username, name, email, is_blocked, created_at, case when star_until > now() then star_until end as star_until from users where not is_system order by id`;
       const banned = await db`select email from banned_emails order by created_at desc`;
       return send(res, 200, { users: users.map(u => ({ ...u, id: Number(u.id) })), banned: banned.map(b => b.email) });
     }
     if (req.method !== 'POST') return send(res, 405, { error: 'method' });
     if (!sameOrigin(req)) return send(res, 403, { error: 'origin' });
     const { action, id, email } = req.body || {};
-    if (!['block', 'unblock', 'delete', 'unban'].includes(action)) return send(res, 400, { error: 'action' });
+    if (!['block', 'unblock', 'delete', 'unban', 'star', 'unstar'].includes(action)) return send(res, 400, { error: 'action' });
     if (action === 'unban') { await db`delete from banned_emails where email = ${String(email || '').toLowerCase()}`; await db`update users set is_blocked = false where email = ${String(email || '').toLowerCase()}`; return send(res, 200, { ok: true }); }
     const [t] = await db`select * from users where id = ${Number(id)} and not is_system`;
     if (!t) return send(res, 404, { error: 'not_found' });
@@ -36,6 +36,12 @@ export default async function handler(req, res) {
     } else if (action === 'unblock') {
       await db`update users set is_blocked = false where id = ${t.id}`;
       if (t.email) await db`delete from banned_emails where email = ${t.email}`;
+    } else if (action === 'star') {
+      // ⭐ Yulduz: 1 yoki 3 oy. Faol obuna bo'lsa, muddat ustiga qo'shiladi
+      const months = Number((req.body || {}).months); if (![1, 3].includes(months)) return send(res, 400, { error: 'months' });
+      await db`update users set star_until = greatest(coalesce(star_until, now()), now()) + make_interval(months => ${months}) where id = ${t.id}`;
+    } else if (action === 'unstar') {
+      await db`update users set star_until = null where id = ${t.id}`;
     } else if (action === 'delete') {
       await db`delete from users where id = ${t.id}`;
     } else return send(res, 400, { error: 'action' });
