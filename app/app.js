@@ -1,8 +1,8 @@
-/* Lahzam v1.1.0 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.1.1 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.1.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.1.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { post: 500, reply: 300, msg: 2000 };
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
@@ -1122,11 +1122,12 @@ document.addEventListener('click', async e => {
         return `<div class="ctx${m.id === el.dataset.m ? ' hit' : ''}"><b>${esc(a.name)}</b> <span class="muted">${uzDate(m.t)} ${clock(m.t)}</span><div>${m.img ? '📷 ' : ''}${st ? '🎨 Stiker' : linkify(m.text || '')}</div></div>`; }).join('')}</div>`);
       setTimeout(() => { const h = document.querySelector('.ctx.hit'); h && h.scrollIntoView({ block: 'center' }); }, 30); break;
     }
-    case 'install': showInstall(true); break;
+    case 'install': if (DEFER) doInstall(); else showInstall(true); break;
     case 'pushon': { const r = await pushEnable(true); toast(r === 'ok' ? 'Bildirishnomalar yoqildi 🔔' : r === 'ios' ? 'iPhone’da avval Lahzam’ni ekranga o‘rnating 📲' : r === 'denied' ? 'Brauzer sozlamalarida Lahzam’ga ruxsat bering' : 'Bu brauzer push’ni qo‘llamaydi', r !== 'ok'); closeSheet(); render(); break; }
     case 'pushoff': { await pushDisable(); toast('Push o‘chirildi'); render(); break; }
     case 'pushlater': closeSheet(); break;
-    case 'inst-go': { if (DEFER) { const d = DEFER; DEFER = null; d.prompt(); const ch = await d.userChoice.catch(() => ({})); if (ch.outcome === 'accepted') { instDone(); closeSheet(); toast('Lahzam o‘rnatilmoqda 📲'); } } break; }
+    case 'inst-go': doInstall(); break;
+    case 'inst-fab-x': FAB_OFF = true; instFab(); break;
     case 'inst-copy': { try { await navigator.clipboard.writeText(location.origin); toast('Havola nusxalandi'); } catch (err) { toast(location.origin); } break; }
     case 'inst-close': instDone(); closeSheet(); setTimeout(maybeAskPush, 800); break;
     case 'adm-hide': { if (!isAdmin()) break; const p = P(); if (!p) break; p.hidden = !p.hidden; render(); server({ t: 'hide', post: id }); break; }
@@ -1398,8 +1399,28 @@ const ANDROID = /Android/i.test(UA), MAC = /Macintosh/.test(UA) && !IOS, INAPP =
 const SAFARI = /Safari/.test(UA) && !/Chrome|CriOS|FxiOS|EdgiOS|Edg\/|OPR|SamsungBrowser/.test(UA), FIREFOX = /Firefox|FxiOS/.test(UA), SAMSUNG = /SamsungBrowser/.test(UA);
 const standalone = () => matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: window-controls-overlay)').matches || navigator.standalone === true;
 let DEFER = null;
-addEventListener('beforeinstallprompt', e => { e.preventDefault(); DEFER = e; if (document.querySelector('.inst-sheet')) showInstall(true); });
-addEventListener('appinstalled', () => { instDone(); DEFER = null; if (document.querySelector('.inst-sheet')) closeSheet(); toast('Lahzam o‘rnatildi 🎉'); });
+// Android/Chrome: brauzer "o'rnatish mumkin" deganda haqiqiy O'rnatish tugmasi chiqadi
+addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); DEFER = e; instFab();
+  if (document.querySelector('.inst-sheet')) showInstall(true); else if (!instSeen()) showInstall(false);
+});
+addEventListener('appinstalled', () => { instDone(); DEFER = null; instFab(); if (document.querySelector('.inst-sheet')) closeSheet(); toast('Lahzam o‘rnatildi 🎉'); });
+let FAB_OFF = false;
+function instFab() {
+  let b = document.getElementById('inst-fab');
+  if (!DEFER || standalone() || FAB_OFF) { if (b) b.remove(); return; }
+  if (b) return;
+  b = document.createElement('div'); b.id = 'inst-fab';
+  b.innerHTML = `<button class="inst-fab-go" data-act="inst-go">📲 Lahzam’ni o‘rnatish</button><button class="inst-fab-x" data-act="inst-fab-x" aria-label="Yopish">✕</button>`;
+  document.body.appendChild(b);
+}
+async function doInstall() {
+  if (!DEFER) { showInstall(true); return; }
+  const d = DEFER; DEFER = null; instFab(); d.prompt();
+  const ch = await d.userChoice.catch(() => ({}));
+  if (ch.outcome === 'accepted') { instDone(); closeSheet(); toast('Lahzam o‘rnatilmoqda 📲'); }
+  else { closeSheet(); toast('Keyinroq Sozlamalar → “Ilovani o‘rnatish”dan o‘rnatsangiz bo‘ladi'); }
+}
 const instKey = 'lahzam_install_seen';
 function instDone() { try { localStorage.setItem(instKey, '1'); } catch (e) {} }
 const instSeen = () => { try { return localStorage.getItem(instKey) === '1'; } catch (e) { return true; } };
@@ -1456,7 +1477,9 @@ function maybeAskPush() {
     <button class="btn acc full inst-big" data-act="pushon">🔔 Bildirishnomalarni yoqish</button><button class="btn ghost full" style="margin-top:10px" data-act="pushlater">Keyinroq</button></div>`);
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.go) { closeSheet(); go(e.data.go); } });
-setTimeout(() => { if (!standalone() && !instSeen()) showInstall(false); else maybeAskPush(); }, 2500);
+const WAIT_BIP = ANDROID && !INAPP && !FIREFOX; // bu brauzerlarda haqiqiy "O'rnatish" tugmasi bo'ladi
+setTimeout(() => { if (standalone() || instSeen()) { maybeAskPush(); return; } if (!WAIT_BIP || DEFER) showInstall(false); }, 2500);
+if (WAIT_BIP) setTimeout(() => { if (!standalone() && !instSeen() && !DEFER) showInstall(false); }, 15000);
 
 render();
 api('auth/me').then(async r => {
