@@ -1,8 +1,8 @@
-/* Lahzam v1.1.7 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.1.8 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.1.7'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.1.8'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { post: 500, reply: 300, msg: 2000 };
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
@@ -144,7 +144,8 @@ function avatar(u, size = 44) {
   if (u.system) return `<span class="av" style="width:${size}px;height:${size}px;background:#BFEAF7">${Flappy.birdSVG(size * .86)}</span>`;
   return `<span class="av" style="width:${size}px;height:${size}px;background:${u.color};font-size:${Math.round(size * .38)}px" aria-hidden="true">${esc(u.name[0] || u.u[0]).toUpperCase()}</span>`;
 }
-const founderPill = u => u && isFounder(u) ? ' <span class="founder">Asoschi</span>' : '';
+const OWNER_PILL = '<span class="founder owner-pill">Owner</span>';
+const founderPill = u => !u ? '' : u.owner ? ' ' + OWNER_PILL : isFounder(u) ? ' <span class="founder">Asoschi</span>' : '';
 let toastT;
 function toast(msg, warn) { const el = $('#toast'); el.textContent = msg; el.className = 'toast show' + (warn ? ' warn' : ''); clearTimeout(toastT); toastT = setTimeout(() => el.className = 'toast', warn ? 3200 : 2000); }
 async function hash(s) { try { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('lahzam:' + s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); } catch (e) { return 'x' + s.length + s; } }
@@ -722,7 +723,7 @@ function profile(name) {
       ${own ? `<div class="row" style="gap:6px"><button class="ibtn" data-act="qr" aria-label="QR kod"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></button><a href="/sozlamalar" data-link class="ibtn" aria-label="Sozlamalar">${I.gear}</a></div>` : ''}</div>
     <div class="pmain">${own ? `<button class="av-edit" data-act="editprofile" aria-label="Profil rasmini almashtirish">${avatar(p, 112)}<span class="cam" aria-hidden="true">📷</span></button>` : avatar(p, 112)}
       <div style="font-family:var(--head);font-weight:700;font-size:22px;margin-top:10px">${NM(p, true)}</div>
-      <div class="row" style="justify-content:center;gap:8px;margin-top:2px"><span class="muted" style="font-size:14px">@${esc(p.u)}</span>${isFounder(p) ? '<span class="founder">Asoschi</span>' : ''}</div>
+      <div class="row" style="justify-content:center;gap:8px;margin-top:2px"><span class="muted" style="font-size:14px">@${esc(p.u)}</span>${p.owner ? OWNER_PILL : isFounder(p) ? '<span class="founder">Asoschi</span>' : ''}</div>
       ${p.bio ? `<p style="margin:10px 0 0;max-width:320px">${linkify(p.bio)}</p>` : ''}
       ${own && (!p.bio || !p.photo) ? `<button class="link-btn" style="margin-top:8px" data-act="editprofile">+ ${!p.photo ? 'Rasm' : ''}${!p.photo && !p.bio ? ' va ' : ''}${!p.bio ? 'bio' : ''} qo‘shish</button>` : ''}
       ${p.blocked ? '<span class="tag red" style="margin-top:8px">Bloklangan</span>' : ''}</div>
@@ -826,7 +827,7 @@ function settings() {
     <h3 class="set-h">Akkaunt</h3>
     <div class="card" style="padding:2px 16px">
       ${row('📧 Gmail', esc(S.email || '—'), '<span class="tag green">Google ✓</span>')}
-      ${row('🏅 Raqamingiz', `Lahzamdagi #${realUsers().findIndex(x => x.id === u.id) + 1}-foydalanuvchi`, isFounder(u) ? '<span class="founder">Asoschi</span>' : '')}
+      ${row('🏅 Raqamingiz', `Lahzamdagi #${realUsers().findIndex(x => x.id === u.id) + 1}-foydalanuvchi`, u.owner ? OWNER_PILL : isFounder(u) ? '<span class="founder">Asoschi</span>' : '')}
       ${row('📅 Qo‘shilgan sana', uzDate(u.joined, true), '')}
     </div>
 
