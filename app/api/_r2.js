@@ -38,7 +38,7 @@ export async function r2PutDataUrl(dataUrl, prefix) {
     accessKey: E().R2_ACCESS_KEY_ID.trim(), secret: E().R2_SECRET_ACCESS_KEY.trim()
   });
   delete headers.host;
-  const r = await fetch(`https://${host}${path}`, { method: 'PUT', headers, body });
+  const r = await fetch(`https://${host}${path}`, { method: 'PUT', headers, body, signal: AbortSignal.timeout(15000) });
   if (!r.ok) throw new Error('r2 ' + r.status + ' ' + (await r.text()).slice(0, 200));
   return `${E().R2_PUBLIC_URL.trim().replace(/\/+$/, '')}/${key}`;
 }
@@ -54,7 +54,7 @@ export async function r2Usage() {
     const amzDate = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
     const { headers } = sigV4({ method: 'GET', host, path, query, headers: {}, payloadHash: sha256(''), amzDate, region: 'auto', service: 's3', accessKey: E().R2_ACCESS_KEY_ID.trim(), secret: E().R2_SECRET_ACCESS_KEY.trim() });
     delete headers.host;
-    const r = await fetch(`https://${host}${path}?${query}`, { headers });
+    const r = await fetch(`https://${host}${path}?${query}`, { headers, signal: AbortSignal.timeout(6000) });
     const xml = await r.text();
     if (!r.ok) throw new Error('r2 list ' + r.status + ' ' + (/<Code>([^<]+)<\/Code>/.exec(xml) || [])[1]);
     for (const m of xml.matchAll(/<Size>(\d+)<\/Size>/g)) { bytes += Number(m[1]); count++; }

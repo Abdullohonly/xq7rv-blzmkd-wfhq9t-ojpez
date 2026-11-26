@@ -848,7 +848,8 @@ function admFilter() {
 after.admin = async () => {
   if (isOwnerSession() && !ADM.checked) { await refreshAdm(); if (route()[0] === 'admin') render(); return; }
   const aq = $('#adm-q'); if (aq) aq.addEventListener('input', admFilter);
-  api('admin/users?stats=1').then(st => {
+  const stT = setTimeout(() => { const el = $('#srv-stats'); if (el && /Yuklanmoqda/.test(el.textContent)) el.innerHTML = '<div class="kpi"><span class="muted">Statistika kechikyapti… sahifani yangilang</span></div>'; }, 12000);
+  api('admin/users?stats=1').then(st => { clearTimeout(stT);
     const el = $('#srv-stats'); if (!el || !st.ok) { if (el) el.innerHTML = '<div class="kpi"><span class="muted">Statistika yuklanmadi</span></div>'; return; }
     const bar = (title, used, limit, extra = '') => { const pct = Math.min(100, used / limit * 100), col = pct > 85 ? 'var(--danger)' : pct > 60 ? '#D97706' : 'var(--ok)';
       return `<div class="kpi" style="grid-column:1/-1"><span class="muted">${title}</span><b>${fmtBytes(used)} <span class="muted" style="font-size:15px;font-family:var(--font)">/ ${fmtBytes(limit)} · ${pct.toFixed(pct < 1 ? 2 : 1)}%</span></b>

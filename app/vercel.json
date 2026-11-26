@@ -70,5 +70,8 @@
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
+  ],
+  "regions": [
+    "fra1"
   ]
 }
