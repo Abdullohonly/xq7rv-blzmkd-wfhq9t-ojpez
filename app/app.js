@@ -1,8 +1,8 @@
-/* Lahzam v1.6.1 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.6.2 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.6.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.6.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -447,8 +447,7 @@ const ICONS = [['', 'Lahzam', '/icon-192.png'], ['qora', 'Qora', '/icons/qora-19
 // Tanlangan ilova ikonkasi: manifest, iPhone ikonkasi va favicon almashadi (o'rnatishda va Android yangilanishida qo'llanadi)
 function applyIcon() {
   const k = SESSION && me() && me().star && SESSION.appIcon; const set = (sel, attr, v) => { const e = document.querySelector(sel); if (e) e.setAttribute(attr, v); };
-  set('link[rel=manifest]', 'href', k ? `/icons/${k}.webmanifest` : '/manifest.webmanifest');
-  set('link[rel=apple-touch-icon]', 'href', k ? `/icons/${k}-apple.png` : '/apple-touch-icon.png');
+  // manifest va iPhone ikonkasini server har foydalanuvchiga o'zi beradi; bu yerda faqat favicon
   set('link[rel=icon]', 'href', k ? `/icons/${k}-192.png` : '/icon.svg');
 }
 let STATS = null;
@@ -1443,7 +1442,14 @@ document.addEventListener('click', async e => {
         <div class="field"><label for="sc-d">Qachon yuborilsin</label><input class="inp" id="sc-d" type="datetime-local" value="${v}" required></div><div class="hint bad" id="sc-h"></div>
         <button class="btn acc full">Rejalashtirish</button><p class="muted" style="margin:0;font-size:13px">Belgilangan vaqtgacha xabarni faqat siz ko‘rasiz. Bekor qilish uchun xabarni o‘chiring.</p></form>`); break;
     }
-    case 'appicon': { await patchMe({ appIcon: el.dataset.v || null }, 'Ikonka tanlandi ✅'); applyIcon(); break; }
+    case 'appicon': {
+      await patchMe({ appIcon: el.dataset.v || null }); applyIcon();
+      sheet(`<h2>📱 Ikonka tanlandi ✅</h2><div class="stack" style="gap:10px">
+        <div class="card" style="margin:0"><b>🤖 Android (Chrome)</b><p class="muted" style="margin:4px 0 0">Ilovani bir necha marta ochib-yoping. Chrome 1 kun ichida yangi ikonkani topadi va “Ikonkani yangilash”ni so‘raydi. Tezroq kerak bo‘lsa: ilovani o‘chirib, saytdan qayta o‘rnating.</p></div>
+        <div class="card" style="margin:0"><b>🍎 iPhone / iPad</b><p class="muted" style="margin:4px 0 0">iPhone ikonkani faqat qo‘shish paytida oladi: bosh ekrandagi Lahzam’ni o‘chiring, keyin Safari’da Ulashish → “Bosh ekranga qo‘shish”.</p></div>
+        <div class="card" style="margin:0"><b>💻 Kompyuter (Chrome / Edge)</b><p class="muted" style="margin:4px 0 0">Brauzer ilovani keyingi ochishda yangilaydi yoki ruxsat so‘raydi.</p></div>
+        <button class="btn acc full" data-act="close-sheet-btn">Tushunarli</button></div>`); break;
+    }
     case 'restats': STATS = null; render(); break;
     case 'script': { DB.script = DB.script === 'cyr' ? 'lat' : DB.script === 'lat' ? '' : 'cyr'; save(); const y = scrollY; render(); scrollTo(0, y); toast(DB.script === 'cyr' ? 'Матнлар кириллда' : DB.script === 'lat' ? 'Matnlar lotinda' : 'Matnlar asl holida'); break; }
     case 'setscript': { DB.script = el.dataset.v || ''; save(); const y = scrollY; render(); scrollTo(0, y); break; }

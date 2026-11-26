@@ -24,7 +24,20 @@ async function out(res, dataUrl, cache) {
   res.setHeader('Content-Security-Policy', "default-src 'none'");
   res.status(200).end(buf);
 }
+// Ilova ikonkasi: har foydalanuvchiga o'zi tanlagan ikonka (⭐ Yulduz). Android Chrome manifest o'zgarganini ko'rib, ikonkani yangilaydi
+const MANIFEST = {"id": "/", "name": "Lahzam", "short_name": "Lahzam", "description": "Fikrlar, guruhlar va shaxsiy suhbatlar uchun o‘zbekcha ijtimoiy tarmoq", "lang": "uz", "start_url": "/?source=app", "scope": "/", "display": "standalone", "display_override": ["window-controls-overlay", "standalone"], "orientation": "portrait", "background_color": "#FF5A1F", "theme_color": "#FF5A1F", "categories": ["social"], "shortcuts": [{"name": "Shaxsiy", "url": "/shaxsiy", "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]}, {"name": "Guruhlar", "url": "/guruhlar", "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]}]};
+async function appIcon(req, res) {
+  let k = null;
+  try { const u = await currentUser(req); const star = u && (isOwnerEmail(u.email) || (u.star_until && new Date(u.star_until) > new Date())); if (star && ['qora', 'tilla', 'kok'].includes(u.app_icon)) k = u.app_icon; } catch (e) {}
+  res.setHeader('Cache-Control', 'private, no-cache'); res.setHeader('Vary', 'Cookie');
+  if (req.query.app === 'apple') { res.setHeader('Location', k ? `/icons/${k}-apple.png` : '/icons/default-apple.png'); return res.status(302).end(); }
+  const icons = k ? [{ src: `/icons/${k}-192.png`, sizes: '192x192', type: 'image/png', purpose: 'any' }, { src: `/icons/${k}-512.png`, sizes: '512x512', type: 'image/png', purpose: 'any' }, { src: `/icons/${k}-mask.png`, sizes: '512x512', type: 'image/png', purpose: 'maskable' }]
+    : [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' }, { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }, { src: '/icon-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }];
+  res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+  return res.status(200).end(JSON.stringify({ ...MANIFEST, icons }));
+}
 export default async function handler(req, res) {
+  if (req.query.app) return appIcon(req, res);
   if (req.method !== 'GET') return send(res, 405, { error: 'method' });
   try {
     const q = req.query || {}, db = sql();

@@ -67,6 +67,14 @@
   ],
   "rewrites": [
     {
+      "source": "/manifest.webmanifest",
+      "destination": "/api/img?app=manifest"
+    },
+    {
+      "source": "/apple-touch-icon.png",
+      "destination": "/api/img?app=apple"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
