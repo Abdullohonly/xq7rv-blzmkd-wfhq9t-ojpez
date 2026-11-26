@@ -167,3 +167,9 @@ alter table posts add constraint posts_body_check check (char_length(body) <= 50
 alter table replies add column if not exists parent_id bigint references replies(id) on delete set null;
 -- Tetris rekordi (har chatda)
 alter table chats add column if not exists tetris_score int, add column if not exists tetris_user bigint references users(id) on delete set null;
+-- 1.1.0: onlayn holat, yozmoqda, 2048 rekordi, push obunalari
+alter table users add column if not exists last_seen timestamptz;
+alter table chat_members add column if not exists typing_at timestamptz;
+alter table chats add column if not exists g2048_score int, add column if not exists g2048_user bigint references users(id) on delete set null;
+create table if not exists push_subs (id bigserial primary key, user_id bigint not null references users(id) on delete cascade, endpoint text not null unique, p256dh text not null, auth text not null, created_at timestamptz not null default now());
+create index if not exists push_subs_user on push_subs(user_id);

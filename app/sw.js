@@ -1,6 +1,6 @@
 /* Lahzam service worker: avval internetdan oladi (har doim yangi versiya), internet yo'q bo'lsa keshdan */
-const CACHE = 'lahzam-1.0.2';
-const SHELL = ['/', '/index.html', '/app.js?v=11', '/flappy.js?v=11', '/tetris.js?v=11', '/styles.css?v=11', '/icon.svg'];
+const CACHE = 'lahzam-1.1.0';
+const SHELL = ['/', '/index.html', '/app.js?v=12', '/flappy.js?v=12', '/tetris.js?v=12', '/game2048.js?v=12', '/stickers.js?v=12', '/manifest.webmanifest', '/icon-192.png', '/styles.css?v=12', '/icon.svg'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
@@ -11,4 +11,19 @@ self.addEventListener('fetch', e => {
     if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(key, copy)); }
     return r;
   }).catch(() => caches.match(key).then(hit => hit || Response.error())));
+});
+// Push: ilova yopiq bo'lsa ham xabar telefonga keladi
+self.addEventListener('push', e => {
+  let d = {}; try { d = e.data ? e.data.json() : {}; } catch (err) { d = { body: e.data && e.data.text() }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Lahzam', {
+    body: d.body || '', icon: '/icon-192.png', badge: '/badge.png', tag: d.tag || undefined, renotify: !!d.tag, data: { url: d.url || '/' }
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close(); const path = (e.notification.data && e.notification.data.url) || '/';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(ws => {
+    const w = ws.find(x => 'focus' in x);
+    if (w) { w.postMessage({ go: path }); return w.focus(); }
+    return self.clients.openWindow(path);
+  }));
 });

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { sql, currentUser, isOwnerEmail, hasAdminPass, rateLimit, tooMany, send, sameOrigin } from './_lib.js';
 import { r2PutDataUrl } from './_r2.js';
+import { pushTo } from './_push.js';
 // POST /api/act — ilovadagi har bir amal: post, javob, layk, kuzatish, guruh, xabar, reaksiya, so'rovnoma...
 // Har bir amalda: kim qilayotgani (sessiya), ruxsati (a'zo/admin/egasi) va chegaralar serverda tekshiriladi.
 const REACTS = ['❤️', '👎', '⭐', '🫶', '😂', '😮', '😢', '🤲'];
@@ -14,11 +15,12 @@ const mentions = t => [...new Set((t.match(/@([a-z0-9._]{3,20})/gi) || []).map(s
 
 async function notify(db, to, body, link, from) {
   if (!to || to === from) return;
-  await db`insert into notifications (user_id, body, link) select ${to}, ${body}, ${link} from users where id = ${to} and not notif_off and not is_system`;
+  const ins = await db`insert into notifications (user_id, body, link) select ${to}, ${body}, ${link} from users where id = ${to} and not notif_off and not is_system returning id`;
+  if (ins.length) await pushTo(db, [to], { title: 'Lahzam', body, url: link || '/', tag: 'n' + ins[0].id });
 }
 async function notifyMentions(db, text, from, fromName, where, link, only) {
   for (const n of mentions(text)) {
-    if (n === 'flappy') continue;
+    if (n === 'flappy' || n === 'tetris') continue;
     const [t] = await db`select id from users where username = ${n}`;
     if (t && (!only || only.includes(Number(t.id)))) await notify(db, Number(t.id), `@${fromName} sizni ${where} belgiladi`, link, from);
   }
@@ -207,14 +209,21 @@ export default async function handler(req, res) {
             if (!q || opts.length < 2) return bad(res, 'Savol va kamida 2 ta variant yozing'); poll = { q, opts }; body = '';
           }
           if (!body && !img && !poll) return bad(res, 'Avval biror narsa yozing');
-          game = !poll && !img && /@(flappy|tetris)\b/i.test(body);
+          game = !poll && !img && /@(flappy|tetris|2048)(?![\w])/i.test(body);
           const rt = idOf(b.replyTo, 'm');
           if (rt) { const [r] = await db`select id, user_id from messages where id = ${rt} and chat_id = ${cid}`; if (r) replyTo = Number(r.id); }
         }
         const [m] = await db`insert into messages (chat_id, user_id, body, is_game, reply_to, img, poll, fwd_user)
           values (${cid}, ${uid}, ${body}, ${game}, ${replyTo}, ${img}, ${poll ? JSON.stringify(poll) : null}::jsonb, ${fwd}) returning id`;
         await db`update chat_members set last_read = now() where chat_id = ${cid} and user_id = ${uid}`;
-        // chat xabarlari bildirishnomaga tushmaydi (bildirishnomalar faqat Ochiq maydondan)
+        // chat xabarlari bildirishnomalar ro'yxatiga tushmaydi, lekin telefonga push keladi
+        const others = await db`select user_id from chat_members where chat_id = ${cid} and status = 'member' and user_id <> ${uid}`;
+        await db`update chat_members set typing_at = null where chat_id = ${cid} and user_id = ${uid}`;
+        if (others.length) {
+          const st = /^\[s:[a-z0-9]+\]$/.test(body), prev = poll ? '📊 ' + poll.q : img ? '📷 Rasm' + (body ? ': ' + body : '') : game ? '🎮 O‘yin' : st ? '🎨 Stiker' : body;
+          const grp = c.kind === 'group', who = me.name || '@' + me.username;
+          await pushTo(db, others.map(o => o.user_id), { title: grp ? c.name : who, body: (grp ? who + ': ' : '') + prev.slice(0, 160), url: '/c/c' + cid, tag: 'c' + cid });
+        }
         return send(res, 200, { ok: true, id: 'm' + m.id });
       }
       case 'edit': {
@@ -271,6 +280,52 @@ export default async function handler(req, res) {
           await db`insert into messages (chat_id, user_id, body, is_sys) values (${cid}, null, ${'@' + me.username + ' dan rekord ' + score + ' ta!'}, true)`;
         }
         return send(res, 200, { ok: true, record: up.length > 0 });
+      }
+      case '2048': {
+        const cid = idOf(b.chat, 'c'), score = Number(b.score); const c = cid && await chatOf(db, cid, uid);
+        if (!isMember(c) || !Number.isInteger(score) || score < 4 || score > 9999999) return bad(res, 'score');
+        const up = await db`update chats set g2048_score = ${score}, g2048_user = ${uid} where id = ${cid} and coalesce(g2048_score, 0) < ${score} returning id`;
+        if (up.length) await db`insert into messages (chat_id, user_id, body, is_sys) values (${cid}, null, ${'🔢 @' + me.username + ' 2048 rekordi: ' + score + ' ochko!'}, true)`;
+        return send(res, 200, { ok: true, record: up.length > 0 });
+      }
+      case 'pushsub': {
+        const s = b.sub || {}, ep = str(s.endpoint, 800), k = s.keys || {};
+        if (!/^https:\/\//.test(ep) || !/^[A-Za-z0-9_-]{80,100}$/.test(k.p256dh || '') || !/^[A-Za-z0-9_-]{16,32}$/.test(k.auth || '')) return bad(res, 'sub');
+        await db`insert into push_subs (user_id, endpoint, p256dh, auth) values (${uid}, ${ep}, ${k.p256dh}, ${k.auth})
+          on conflict (endpoint) do update set user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth`;
+        await db`delete from push_subs where user_id = ${uid} and id not in (select id from push_subs where user_id = ${uid} order by created_at desc limit 5)`;
+        return send(res, 200, { ok: true });
+      }
+      case 'pushoff': { await db`delete from push_subs where user_id = ${uid} and endpoint = ${str(b.endpoint, 800)}`; return send(res, 200, { ok: true }); }
+      case 'typing': {
+        const cid = idOf(b.chat, 'c'); if (!cid) return bad(res, 'chat');
+        await db`update chat_members set typing_at = ${b.stop ? null : new Date()} where chat_id = ${cid} and user_id = ${uid} and status = 'member'`;
+        return send(res, 200, { ok: true });
+      }
+      case 'saved': {
+        const [ex] = await db`select c.id from chats c where c.kind = 'dm' and exists(select 1 from chat_members a where a.chat_id = c.id and a.user_id = ${uid})
+          and (select count(*) from chat_members z where z.chat_id = c.id) = 1 limit 1`;
+        if (ex) return send(res, 200, { ok: true, chat: 'c' + ex.id });
+        const [c] = await db`insert into chats (kind) values ('dm') returning id`;
+        await db`insert into chat_members (chat_id, user_id, status) values (${c.id}, ${uid}, 'member')`;
+        return send(res, 200, { ok: true, chat: 'c' + c.id });
+      }
+      case 'msearch': {
+        const cid = idOf(b.chat, 'c'), q = str(b.q, 100); const c = cid && await chatOf(db, cid, uid);
+        if (!isMember(c) || q.length < 2) return send(res, 200, { ok: true, list: [] });
+        const like = '%' + q.replace(/[\\%_]/g, m => '\\' + m) + '%';
+        const rows = await db`select id, user_id, body, created_at from messages where chat_id = ${cid} and not is_sys and not is_game and body ilike ${like} order by created_at desc limit 60`;
+        return send(res, 200, { ok: true, list: rows.map(r => ({ id: 'm' + r.id, uid: Number(r.user_id), text: r.body, t: new Date(r.created_at).getTime() })) });
+      }
+      case 'mctx': {
+        const cid = idOf(b.chat, 'c'), mid = idOf(b.msg, 'm'); const c = cid && await chatOf(db, cid, uid);
+        if (!isMember(c) || !mid) return bad(res, 'msg');
+        const [at] = await db`select created_at from messages where id = ${mid} and chat_id = ${cid}`; if (!at) return bad(res, 'Xabar topilmadi', 404);
+        const [before, after] = await Promise.all([
+          db`select id, user_id, body, created_at, img is not null as has_img from messages where chat_id = ${cid} and created_at < ${at.created_at} and not is_sys order by created_at desc limit 12`,
+          db`select id, user_id, body, created_at, img is not null as has_img from messages where chat_id = ${cid} and created_at >= ${at.created_at} and not is_sys order by created_at limit 13`]);
+        const rows = [...before.reverse(), ...after];
+        return send(res, 200, { ok: true, list: rows.map(r => ({ id: 'm' + r.id, uid: Number(r.user_id), text: r.body, img: r.has_img || undefined, t: new Date(r.created_at).getTime() })) });
       }
       case 'tetris': {
         const cid = idOf(b.chat, 'c'), score = Number(b.score); const c = cid && await chatOf(db, cid, uid);

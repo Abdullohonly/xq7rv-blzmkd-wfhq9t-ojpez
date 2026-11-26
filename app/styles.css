@@ -283,3 +283,55 @@ button.stat:active{transform:scale(.97)}
 .tet-pad .tet-drop{grid-column:span 2;background:var(--acc);font-size:15px}
 .tet-box canvas.tet-board,.tet-box canvas.tet-next{background:#16161A}
 .tet-box canvas.tet-next{width:80px;height:80px}
+
+/* 1.1.0 — Lahzam ikonkalari */
+.ni{flex:none;transition:transform .18s ease}
+.ni.on{transform:scale(1.08)}
+.snav .ni.on,.dock .tab.on .ni{filter:drop-shadow(0 2px 6px rgba(255,90,31,.35))}
+.dock .ico:active .ni,.snav:active .ni{transform:scale(.9)}
+/* saqlangan xabarlar, onlayn, yozmoqda */
+.saved-av{background:linear-gradient(135deg,#121212,#3a2a22);color:#fff;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.avw{position:relative;display:inline-flex;flex:none}
+.avw.online::after{content:"";position:absolute;right:1px;bottom:1px;width:13px;height:13px;border-radius:50%;background:#2BB673;border:2.5px solid var(--card,#fff)}
+.typing{color:var(--acc);font-weight:600}
+.typing::after{content:"";display:inline-block;width:14px;animation:tydots 1.2s steps(4) infinite;overflow:hidden;vertical-align:bottom}
+@keyframes tydots{0%{width:0}100%{width:14px}}
+/* stikerlar */
+.m.stkm{background:none!important;box-shadow:none!important;border:0!important;padding:0!important}
+.stk{width:150px;height:150px}
+.stk svg{display:block}
+.stk-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:58vh;overflow:auto}
+.stk-pick{background:var(--soft,#f3f0ea);border-radius:18px;padding:4px;aspect-ratio:1;transition:transform .12s}
+.stk-pick:active{transform:scale(.92)}
+@media (max-width:420px){.stk-grid{grid-template-columns:repeat(3,1fr)}}
+/* eski xabarlarni qidirish */
+.old-res{padding:2px 14px;margin:6px 0 10px}
+.ctx-list{max-height:60vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
+.ctx{padding:10px 12px;border-radius:14px;background:var(--soft,#f3f0ea);font-size:14px}
+.ctx.hit{background:#FFE3D4;outline:2px solid var(--acc)}
+/* o'rnatish va push oynasi */
+.inst-hero{display:flex;gap:14px;align-items:center;margin-bottom:16px}
+.inst-hero b{display:block;font-family:var(--head);font-size:19px;margin-bottom:4px}
+.inst-hero span{color:var(--mute);font-size:14px;line-height:1.4}
+.inst-big{height:54px;font-size:16px;border-radius:999px}
+.inst-steps{list-style:none;padding:0;margin:0 0 14px;display:flex;flex-direction:column;gap:10px}
+.inst-steps li{display:flex;gap:12px;align-items:center;padding:12px;border-radius:16px;background:var(--soft,#f3f0ea);font-size:15px;line-height:1.35}
+.inst-n{flex:none;width:28px;height:28px;border-radius:50%;background:var(--acc);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
+/* 2048 */
+.g48-box{max-width:400px}
+.g48-stats{display:flex;gap:8px;margin-bottom:10px}
+.g48-stats div{flex:1;background:#2a2a2a;border-radius:14px;padding:8px 12px}
+.g48-stats span{display:block;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:.04em}
+.g48-stats b{font-family:var(--head);font-size:20px}
+.g48-new{background:var(--acc);color:#fff;border-radius:14px;padding:0 14px;font-weight:700}
+.g48-board{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:8px;background:#1d1d22;border-radius:18px;aspect-ratio:1;touch-action:none;user-select:none;-webkit-user-select:none;outline:none}
+.g48-cell{background:#2a2a30;border-radius:12px;position:relative}
+.g48-tile{position:absolute;inset:0;border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:var(--head);font-weight:800}
+.g48-tile.new{animation:g48in .16s ease-out}
+.g48-tile.pop{animation:g48pop .18s ease-out}
+@keyframes g48in{from{transform:scale(.3);opacity:0}to{transform:none;opacity:1}}
+@keyframes g48pop{50%{transform:scale(1.14)}}
+.g48-over{position:absolute;inset:0;background:rgba(0,0,0,.72);border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#fff}
+.g48-over b{font-family:var(--head);font-size:26px}
+.g48-hint{font-size:12px;color:#999;text-align:center;margin:10px 0 0}
+.m.stkm.out{color:var(--ink)}

@@ -14,9 +14,12 @@ export default async function handler(req, res) {
     const db = sql(), uid = Number(me.id);
     const admin = isOwnerEmail(me.email) && hasAdminPass(req, me);
 
+    // onlayn holat: har sync'da "oxirgi marta ko'rildi" yangilanadi (10 soniyada bir martadan ko'p emas)
+    const seenQ = db`update users set last_seen = now() where id = ${uid} and (last_seen is null or last_seen < now() - interval '10 seconds')`;
     const [users, follows, posts, likes, replies, myReports, chats, members, notifs, stars] = await Promise.all([
       db`select id, username, name, bio, color, is_system, is_blocked, created_at, dm_from, rr_off, warns,
-           case when photo is null then null else substr(md5(photo), 1, 10) end as ph
+           case when photo is null then null else substr(md5(photo), 1, 10) end as ph,
+           coalesce(last_seen > now() - interval '45 seconds', false) as online, (extract(epoch from date_trunc('minute', last_seen)) * 1000)::bigint as ls
          from users order by id limit 2000`,
       db`select follower_id, followee_id from follows limit 20000`,
       db`select p.id, p.user_id, p.body, p.is_lahza, p.is_hidden, p.created_at,
@@ -34,7 +37,7 @@ export default async function handler(req, res) {
          where exists(select 1 from chat_members m where m.chat_id = c.id and m.user_id = ${uid})
             or (c.kind = 'group' and c.access in ('open', 'ask'))
          order by c.id limit 500`,
-      db`select m.chat_id, m.user_id, m.status, m.last_read from chat_members m
+      db`select m.chat_id, m.user_id, m.status, m.last_read, coalesce(m.typing_at > now() - interval '6 seconds', false) as typing from chat_members m
          join chats c on c.id = m.chat_id
          where exists(select 1 from chat_members x where x.chat_id = c.id and x.user_id = ${uid}) or (c.kind = 'group' and c.access in ('open', 'ask'))`,
       db`select id, body, link, is_read, created_at from notifications where user_id = ${uid} and link not like '/c/%' order by created_at desc limit 60`,
@@ -45,6 +48,7 @@ export default async function handler(req, res) {
          where r.emoji = '⭐' and c.kind = 'group' and r.user_id <> m.user_id
          group by m.user_id`
     ]);
+    await seenQ.catch(() => {});
 
     // Xabarlar: faqat a'zo bo'lgan chatlar (admin esa ochiq guruhlarni ham ko'radi)
     const mem = members.filter(m => Number(m.user_id) === uid && m.status === 'member').map(m => Number(m.chat_id));
@@ -91,6 +95,7 @@ export default async function handler(req, res) {
       users: users.filter(u => !u.is_blocked || admin || Number(u.id) === uid).map(u => ({
         id: Number(u.id), u: u.username, name: u.name, bio: u.bio, color: u.color, system: u.is_system || undefined,
         blocked: u.is_blocked || undefined, joined: ms(u.created_at), photo: photoUrl(u.id, u.ph),
+        on: u.online && Number(u.id) !== uid || undefined, ls: u.ls ? Number(u.ls) : undefined,
         dmFrom: u.dm_from === 'fol' ? 'fol' : undefined, rrOff: u.rr_off || undefined, warns: admin ? u.warns : undefined
       })),
       follows: follows.map(f => [Number(f.follower_id), Number(f.followee_id)]),
@@ -112,6 +117,8 @@ export default async function handler(req, res) {
           pending: (isMember && Number(c.admin_id) === uid) || (mine && mine.status === 'pending') ? ms2.filter(m => m.status === 'pending').map(m => Number(m.user_id)) : [],
           record: c.flappy_score ? { score: c.flappy_score, uid: Number(c.flappy_user) } : null,
           trecord: c.tetris_score ? { score: c.tetris_score, uid: Number(c.tetris_user) } : null,
+          grecord: c.g2048_score ? { score: c.g2048_score, uid: Number(c.g2048_user) } : null,
+          typing: isMember ? ms2.filter(m => m.typing && Number(m.user_id) !== uid).map(m => Number(m.user_id)) : [],
           pin: c.pin_id ? 'm' + c.pin_id : null, read, msgs: canRead ? (byChat[c.id] || []) : [], full: canRead
         };
       }),

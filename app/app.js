@@ -1,8 +1,8 @@
-/* Lahzam v1.0.2 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.1.0 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.0.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.1.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { post: 500, reply: 300, msg: 2000 };
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
@@ -86,7 +86,7 @@ function softRender() {
   const name = route()[0];
   if (name === 'chat') {
     const box = $('#msgs'), c = DB.chats.find(x => x.id === CH.cid);
-    if (box && c) { const near = innerHeight + scrollY >= document.body.scrollHeight - 160; box.innerHTML = msgList(c); if (near) scrollTo(0, document.body.scrollHeight); markRead(c); return; }
+    if (box && c) { const near = innerHeight + scrollY >= document.body.scrollHeight - 160; box.innerHTML = msgList(c); const sb = $('#chat-sub'), u0 = me(); if (sb && u0) sb.innerHTML = typingText(c) ? `<span class="typing">${typingText(c)}</span>` : c.type === 'group' ? `${c.members.length} a‘zo` : isSaved(c) ? 'Faqat siz ko‘rasiz' : seenText(peer(c, u0)); if (near) scrollTo(0, document.body.scrollHeight); markRead(c); return; }
   }
   if (busy()) { SYNC.pending = true; return; }
   const y = scrollY; render(true); if (name !== 'chat') scrollTo(0, y);
@@ -147,6 +147,23 @@ const founderPill = u => u && isFounder(u) ? ' <span class="founder">Asoschi</sp
 let toastT;
 function toast(msg, warn) { const el = $('#toast'); el.textContent = msg; el.className = 'toast show' + (warn ? ' warn' : ''); clearTimeout(toastT); toastT = setTimeout(() => el.className = 'toast', warn ? 3200 : 2000); }
 async function hash(s) { try { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('lahzam:' + s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); } catch (e) { return 'x' + s.length + s; } }
+// Lahzam uslubidagi navigatsiya ikonkalari: yumaloq, qalin chiziq va brendning to'q sariq "lahza nuqtasi"
+const DOTC = '#FF5A1F';
+function NI(name, on = false, size = 22) {
+  const f = `fill="currentColor" fill-opacity="${on ? 0.22 : 0}"`, st = 'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"';
+  const P = {
+    home: `<path d="M5 6.5A3.5 3.5 0 0 1 8.5 3h1A3.5 3.5 0 0 1 13 6.5V12h4.5A3.5 3.5 0 0 1 21 15.5v1a3.5 3.5 0 0 1-3.5 3.5H9.5L5 23z" ${f} ${st}/><circle cx="17.4" cy="6.6" r="2.6" fill="${DOTC}"/>`,
+    groups: `<path d="M3 7.5A3.5 3.5 0 0 1 6.5 4h5A3.5 3.5 0 0 1 15 7.5" ${st} fill="none"/><path d="M3 7.5v2.5a3 3 0 0 0 3 3" ${st} fill="none"/><path d="M12.5 9h5a3.5 3.5 0 0 1 3.5 3.5v2a3.5 3.5 0 0 1-3.5 3.5H17v3l-4-3h-.5A3.5 3.5 0 0 1 9 14.5v-2A3.5 3.5 0 0 1 12.5 9z" ${f} ${st}/><circle cx="15" cy="13.5" r="1.7" fill="${DOTC}"/>`,
+    dms: `<path d="M6 4h12a3.5 3.5 0 0 1 3.5 3.5v7A3.5 3.5 0 0 1 18 18h-6l-5 4v-4H6a3.5 3.5 0 0 1-3.5-3.5v-7A3.5 3.5 0 0 1 6 4z" ${f} ${st}/><path d="M12 14.2l-2.6-2.5a1.7 1.7 0 0 1 2.6-2.1 1.7 1.7 0 0 1 2.6 2.1z" fill="${DOTC}"/>`,
+    search: `<circle cx="10.5" cy="10.5" r="6.8" ${f} ${st}/><path d="M15.6 15.6L21 21" ${st}/><circle cx="10.5" cy="10.5" r="2.3" fill="${DOTC}"/>`,
+    bell: `<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.8 2H4.2z" ${f} ${st}/><path d="M10 21.2h4" ${st}/><circle cx="18" cy="5.2" r="2.7" fill="${DOTC}"/>`,
+    trophy: `<path d="M7 3.5h10v5.5a5 5 0 0 1-10 0z" ${f} ${st}/><path d="M7 5.5H4v1.2A3.3 3.3 0 0 0 7.3 10M17 5.5h3v1.2a3.3 3.3 0 0 1-3.3 3.3M12 14v4M8 21h8" ${st} fill="none"/><path d="M12 5.6l.9 1.8 2 .3-1.4 1.4.3 2-1.8-.9-1.8.9.3-2-1.4-1.4 2-.3z" fill="${DOTC}"/>`,
+    updates: `<path d="M11 3c.7 5 2.7 7.4 7.5 8-4.8.6-6.8 3-7.5 8-.7-5-2.7-7.4-7.5-8 4.8-.6 6.8-3 7.5-8z" ${f} ${st}/><circle cx="19.5" cy="19" r="2" fill="${DOTC}"/><circle cx="19" cy="4.5" r="1.3" fill="${DOTC}"/>`,
+    gear: `<circle cx="12" cy="12" r="7.6" fill="none" stroke="currentColor" stroke-width="3.4" stroke-dasharray="3.1 2.87" transform="rotate(8 12 12)"/><circle cx="12" cy="12" r="5.6" ${f} ${st}/><circle cx="12" cy="12" r="2.2" fill="${DOTC}"/>`,
+    saved: `<path d="M6.5 3.5h11a1.5 1.5 0 0 1 1.5 1.5v16l-7-4.5L5 21V5a1.5 1.5 0 0 1 1.5-1.5z" ${f} ${st}/><circle cx="12" cy="9.5" r="2.2" fill="${DOTC}"/>`
+  };
+  return `<svg class="ni${on ? ' on' : ''}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true">${P[name]}</svg>`;
+}
 const I = {
   back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>',
   search: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
@@ -178,7 +195,7 @@ function guard(kind, text) {
   if (!clean) { toast('Avval biror narsa yozing'); return false; }
   if (clean.length > LIMIT[kind]) { toast(`Juda uzun: ko‘pi bilan ${LIMIT[kind]} belgi`, true); return false; }
   if (kind !== 'msg') {
-    if (/@(flappy|tetris)\b/i.test(clean)) { toast('O‘yinlar faqat chat va guruhlarda ishlaydi 🎮', true); return false; }
+    if (/@(flappy|tetris|2048)(?!\w)/i.test(clean)) { toast('O‘yinlar faqat chat va guruhlarda ishlaydi 🎮', true); return false; }
     const links = (clean.match(/https?:\/\//g) || []).length;
     const fresh = t - u.joined < 7 * DAY && !isOwnerSession();
     if (links > 1) { toast('Bitta postda ko‘pi bilan 1 ta havola', true); return false; }
@@ -264,14 +281,14 @@ function deskShell(name, html) {
   return `<div class="desk">
     <aside class="side"><a href="/" data-link class="side-brand">${I.logo('#FF5A1F', '#121212', 34)}<b>lahzam</b></a>
       <nav aria-label="Asosiy">
-        ${L('/', ico(I.globe), 'Ochiq maydon', name === 'home')}
-        ${L('/guruhlar', ico(I.group), 'Guruhlar', name === 'groups', g)}
-        ${L('/shaxsiy', ico(I.reply), 'Shaxsiy', name === 'dms', d)}
-        ${L('/qidiruv', ico(I.search), 'Qidiruv', name === 'search')}
-        ${L('/bildirishnomalar', ico(I.bell), 'Bildirishnomalar', name === 'notifs', n)}
-        ${L('/reyting', ico(I.trophy), 'Reyting', name === 'leaders')}
-        ${L('/yangiliklar', ico(I.spark), 'Lahzam Updates', name === 'updates', nu)}
-        ${L('/sozlamalar', ico(I.gear), 'Sozlamalar', name === 'settings')}
+        ${L('/', NI('home', name === 'home'), 'Ochiq maydon', name === 'home')}
+        ${L('/guruhlar', NI('groups', name === 'groups'), 'Guruhlar', name === 'groups', g)}
+        ${L('/shaxsiy', NI('dms', name === 'dms'), 'Shaxsiy', name === 'dms', d)}
+        ${L('/qidiruv', NI('search', name === 'search'), 'Qidiruv', name === 'search')}
+        ${L('/bildirishnomalar', NI('bell', name === 'notifs'), 'Bildirishnomalar', name === 'notifs', n)}
+        ${L('/reyting', NI('trophy', name === 'leaders'), 'Reyting', name === 'leaders')}
+        ${L('/yangiliklar', NI('updates', name === 'updates'), 'Lahzam Updates', name === 'updates', nu)}
+        ${L('/sozlamalar', NI('gear', name === 'settings'), 'Sozlamalar', name === 'settings')}
       </nav>
       <button class="btn acc full" style="border-radius:999px;margin-top:14px" data-act="compose">+ Yangi post</button>
       <a href="/@${esc(u.u)}" data-link class="side-me">${avatar(u, 42)}<span style="min-width:0"><b>${esc(u.name)}</b><span class="muted" style="display:block">@${esc(u.u)}</span></span></a>
@@ -299,10 +316,10 @@ function dock(active) {
   const g = unread('group'), d = unread('dm'), nu = unreadUpdates();
   return `<nav class="dock" aria-label="Asosiy">
     <button class="plus" data-act="compose" aria-label="Yangi post">${I.plus}</button>
-    <a href="/" data-link class="tab ${active === 'home' ? 'on' : ''}" aria-label="Ochiq maydon">${I.globe}Ochiq</a>
-    <a href="/guruhlar" data-link class="ico ${active === 'groups' ? 'on' : ''}" aria-label="Guruhlar${g ? ', ' + g + ' ta yangi' : ''}">${I.group}<span>Guruhlar</span>${g ? `<span class="num">${g > 99 ? '99+' : g}</span>` : ''}</a>
-    <a href="/shaxsiy" data-link class="ico ${active === 'dms' ? 'on' : ''}" aria-label="Shaxsiy${d ? ', ' + d + ' ta yangi' : ''}">${I.reply.replace('<svg', '<svg width="20" height="20"')}<span>Shaxsiy</span>${d ? `<span class="num">${d > 99 ? '99+' : d}</span>` : ''}</a>
-    <a href="/yangiliklar" data-link class="ico ${active === 'updates' ? 'on' : ''}" aria-label="Lahzam Updates${nu ? ', ' + nu + ' ta yangi' : ''}">${I.spark}<span>Updates</span>${nu ? `<span class="num">${nu}</span>` : ''}</a>
+    <a href="/" data-link class="tab ${active === 'home' ? 'on' : ''}" aria-label="Ochiq maydon">${NI('home', active === 'home', 20)}Ochiq</a>
+    <a href="/guruhlar" data-link class="ico ${active === 'groups' ? 'on' : ''}" aria-label="Guruhlar${g ? ', ' + g + ' ta yangi' : ''}">${NI('groups', active === 'groups', 22)}<span>Guruhlar</span>${g ? `<span class="num">${g > 99 ? '99+' : g}</span>` : ''}</a>
+    <a href="/shaxsiy" data-link class="ico ${active === 'dms' ? 'on' : ''}" aria-label="Shaxsiy${d ? ', ' + d + ' ta yangi' : ''}">${NI('dms', active === 'dms', 22)}<span>Shaxsiy</span>${d ? `<span class="num">${d > 99 ? '99+' : d}</span>` : ''}</a>
+    <a href="/yangiliklar" data-link class="ico ${active === 'updates' ? 'on' : ''}" aria-label="Lahzam Updates${nu ? ', ' + nu + ' ta yangi' : ''}">${NI('updates', active === 'updates', 22)}<span>Updates</span>${nu ? `<span class="num">${nu}</span>` : ''}</a>
   </nav>`;
 }
 function header(extra = '', deskTitle = '') {
@@ -310,9 +327,9 @@ function header(extra = '', deskTitle = '') {
   return `<header class="top"><div class="top-row">
     <a href="/" data-link class="brand" aria-label="Lahzam bosh sahifa">${I.logo()}<b>lahzam</b></a>${deskTitle ? `<b class="desk-title">${deskTitle}</b>` : ''}
     <div class="row" style="gap:6px">
-      <a href="/reyting" data-link class="ibtn" aria-label="Foydali reytingi">${I.trophy}</a>
-      <a href="/qidiruv" data-link class="ibtn" aria-label="Qidirish">${I.search}</a>
-      <a href="/bildirishnomalar" data-link class="ibtn" aria-label="Bildirishnomalar${n ? ', ' + n + ' ta yangi' : ''}">${I.bell}${n ? `<span class="badge">${n > 99 ? '99+' : n}</span>` : ''}</a>
+      <a href="/reyting" data-link class="ibtn" aria-label="Foydali reytingi">${NI('trophy', false, 20)}</a>
+      <a href="/qidiruv" data-link class="ibtn" aria-label="Qidirish">${NI('search', false, 20)}</a>
+      <a href="/bildirishnomalar" data-link class="ibtn" aria-label="Bildirishnomalar${n ? ', ' + n + ' ta yangi' : ''}">${NI('bell', false, 20)}${n ? `<span class="badge">${n > 99 ? '99+' : n}</span>` : ''}</a>
       ${u ? `<a href="/@${esc(u.u)}" data-link aria-label="Profilim" style="border-radius:50%;border:2px solid #fff;display:inline-flex">${avatar(u, 40)}</a>` : `<a href="/kirish" data-link class="btn" style="height:40px;background:#fff;color:#111;border-radius:999px">Kirish</a>`}
     </div></div>${extra}</header>`;
 }
@@ -483,13 +500,22 @@ after.auth = () => {
 };
 
 /* groups & dms */
+const isSaved = c => c && c.type === 'dm' && c.members.length === 1;
+const peer = (c, u) => user(c.members.find(x => x !== u.id)) || { name: 'O‘chirilgan', u: 'deleted', color: '#ccc' };
+const savedAv = (s = 50) => `<span class="gav saved-av" style="width:${s}px;height:${s}px;border-radius:${Math.round(s * .3)}px">${NI('saved', true, Math.round(s * .55))}</span>`;
+const chatName = (c, u) => c.type === 'group' ? c.name : isSaved(c) ? 'Saqlangan xabarlar' : peer(c, u).name;
+const chatAv = (c, u, s) => c.type === 'group' ? `<span class="gav" style="background:${c.color};width:${s}px;height:${s}px;border-radius:${Math.round(s * .3)}px">${esc(c.name[0])}</span>` : isSaved(c) ? savedAv(s) : avatar(peer(c, u), s);
+const typingText = c => { const t = (c.typing || []).map(user).filter(Boolean); return !t.length ? '' : c.type === 'group' ? esc(t[0].name.split(' ')[0]) + (t.length > 1 ? ` va yana ${t.length - 1}` : '') + ' yozmoqda…' : 'yozmoqda…'; };
+function seenText(o) { if (!o) return ''; if (o.on) return 'onlayn'; if (!o.ls) return '@' + esc(o.u); const a = ago(o.ls); return a === 'hozir' ? 'hozirgina shu yerda edi' : `${a} oldin shu yerda edi`; }
 function chatRow(c) {
   const u = me(), last = c.msgs[c.msgs.length - 1];
   const n = c.msgs.filter(m => m.uid !== u.id && m.t > (c.read[u.id] || 0)).length;
   let title, av;
   if (c.type === 'group') { title = esc(c.name); av = `<span class="gav" style="background:${c.color}">${esc(c.name[0])}</span>`; }
-  else { const o = user(c.members.find(x => x !== u.id)); title = esc(o.name); av = avatar(o, 50); }
-  const lastTxt = last ? (last.sys ? esc(last.text) : (c.type === 'group' && user(last.uid) ? esc(user(last.uid).name.split(' ')[0]) + ': ' : '') + esc(msgPreview(last))) : 'Hali xabar yo‘q';
+  else if (isSaved(c)) { title = 'Saqlangan xabarlar'; av = savedAv(50); }
+  else { const o = peer(c, u); title = esc(o.name); av = `<span class="avw${o.on ? ' online' : ''}">${avatar(o, 50)}</span>`; }
+  const ty = typingText(c);
+  const lastTxt = ty ? `<span class="typing">${ty}</span>` : last ? (last.sys ? esc(last.text) : (c.type === 'group' && user(last.uid) ? esc(user(last.uid).name.split(' ')[0]) + ': ' : '') + esc(msgPreview(last))) : 'Hali xabar yo‘q';
   return `<a href="/c/${c.id}" data-link class="li">${av}<span style="flex:1;min-width:0"><span class="row" style="justify-content:space-between"><b>${title}</b><span class="muted">${last ? ago(last.t) : ''}</span></span>
     <span class="muted" style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px">${lastTxt}</span>
     ${c.type === 'group' ? `<span class="muted" style="font-size:12px">${c.members.length} a‘zo · ${ACCESS[c.access]} · ${esc(c.cat)}</span>` : ''}</span>${n ? `<span class="dot">${n}</span>` : ''}</a>`;
@@ -507,9 +533,11 @@ function groups() {
 }
 function dms() {
   const u = me();
-  const list = DB.chats.filter(c => c.type === 'dm' && c.members.includes(u.id)).sort((a, b) => (b.msgs.at(-1)?.t || 0) - (a.msgs.at(-1)?.t || 0));
+  const list = DB.chats.filter(c => c.type === 'dm' && c.members.includes(u.id) && !isSaved(c)).sort((a, b) => (b.msgs.at(-1)?.t || 0) - (a.msgs.at(-1)?.t || 0));
+  const sv = DB.chats.find(c => isSaved(c) && c.members.includes(u.id)), svLast = sv && sv.msgs.at(-1);
+  const savedRow = `<button class="li" style="width:100%;text-align:left" data-act="opensaved">${savedAv(50)}<span style="flex:1;min-width:0"><b>Saqlangan xabarlar</b><span class="muted" style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px">${svLast ? esc(msgPreview(svLast)) : 'Muhim xabarlarni shu yerga saqlang 🔖'}</span></span></button>`;
   return `<div class="shell">${header(`<div style="margin-top:12px"><div class="title-h" style="margin:0">Shaxsiy</div><div class="sub-h">${unread('dm')} ta yangi xabar</div></div>`)}
-  <div class="pad"><div class="card" style="padding:4px 16px">${list.map(chatRow).join('') || '<p class="muted">Hali suhbat yo‘q. Biror profilga kirib “Xabar yozish”ni bosing.</p>'}</div></div>${dock('dms')}</div>`;
+  <div class="pad"><div class="card" style="padding:4px 16px">${savedRow}${list.map(chatRow).join('') || '<p class="muted">Hali suhbat yo‘q. Biror profilga kirib “Xabar yozish”ni bosing.</p>'}</div></div>${dock('dms')}</div>`;
 }
 /* chat: Telegram uslubidagi funksiyalar */
 let CH = { cid: null, reply: null, edit: null, q: '', search: false };
@@ -519,7 +547,9 @@ function dayLabel(t) {
   const diff = Math.round((today - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / DAY);
   return diff === 0 ? 'Bugun' : diff === 1 ? 'Kecha' : uzDate(t);
 }
-const msgPreview = m => !m ? 'O‘chirilgan xabar' : m.img ? '📷 Rasm' + (m.text ? ': ' + m.text : '') : m.poll ? '📊 ' + m.poll.q : m.game ? (/@tetris/i.test(m.text || '') ? '🧱 Tetris o‘yini' : '🐤 Flappy o‘yini') : m.text;
+const gameKind = t => /@tetris\b/i.test(t || '') ? 'tetris' : /@2048(?!\w)/.test(t || '') ? '2048' : 'flappy';
+const stickerOf = m => m && !m.img && !m.poll && !m.game && window.Stickers && (Stickers.re.exec(m.text || '') || [])[1];
+const msgPreview = m => !m ? 'O‘chirilgan xabar' : m.img ? '📷 Rasm' + (m.text ? ': ' + m.text : '') : m.poll ? '📊 ' + m.poll.q : m.game ? ({ tetris: '🧱 Tetris o‘yini', '2048': '🔢 2048 o‘yini', flappy: '🐤 Flappy o‘yini' })[gameKind(m.text)] : stickerOf(m) ? '🎨 Stiker' : m.text;
 const canPin = c => c.type === 'dm' || c.admin === me().id || isAdmin();
 const canDelMsg = (c, m) => m.uid === me().id || (c.type === 'group' && (isAdmin() || c.admin === me().id));
 function pollHtml(c, m) {
@@ -537,54 +567,73 @@ function msgHtml(c, m) {
   const quote = m.replyTo ? `<button class="quote" data-act="jump" data-m="${m.replyTo}"><b>${rep ? esc((user(rep.uid) || {}).name || '') : ''}</b><span>${esc(msgPreview(rep)).slice(0, 90)}</span></button>` : '';
   const fwd = m.fwd ? `<span class="fwd">↪ Uzatildi: ${esc((user(m.fwd) || { name: 'kimdir' }).name)}</span>` : '';
   let body;
-  if (m.game) { const tet = /@tetris\b/i.test(m.text || ''), rec = tet ? c.trecord : c.record;
-    body = `<div class="game-card">${tet ? Tetris.icon(42) : Flappy.birdSVG(42)}<div style="flex:1"><b style="display:block">${tet ? 'Tetris' : 'Flappy'}</b><span style="font-size:12px;color:#bbb">${rec ? `Rekord: ${rec.score} · @${esc(user(rec.uid).u)}` : 'Rekord yo‘q, birinchi bo‘ling!'}</span></div>
-      <button class="btn acc" style="height:38px;border-radius:999px;font-size:13px" data-act="${tet ? 'playtet' : 'play'}" data-id="${c.id}">O‘ynash</button></div>`; }
+  const stk = stickerOf(m);
+  if (m.game) { const gk = gameKind(m.text), rec = gk === 'tetris' ? c.trecord : gk === '2048' ? c.grecord : c.record;
+    body = `<div class="game-card">${gk === 'tetris' ? Tetris.icon(42) : gk === '2048' ? G2048.icon(42) : Flappy.birdSVG(42)}<div style="flex:1"><b style="display:block">${gk === 'tetris' ? 'Tetris' : gk === '2048' ? '2048' : 'Flappy'}</b><span style="font-size:12px;color:#bbb">${rec ? `Rekord: ${rec.score} · @${esc(user(rec.uid).u)}` : 'Rekord yo‘q, birinchi bo‘ling!'}</span></div>
+      <button class="btn acc" style="height:38px;border-radius:999px;font-size:13px" data-act="${gk === 'tetris' ? 'playtet' : gk === '2048' ? 'play48' : 'play'}" data-id="${c.id}">O‘ynash</button></div>`; }
+  else if (stk) body = `<div class="stk" role="img" aria-label="Stiker: ${esc(Stickers.label(stk))}">${Stickers.svg(stk)}</div>`;
   else if (m.poll) body = pollHtml(c, m);
   else body = (m.img ? `<button class="mimg" data-act="viewimg" data-c="${c.id}" data-m="${m.id}"><img src="${esc(m.img)}" alt="Rasm" loading="lazy"></button>` : '') + (m.text ? `<span class="mtx">${linkify(m.text)}</span>` : '');
   const read = mine && c.type === 'dm' && c.members.filter(x => x !== u.id).every(x => (c.read[x] || 0) >= m.t);
   const meta = `<span class="mt">${m.edited ? 'tahrirlandi · ' : ''}${clock(m.t)}${mine && c.type === 'dm' ? `<i class="tick${read ? ' read' : ''}">${read ? '✓✓' : '✓'}</i>` : ''}</span>`;
   const hit = CH.q && m.text && m.text.toLowerCase().includes(CH.q) ? ' hit' : '';
-  return `<div class="m ${mine ? 'out' : 'in'}${hit}" data-msg="${m.id}" id="m-${m.id}">${c.type === 'group' && !mine ? `<a class="who" href="/@${esc(a.u)}" data-link style="text-decoration:none">${esc(a.name)}</a>` : ''}${fwd}${quote}${body}
+  return `<div class="m ${mine ? 'out' : 'in'}${hit}${stk ? ' stkm' : ''}" data-msg="${m.id}" id="m-${m.id}">${c.type === 'group' && !mine ? `<a class="who" href="/@${esc(a.u)}" data-link style="text-decoration:none">${esc(a.name)}</a>` : ''}${fwd}${quote}${body}
     <div class="reacts">${rx.map(([e, v]) => `<button class="rx ${v.includes(u.id) ? 'mine' : ''}" data-act="react" data-c="${c.id}" data-m="${m.id}" data-e="${e}" aria-label="${e} reaksiya, ${v.length}">${e} ${v.length}</button>`).join('')}
       <button class="rx-add" data-act="rxbar" data-c="${c.id}" data-m="${m.id}" aria-label="Reaksiya qo‘shish">☺︎+</button><button class="rx-add" data-act="msgmenu" data-c="${c.id}" data-m="${m.id}" aria-label="Xabar amallari">⋯</button>${meta}</div></div>`;
+}
+// Chatda qidiruv: yuklangan xabarlar + serverdagi eski xabarlar (qancha eski bo'lsa ham topiladi)
+let SRV_T = 0;
+function srvSearch(c) {
+  clearTimeout(SRV_T); const q = CH.q; if (!c || q.length < 2) { CH.srv = null; return; }
+  SRV_T = setTimeout(async () => {
+    const r = await api('act', { method: 'POST', body: { t: 'msearch', chat: c.id, q } });
+    if (CH.q !== q || CH.cid !== c.id || !r.ok) return; CH.srv = { q, list: r.list }; const box = $('#msgs'); if (box) box.innerHTML = msgList(c);
+  }, 350);
 }
 function msgList(c) {
   let last = '', out = '';
   const list = CH.q ? c.msgs.filter(m => !m.sys && ((m.text || '').toLowerCase().includes(CH.q) || (m.poll && m.poll.q.toLowerCase().includes(CH.q)))) : c.msgs;
   list.forEach(m => { const d = dayLabel(m.t); if (d !== last) { out += `<div class="day">${d}</div>`; last = d; } out += msgHtml(c, m); });
-  return out || `<div class="sys">${CH.q ? 'Hech narsa topilmadi' : 'Hali xabar yo‘q. Birinchi bo‘lib yozing 👋'}</div>`;
+  if (CH.q && CH.srv && CH.srv.q === CH.q) {
+    const have = new Set(c.msgs.map(m => m.id)), old = CH.srv.list.filter(m => !have.has(m.id));
+    if (old.length) out += `<div class="day">Eski xabarlar</div><div class="card old-res">${old.map(m => `<button class="li" style="width:100%;text-align:left" data-act="oldmsg" data-c="${c.id}" data-m="${m.id}"><span style="flex:1;min-width:0"><b>${esc((user(m.uid) || { name: '—' }).name)}</b> <span class="muted">${uzDate(m.t)}</span><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.text)}</span></span>›</button>`).join('')}</div>`;
+  }
+  return out || `<div class="sys">${CH.q ? (CH.q.length > 1 && !(CH.srv && CH.srv.q === CH.q) ? 'Qidirilmoqda…' : 'Hech narsa topilmadi') : 'Hali xabar yo‘q. Birinchi bo‘lib yozing 👋'}</div>`;
 }
 function chat(id) {
   const u = me(), c = DB.chats.find(x => x.id === id);
   const peek = c && c.full && isAdmin() && c.type === 'group' && c.access === 'open';
   if (!c || (!c.members.includes(u.id) && !peek)) return notFound();
-  if (CH.cid !== id) CH = { cid: id, reply: null, edit: null, q: '', search: false };
+  if (CH.cid !== id) CH = { cid: id, reply: null, edit: null, q: '', search: false, srv: null };
   let title, sub, link;
   if (c.type === 'group') { title = esc(c.name); sub = `${c.members.length} a‘zo`; link = `/g/${c.id}`; }
-  else { const o = user(c.members.find(x => x !== u.id)); title = esc(o.name); sub = '@' + esc(o.u); link = `/@${o.u}`; }
+  else if (isSaved(c)) { title = 'Saqlangan xabarlar'; sub = 'Faqat siz ko‘rasiz'; link = '/shaxsiy'; }
+  else { const o = peer(c, u); title = esc(o.name); sub = seenText(o); link = `/@${o.u}`; }
+  if (typingText(c)) sub = `<span class="typing">${typingText(c)}</span>`;
   const pin = c.pin && c.msgs.find(m => m.id === c.pin);
   const editing = CH.edit && c.msgs.find(m => m.id === CH.edit), replying = CH.reply && c.msgs.find(m => m.id === CH.reply);
   const bar = editing ? `<div class="cbar"><span>✏️ <b>Tahrirlash</b><em>${esc(msgPreview(editing)).slice(0, 80)}</em></span><button type="button" data-act="cancelbar" aria-label="Bekor qilish">✕</button></div>`
     : replying ? `<div class="cbar"><span>↩️ <b>${esc(user(replying.uid).name)}</b><em>${esc(msgPreview(replying)).slice(0, 80)}</em></span><button type="button" data-act="cancelbar" aria-label="Bekor qilish">✕</button></div>` : '';
   return `<div class="shell chatv" style="padding-bottom:0">
     <div class="chat-top"><button class="ibtn" data-act="back" aria-label="Orqaga">${I.back}</button>
-      <a href="${link}" data-link class="row" style="text-decoration:none;color:#fff;gap:10px;flex:1;min-width:0">${c.type === 'group' ? `<span class="gav" style="background:${c.color};width:42px;height:42px;border-radius:14px">${esc(c.name[0])}</span>` : avatar(user(c.members.find(x => x !== u.id)), 42)}
-      <span style="min-width:0"><b style="display:block;font-family:var(--head);font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${title}</b><span class="sub-h" style="font-size:13px">${sub}</span></span></a>
+      <a href="${link}" data-link class="row" style="text-decoration:none;color:#fff;gap:10px;flex:1;min-width:0">${chatAv(c, u, 42)}
+      <span style="min-width:0"><b style="display:block;font-family:var(--head);font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${title}</b><span class="sub-h" id="chat-sub" style="font-size:13px">${sub}</span></span></a>
       <button class="ibtn" data-act="chatsearch" aria-label="Chatda qidirish" aria-pressed="${CH.search}">${I.search}</button></div>
     ${CH.search ? `<label class="csearch"><span class="sr">Chatda qidirish</span><input id="cq" autocomplete="off" placeholder="Xabarlardan qidirish…" value="${esc(CH.q)}"></label>` : ''}
     ${pin ? `<button class="pinbar" data-act="jump" data-m="${pin.id}"><span>📌 <b>Qadalgan xabar</b><em>${esc(msgPreview(pin)).slice(0, 90)}</em></span></button>` : ''}
     <div class="msgs" id="msgs">${msgList(c)}</div>
     <form class="chat-in" data-form="msg" data-id="${c.id}">${bar}<div class="cin-row">
-      <button type="button" class="attach" data-act="attach" data-id="${c.id}" aria-label="Biriktirish: rasm, so‘rovnoma, o‘yin">📎</button>
-      <label style="flex:1;display:flex"><span class="sr">Xabar</span><input id="msg-in" maxlength="2000" autocomplete="off" placeholder="${editing ? 'Yangi matn' : 'Xabar · @flappy yoki @tetris — o‘yin'}" value="${editing ? esc(editing.text) : ''}"></label>
+      <button type="button" class="attach" data-act="attach" data-id="${c.id}" aria-label="Biriktirish: rasm, so‘rovnoma, o‘yin">📎</button><button type="button" class="attach" data-act="stickers" data-id="${c.id}" aria-label="Stikerlar">🎨</button>
+      <label style="flex:1;display:flex"><span class="sr">Xabar</span><input id="msg-in" maxlength="2000" autocomplete="off" placeholder="${editing ? 'Yangi matn' : 'Xabar yozing…'}" value="${editing ? esc(editing.text) : ''}"></label>
       <button class="round" aria-label="${editing ? 'Saqlash' : 'Yuborish'}">${editing ? '✓' : I.send.replace('<svg', '<svg width="18" height="18"')}</button></div>
       <input type="file" id="img-file" accept="image/*" class="sr" tabindex="-1"></form></div>`;
 }
 after.chat = () => {
   markRead(DB.chats.find(x => x.id === CH.cid));
   const q = $('#cq');
-  if (q) { q.addEventListener('input', () => { CH.q = q.value.trim().toLowerCase(); const c = DB.chats.find(x => x.id === CH.cid); $('#msgs').innerHTML = msgList(c); }); if (!CH.q) q.focus(); return; }
+  if (q) { q.addEventListener('input', () => { CH.q = q.value.trim().toLowerCase(); const c = DB.chats.find(x => x.id === CH.cid); $('#msgs').innerHTML = msgList(c); srvSearch(c); }); if (!CH.q) q.focus(); return; }
+  const mi = $('#msg-in'), cc = DB.chats.find(x => x.id === CH.cid);
+  if (mi && cc && !isSaved(cc)) mi.addEventListener('input', () => { if (mi.value.trim() && now() - (CH.typedAt || 0) > 3500) { CH.typedAt = now(); api('act', { method: 'POST', body: { t: 'typing', chat: cc.id } }); } });
   window.scrollTo(0, document.body.scrollHeight);
   if (CH.reply || CH.edit) { const i = $('#msg-in'); i && i.focus(); }
 };
@@ -742,6 +791,7 @@ function settings() {
       <div class="li set-row" style="flex-wrap:wrap"><span style="flex:1;min-width:160px"><b>✉️ Menga kim yoza oladi</b><span class="muted" style="display:block">Shaxsiy xabarlar</span></span>
         <div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr));min-width:200px">${[['all', 'Hamma'], ['fol', 'Kuzatganlarim']].map(([k, l]) => `<button type="button" class="${dmw === k ? 'on' : ''}" data-act="dmfrom" data-v="${k}" aria-pressed="${dmw === k}">${l}</button>`).join('')}</div></div>
       ${row('🔔 Bildirishnomalar', 'Javob, belgilash va kuzatuvlar haqida', sw('notif', !S.notifOff, 'Bildirishnomalar'))}
+      ${row('📲 Telefonga push', pushState() === 'on' ? 'Yoqilgan: xabarlar telefoningizga keladi' : pushState() === 'ios' ? 'iPhone’da avval ilovani o‘rnating' : pushState() === 'no' ? 'Bu brauzerda ishlamaydi' : 'Ilova yopiq bo‘lsa ham xabar keladi', pushState() === 'no' ? '' : sw(pushState() === 'on' ? 'pushoff' : 'pushon', pushState() === 'on', 'Telefonga push'))}
     </div>
 
     <h3 class="set-h">Akkaunt</h3>
@@ -754,6 +804,8 @@ function settings() {
     <h3 class="set-h">Lahzam</h3>
     <div class="card" style="padding:2px 16px">
       <a href="/yangiliklar" data-link class="li set-row"><span style="flex:1"><b>✨ Lahzam Updates</b><span class="muted" style="display:block">Ilovada nimalar yangilandi</span></span>${unreadUpdates() ? `<span class="dot">${unreadUpdates()}</span>` : '›'}</a>
+      ${standalone() ? '' : `<button class="li set-row" style="width:100%;text-align:left" data-act="install"><span style="flex:1"><b>📲 Ilovani o‘rnatish</b><span class="muted" style="display:block">Lahzam telefon ekraningizda alohida ilova bo‘ladi</span></span>›</button>`}
+      <button class="li set-row" style="width:100%;text-align:left" data-act="opensaved"><span style="flex:1"><b>🔖 Saqlangan xabarlar</b><span class="muted" style="display:block">Faqat siz ko‘radigan shaxsiy chat</span></span>›</button>
       <a href="/reyting" data-link class="li set-row"><span style="flex:1"><b>🏆 Foydali reytingi</b><span class="muted" style="display:block">Eng ko‘p ⭐ olganlar</span></span>›</a>
       <button class="li set-row" style="width:100%;text-align:left" data-act="sharelahzam"><span style="flex:1"><b>💌 Do‘stlarni taklif qilish</b><span class="muted" style="display:block">Birinchi 50 kishi “Asoschi” bo‘ladi</span></span>›</button>
     </div>
@@ -926,7 +978,7 @@ document.addEventListener('click', async e => {
     case 'sendpost': {
       if (!u) return go('/kirish');
       const list = DB.chats.filter(c => c.members.includes(u.id));
-      sheet(`<h2>Chatga yuborish</h2><div class="card" style="padding:4px 16px">${list.map(c => `<button class="li" style="width:100%;text-align:left" data-act="sendto" data-id="${id}" data-c="${c.id}">${c.type === 'group' ? `<span class="gav" style="background:${c.color};width:40px;height:40px;border-radius:12px">${esc(c.name[0])}</span><b>${esc(c.name)}</b>` : `${avatar(user(c.members.find(x => x !== u.id)), 40)}<b>${esc(user(c.members.find(x => x !== u.id)).name)}</b>`}</button>`).join('') || '<p class="muted">Hali chat yo‘q.</p>'}</div>`);
+      sheet(`<h2>Chatga yuborish</h2><div class="card" style="padding:4px 16px">${list.map(c => `<button class="li" style="width:100%;text-align:left" data-act="sendto" data-id="${id}" data-c="${c.id}">${chatAv(c, u, 40)}<b>${esc(chatName(c, u))}</b></button>`).join('') || '<p class="muted">Hali chat yo‘q.</p>'}</div>`);
       break;
     }
     case 'sendto': { const c = DB.chats.find(x => x.id === el.dataset.c); const p = P(); if (!c || !p || !guard('msg', 'post')) return; closeSheet(); server({ t: 'msg', chat: c.id, body: `${location.origin}/p/${p.id}\n“${p.text.slice(0, 80)}${p.text.length > 80 ? '…' : ''}”` }, 'Yuborildi'); break; }
@@ -1044,6 +1096,39 @@ document.addEventListener('click', async e => {
       } });
       break;
     }
+    case 'play48': {
+      const c = DB.chats.find(x => x.id === id); if (!c) break;
+      G2048.open({ record: c.grecord && c.grecord.score, recordBy: c.grecord && user(c.grecord.uid).u, onEnd: score => {
+        if (score > 0 && (!c.grecord || score > c.grecord.score) && c.members.includes(u.id)) {
+          c.grecord = { score, uid: u.id }; server({ t: '2048', chat: c.id, score }); toast(`Yangi 2048 rekordi: ${score} 🏆`);
+          return { record: score, recordBy: u.u };
+        }
+        return null;
+      } });
+      break;
+    }
+    case 'opensaved': {
+      const ex = DB.chats.find(c => isSaved(c) && c.members.includes(u.id)); if (ex) { go('/c/' + ex.id); break; }
+      const r = await api('act', { method: 'POST', body: { t: 'saved' } }); if (r.chat) { await sync(true); go('/c/' + r.chat); } else toast(r.message || 'Ochib bo‘lmadi', true); break;
+    }
+    case 'm-save': {
+      closeSheet(); let sv = DB.chats.find(c => isSaved(c) && c.members.includes(u.id));
+      if (!sv) { const r = await api('act', { method: 'POST', body: { t: 'saved' } }); if (!r.chat) { toast(r.message || 'Saqlab bo‘lmadi', true); break; } await sync(true); sv = DB.chats.find(c => c.id === r.chat); }
+      if (sv) await server({ t: 'fwd', msg: el.dataset.m, chat: sv.id }, 'Saqlandi 🔖'); break;
+    }
+    case 'oldmsg': {
+      const r = await api('act', { method: 'POST', body: { t: 'mctx', chat: el.dataset.c, msg: el.dataset.m } }); if (!r.ok) { toast(r.message || 'Topilmadi', true); break; }
+      sheet(`<h2>Eski xabar</h2><div class="ctx-list">${r.list.map(m => { const a = user(m.uid) || { name: '—' }, st = window.Stickers && (Stickers.re.exec(m.text || '') || [])[1];
+        return `<div class="ctx${m.id === el.dataset.m ? ' hit' : ''}"><b>${esc(a.name)}</b> <span class="muted">${uzDate(m.t)} ${clock(m.t)}</span><div>${m.img ? '📷 ' : ''}${st ? '🎨 Stiker' : linkify(m.text || '')}</div></div>`; }).join('')}</div>`);
+      setTimeout(() => { const h = document.querySelector('.ctx.hit'); h && h.scrollIntoView({ block: 'center' }); }, 30); break;
+    }
+    case 'install': showInstall(true); break;
+    case 'pushon': { const r = await pushEnable(true); toast(r === 'ok' ? 'Bildirishnomalar yoqildi 🔔' : r === 'ios' ? 'iPhone’da avval Lahzam’ni ekranga o‘rnating 📲' : r === 'denied' ? 'Brauzer sozlamalarida Lahzam’ga ruxsat bering' : 'Bu brauzer push’ni qo‘llamaydi', r !== 'ok'); closeSheet(); render(); break; }
+    case 'pushoff': { await pushDisable(); toast('Push o‘chirildi'); render(); break; }
+    case 'pushlater': closeSheet(); break;
+    case 'inst-go': { if (DEFER) { const d = DEFER; DEFER = null; d.prompt(); const ch = await d.userChoice.catch(() => ({})); if (ch.outcome === 'accepted') { instDone(); closeSheet(); toast('Lahzam o‘rnatilmoqda 📲'); } } break; }
+    case 'inst-copy': { try { await navigator.clipboard.writeText(location.origin); toast('Havola nusxalandi'); } catch (err) { toast(location.origin); } break; }
+    case 'inst-close': instDone(); closeSheet(); setTimeout(maybeAskPush, 800); break;
     case 'adm-hide': { if (!isAdmin()) break; const p = P(); if (!p) break; p.hidden = !p.hidden; render(); server({ t: 'hide', post: id }); break; }
     case 'adm-warn': { if (!isAdmin()) break; server({ t: 'warn', user: +el.dataset.u }, 'Ogohlantirish yuborildi'); break; }
     case 'adm-block': {
@@ -1076,7 +1161,7 @@ document.addEventListener('click', async e => {
       const B = (act2, label, extra = '') => `<button class="btn ghost full" style="justify-content:flex-start;${extra}" data-act="${act2}" data-c="${c.id}" data-m="${m.id}">${label}</button>`;
       sheet(`<h2>Xabar</h2><p class="muted" style="margin:-6px 0 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(msgPreview(m))}</p><div class="stack" style="gap:8px">
         ${B('m-reply', '↩️ Javob berish')}${m.text ? B('m-copy', '📋 Nusxa olish') : ''}${mine && plain && m.text && !m.tmp ? B('m-edit', '✏️ Tahrirlash') : ''}
-        ${!m.game && !m.tmp ? B('m-fwd', '↪️ Uzatish') : ''}${canPin(c) && !m.tmp ? B('m-pin', c.pin === m.id ? '📌 Qadashni olib tashlash' : '📌 Qadash') : ''}
+        ${!m.game && !m.tmp ? B('m-fwd', '↪️ Uzatish') : ''}${!m.game && !m.tmp && !isSaved(c) ? B('m-save', '🔖 Saqlash') : ''}${canPin(c) && !m.tmp ? B('m-pin', c.pin === m.id ? '📌 Qadashni olib tashlash' : '📌 Qadash') : ''}
         ${canDel ? B('delmsg', '🗑 O‘chirish', 'color:var(--danger)') : ''}</div>`);
       break;
     }
@@ -1087,7 +1172,7 @@ document.addEventListener('click', async e => {
     case 'm-pin': { const c = DB.chats.find(x => x.id === el.dataset.c); if (!c || !canPin(c)) break; const next = c.pin === el.dataset.m ? null : el.dataset.m; c.pin = next; closeSheet(); render(); server({ t: 'pin', chat: c.id, msg: next }, next ? 'Qadaldi 📌' : 'Olib tashlandi'); break; }
     case 'm-fwd': {
       const list = DB.chats.filter(x => x.members.includes(u.id));
-      sheet(`<h2>Kimga uzatamiz?</h2><div class="card" style="padding:4px 16px">${list.map(x => `<button class="li" style="width:100%;text-align:left" data-act="fwdto" data-c="${el.dataset.c}" data-m="${el.dataset.m}" data-to="${x.id}">${x.type === 'group' ? `<span class="gav" style="background:${x.color};width:40px;height:40px;border-radius:12px">${esc(x.name[0])}</span><b>${esc(x.name)}</b>` : `${avatar(user(x.members.find(y => y !== u.id)), 40)}<b>${esc(user(x.members.find(y => y !== u.id)).name)}</b>`}</button>`).join('')}</div>`);
+      sheet(`<h2>Kimga uzatamiz?</h2><div class="card" style="padding:4px 16px">${list.map(x => `<button class="li" style="width:100%;text-align:left" data-act="fwdto" data-c="${el.dataset.c}" data-m="${el.dataset.m}" data-to="${x.id}">${chatAv(x, u, 40)}<b>${esc(chatName(x, u))}</b></button>`).join('')}</div>`);
       break;
     }
     case 'fwdto': {
@@ -1100,12 +1185,22 @@ document.addEventListener('click', async e => {
       const t = document.getElementById('m-' + el.dataset.m); if (!t) { toast('Bu xabar o‘chirilgan'); break; }
       t.scrollIntoView({ block: 'center', behavior: 'smooth' }); t.classList.add('flash'); setTimeout(() => t.classList.remove('flash'), 1400); return;
     }
-    case 'chatsearch': CH.search = !CH.search; CH.q = ''; render(); break;
+    case 'chatsearch': CH.search = !CH.search; CH.q = ''; CH.srv = null; render(); break;
     case 'attach': sheet(`<h2>Biriktirish</h2><div class="stack" style="gap:8px">
         <button class="btn ghost full" style="justify-content:flex-start" data-act="pickimg">📷 Rasm yuborish</button>
         <button class="btn ghost full" style="justify-content:flex-start" data-act="newpoll" data-id="${id}">📊 So‘rovnoma</button>
         <button class="btn ghost full" style="justify-content:flex-start" data-act="sendflappy" data-id="${id}">🐤 Flappy o‘yini</button>
-        <button class="btn ghost full" style="justify-content:flex-start" data-act="sendtetris" data-id="${id}">🧱 Tetris</button></div>`); break;
+        <button class="btn ghost full" style="justify-content:flex-start" data-act="sendtetris" data-id="${id}">🧱 Tetris</button>
+        <button class="btn ghost full" style="justify-content:flex-start" data-act="send2048" data-id="${id}">🔢 2048</button>
+        <button class="btn ghost full" style="justify-content:flex-start" data-act="stickers" data-id="${id}">🎨 Stikerlar</button></div>`); break;
+    case 'send2048': { closeSheet(); const i = $('#msg-in'); i.value = '@2048'; i.form.requestSubmit(); break; }
+    case 'stickers': sheet(`<h2>Lahzam stikerlari 🎨</h2><div class="stk-grid">${Stickers.list.map(k => `<button class="stk-pick" data-act="sendstk" data-id="${id}" data-k="${k}" aria-label="${esc(Stickers.label(k))}">${Stickers.svg(k)}</button>`).join('')}</div>`); break;
+    case 'sendstk': {
+      const c = DB.chats.find(x => x.id === id), k = el.dataset.k; if (!c || !Stickers.list.includes(k) || !guard('msg', 'stiker')) break;
+      closeSheet(); const body = `[s:${k}]`, replyTo = CH.reply && !String(CH.reply).startsWith('tmp') ? CH.reply : null; CH.reply = null;
+      c.msgs.push({ id: 'tmp' + uid(), tmp: true, uid: u.id, text: body, t: now(), reacts: {}, ...(replyTo ? { replyTo } : {}) }); render();
+      server({ t: 'msg', chat: c.id, body, replyTo }); break;
+    }
     case 'pickimg': closeSheet(); $('#img-file') && $('#img-file').click(); break;
     case 'sendflappy': { closeSheet(); const i = $('#msg-in'); i.value = '@flappy'; i.form.requestSubmit(); break; }
     case 'sendtetris': { closeSheet(); const i = $('#msg-in'); i.value = '@tetris'; i.form.requestSubmit(); break; }
@@ -1230,7 +1325,7 @@ document.addEventListener('submit', async e => {
     }
     if (!c.members.includes(u.id)) { toast('Yozish uchun guruhga qo‘shiling', true); return; }
     if (!guard('msg', text)) return save();
-    const game = /@(flappy|tetris)\b/i.test(text), replyTo = CH.reply && !String(CH.reply).startsWith('tmp') ? CH.reply : null;
+    const game = /@(flappy|tetris|2048)(?!\w)/i.test(text), replyTo = CH.reply && !String(CH.reply).startsWith('tmp') ? CH.reply : null;
     c.msgs.push({ id: 'tmp' + uid(), tmp: true, uid: u.id, text: text.trim(), t: now(), reacts: {}, game, ...(replyTo ? { replyTo } : {}) });
     CH.reply = null; inp.value = '';
     render(); setTimeout(() => $('#msg-in') && $('#msg-in').focus(), 0);
@@ -1297,6 +1392,72 @@ document.addEventListener('change', async e => {
 
 SESSION = DB.sess || null;
 if (!SESSION) { DB.me = null; loadGsi(); }
+/* ---------- Ilovani o'rnatish (Android, iPhone/iPad, Mac, Windows) ---------- */
+const UA = navigator.userAgent, IOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const ANDROID = /Android/i.test(UA), MAC = /Macintosh/.test(UA) && !IOS, INAPP = /Telegram|FBAN|FBAV|Instagram|Line\/|TikTok|Snapchat|wv\)/i.test(UA);
+const SAFARI = /Safari/.test(UA) && !/Chrome|CriOS|FxiOS|EdgiOS|Edg\/|OPR|SamsungBrowser/.test(UA), FIREFOX = /Firefox|FxiOS/.test(UA), SAMSUNG = /SamsungBrowser/.test(UA);
+const standalone = () => matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: window-controls-overlay)').matches || navigator.standalone === true;
+let DEFER = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); DEFER = e; if (document.querySelector('.inst-sheet')) showInstall(true); });
+addEventListener('appinstalled', () => { instDone(); DEFER = null; if (document.querySelector('.inst-sheet')) closeSheet(); toast('Lahzam o‘rnatildi 🎉'); });
+const instKey = 'lahzam_install_seen';
+function instDone() { try { localStorage.setItem(instKey, '1'); } catch (e) {} }
+const instSeen = () => { try { return localStorage.getItem(instKey) === '1'; } catch (e) { return true; } };
+const stp = (n, html) => `<li><span class="inst-n">${n}</span><span>${html}</span></li>`;
+function installSteps() {
+  if (DEFER) return `<button class="btn acc full inst-big" data-act="inst-go">📲 O‘rnatish</button><p class="muted" style="text-align:center;margin:8px 0 0">Bir bosishda telefon yoki kompyuteringizga o‘rnatiladi</p>`;
+  const shareIco = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
+  if (IOS && INAPP) return `<ol class="inst-steps">${stp(1, 'Bu oyna Telegram/Instagram ichida ochilgan, bu yerdan o‘rnatib bo‘lmaydi')}${stp(2, 'Pastdagi tugma bilan havolani nusxalang')}${stp(3, '<b>Safari</b>’ni ochib, havolani joylashtiring va shu oynani qayta oching')}</ol><button class="btn ghost full" data-act="inst-copy">📋 Havolani nusxalash</button>`;
+  if (IOS) return `<ol class="inst-steps">${stp(1, `${/CriOS|EdgiOS|FxiOS/.test(UA) ? 'Manzil qatoridagi' : 'Pastdagi'} <b>Ulashish</b> ${shareIco} tugmasini bosing`)}${stp(2, 'Ro‘yxatni pastga surib, <b>“Bosh ekranga qo‘shish”</b> (Add to Home Screen) ni tanlang')}${stp(3, 'Yuqori o‘ng burchakdagi <b>“Qo‘shish”</b> (Add) ni bosing')}</ol>`;
+  if (ANDROID && INAPP) return `<ol class="inst-steps">${stp(1, 'Yuqoridagi <b>⋮</b> menyuni bosing')}${stp(2, '<b>“Brauzerda ochish”</b> (Open in Chrome) ni tanlang')}${stp(3, 'Chrome’da shu oyna yana chiqadi, <b>O‘rnatish</b>ni bosing')}</ol><button class="btn ghost full" data-act="inst-copy">📋 Havolani nusxalash</button>`;
+  if (ANDROID && SAMSUNG) return `<ol class="inst-steps">${stp(1, 'Pastdagi <b>☰</b> menyuni bosing')}${stp(2, '<b>“Sahifani qo‘shish”</b> → <b>“Bosh ekran”</b> ni tanlang')}${stp(3, '<b>“Qo‘shish”</b> ni bosing')}</ol>`;
+  if (ANDROID && FIREFOX) return `<ol class="inst-steps">${stp(1, 'Yuqoridagi <b>⋮</b> menyuni bosing')}${stp(2, '<b>“O‘rnatish”</b> (Install) ni tanlang')}${stp(3, '<b>“Qo‘shish”</b> ni bosing')}</ol>`;
+  if (ANDROID) return `<ol class="inst-steps">${stp(1, 'Yuqori o‘ngdagi <b>⋮</b> menyuni bosing')}${stp(2, '<b>“Ilovani o‘rnatish”</b> yoki <b>“Bosh ekranga qo‘shish”</b> ni tanlang')}${stp(3, '<b>“O‘rnatish”</b> ni bosing')}</ol>`;
+  if (MAC && SAFARI) return `<ol class="inst-steps">${stp(1, 'Yuqoridagi menyudan <b>Fayl</b> (File) ni oching')}${stp(2, '<b>“Dock’ga qo‘shish”</b> (Add to Dock) ni tanlang')}${stp(3, '<b>“Qo‘shish”</b> ni bosing. Lahzam Dock’da paydo bo‘ladi')}</ol>`;
+  if (FIREFOX) return `<ol class="inst-steps">${stp(1, 'Firefox kompyuterda ilova o‘rnatishni qo‘llamaydi')}${stp(2, 'Lahzam’ni <b>Chrome</b> yoki <b>Edge</b>’da oching')}${stp(3, 'Manzil qatoridagi <b>⊕ O‘rnatish</b> belgisini bosing')}</ol><button class="btn ghost full" data-act="inst-copy">📋 Havolani nusxalash</button>`;
+  return `<ol class="inst-steps">${stp(1, 'Manzil qatorining o‘ng tomonidagi <b>⊕ O‘rnatish</b> belgisini bosing')}${stp(2, 'Ko‘rinmasa: <b>⋮</b> menyu → <b>“Lahzam’ni o‘rnatish”</b> (Edge’da: Ilovalar → O‘rnatish)')}${stp(3, '<b>“O‘rnatish”</b> ni bosing')}</ol>`;
+}
+function showInstall(force) {
+  if (standalone()) { if (force) toast('Lahzam allaqachon o‘rnatilgan ✅'); return; }
+  if (!force && (instSeen() || $('#modal-root').innerHTML)) return;
+  sheet(`<div class="inst-sheet"><div class="inst-hero">${I.logo('#FF5A1F', '#121212', 56)}<div><b>Lahzam’ni o‘rnating</b><span>Telegram kabi alohida ilova: tez ochiladi, xabarlar telefonga keladi 🔔</span></div></div>
+    ${installSteps()}<button class="btn ghost full" style="margin-top:10px" data-act="inst-close">${DEFER ? 'Keyinroq' : 'Tushunarli'}</button></div>`);
+  if (!force) instDone(); // faqat bir marta o'zi chiqadi; keyin Sozlamalar → "Ilovani o'rnatish"
+}
+/* ---------- Push bildirishnomalar ---------- */
+const PUSH_OK = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+function pushState() { if (IOS && !standalone()) return 'ios'; if (!PUSH_OK) return 'no'; let v = null; try { v = localStorage.getItem('lahzam_push'); } catch (e) {} return Notification.permission === 'granted' && v === '1' ? 'on' : 'off'; }
+const u8 = b64 => { const s = atob((b64 + '='.repeat((4 - b64.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(s, c => c.charCodeAt(0)); };
+async function pushEnable(ask) {
+  if (IOS && !standalone()) return 'ios'; if (!PUSH_OK) return 'no';
+  let perm = Notification.permission; if (perm === 'default' && ask) perm = await Notification.requestPermission();
+  try { localStorage.setItem('lahzam_push_asked', '1'); } catch (e) {}
+  if (perm !== 'granted') return perm === 'denied' ? 'denied' : 'off';
+  try {
+    const cfg = await api('auth/config'); if (!cfg.vapid) return 'no';
+    const reg = await navigator.serviceWorker.ready, key = u8(cfg.vapid); let sub = await reg.pushManager.getSubscription();
+    if (sub && sub.options && sub.options.applicationServerKey && new Uint8Array(sub.options.applicationServerKey).join() !== key.join()) { await sub.unsubscribe(); sub = null; }
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    const r = await api('act', { method: 'POST', body: { t: 'pushsub', sub: sub.toJSON() } }); if (!r.ok) return 'no';
+    try { localStorage.setItem('lahzam_push', '1'); } catch (e) {} return 'ok';
+  } catch (e) { return 'no'; }
+}
+async function pushDisable() {
+  try { localStorage.setItem('lahzam_push', '0'); const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
+    if (sub) { await api('act', { method: 'POST', body: { t: 'pushoff', endpoint: sub.endpoint } }); await sub.unsubscribe(); } } catch (e) {}
+}
+function maybeAskPush() {
+  if (!SESSION || !PUSH_OK || (IOS && !standalone()) || $('#modal-root').innerHTML) return;
+  let asked = null, off = null; try { asked = localStorage.getItem('lahzam_push_asked'); off = localStorage.getItem('lahzam_push') === '0'; } catch (e) {}
+  if (Notification.permission === 'granted') { if (!off) pushEnable(false); return; } // obunani jimgina yangilab turamiz
+  if (Notification.permission !== 'default' || asked) return;
+  try { localStorage.setItem('lahzam_push_asked', '1'); } catch (e) {}
+  sheet(`<div class="inst-sheet"><div class="inst-hero"><span style="font-size:44px">🔔</span><div><b>Xabarlarni o‘tkazib yubormang</b><span>Kimdir yozsa yoki postingizga javob qilsa, telefoningizga darhol bildirishnoma keladi</span></div></div>
+    <button class="btn acc full inst-big" data-act="pushon">🔔 Bildirishnomalarni yoqish</button><button class="btn ghost full" style="margin-top:10px" data-act="pushlater">Keyinroq</button></div>`);
+}
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.go) { closeSheet(); go(e.data.go); } });
+setTimeout(() => { if (!standalone() && !instSeen()) showInstall(false); else maybeAskPush(); }, 2500);
+
 render();
 api('auth/me').then(async r => {
   if (r.status === 0) return; // internet yo'q: keshdagi holat qoladi
@@ -1304,6 +1465,7 @@ api('auth/me').then(async r => {
   if (isOwnerSession()) await refreshAdm();
   if (DB.me !== before) render();
   if (SESSION) await sync(true); else render();
+  if (SESSION) setTimeout(() => { if (standalone() || instSeen()) maybeAskPush(); }, 3000);
 });
 // Jonli yangilanish: chat ochiq bo'lsa har 3 soniyada, boshqa sahifalarda har 8 soniyada yangi narsalar o'zi keladi
 setInterval(() => {
