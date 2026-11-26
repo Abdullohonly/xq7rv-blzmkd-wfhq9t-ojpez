@@ -531,7 +531,7 @@ function msgHtml(c, m) {
       <button class="btn acc" style="height:38px;border-radius:999px;font-size:13px" data-act="play" data-id="${c.id}">O‘ynash</button></div>`;
   else if (m.poll) body = pollHtml(c, m);
   else body = (m.img ? `<button class="mimg" data-act="viewimg" data-c="${c.id}" data-m="${m.id}"><img src="${esc(m.img)}" alt="Rasm" loading="lazy"></button>` : '') + (m.text ? `<span class="mtx">${linkify(m.text)}</span>` : '');
-  const read = mine && c.type === 'dm' && !u.rrOff && c.members.filter(x => x !== u.id).every(x => !(user(x) || {}).rrOff && (c.read[x] || 0) >= m.t);
+  const read = mine && c.type === 'dm' && c.members.filter(x => x !== u.id).every(x => (c.read[x] || 0) >= m.t);
   const meta = `<span class="mt">${m.edited ? 'tahrirlandi · ' : ''}${clock(m.t)}${mine && c.type === 'dm' ? `<i class="tick${read ? ' read' : ''}">${read ? '✓✓' : '✓'}</i>` : ''}</span>`;
   const hit = CH.q && m.text && m.text.toLowerCase().includes(CH.q) ? ' hit' : '';
   return `<div class="m ${mine ? 'out' : 'in'}${hit}" data-msg="${m.id}" id="m-${m.id}">${c.type === 'group' && !mine ? `<a class="who" href="/@${esc(a.u)}" data-link style="text-decoration:none">${esc(a.name)}</a>` : ''}${fwd}${quote}${body}
@@ -720,7 +720,6 @@ function settings() {
       <div class="li set-row" style="flex-wrap:wrap"><span style="flex:1;min-width:160px"><b>✉️ Menga kim yoza oladi</b><span class="muted" style="display:block">Shaxsiy xabarlar</span></span>
         <div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr));min-width:200px">${[['all', 'Hamma'], ['fol', 'Kuzatganlarim']].map(([k, l]) => `<button type="button" class="${dmw === k ? 'on' : ''}" data-act="dmfrom" data-v="${k}" aria-pressed="${dmw === k}">${l}</button>`).join('')}</div></div>
       ${row('🔔 Bildirishnomalar', 'Javob, belgilash va kuzatuvlar haqida', sw('notif', !S.notifOff, 'Bildirishnomalar'))}
-      ${row('👀 O‘qilganlik belgisi', 'Xabarni o‘qiganingiz ✓✓ bilan ko‘rinadi', sw('rr', !S.rrOff, 'O‘qilganlik belgisi'))}
     </div>
 
     <h3 class="set-h">Akkaunt</h3>
