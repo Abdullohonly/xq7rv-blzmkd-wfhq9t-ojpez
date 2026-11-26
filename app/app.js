@@ -1,8 +1,8 @@
-/* Lahzam v1.4.0 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.4.1 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.4.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.4.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -394,10 +394,19 @@ function starPage() {
     <p class="muted" style="margin:0;font-size:13px;text-align:center">Telegram’da ${u ? `<b>@${esc(u.u)}</b>` : 'username’ingizni'} va tarifni yozing. To‘lovdan keyin Yulduz akkauntingizda yoqiladi. To‘lov qaytarilmaydi (<a href="/shartlar" data-link>shartlar</a>).</p>
   </div></div>`;
 }
+// Bepul foydalanuvchilar uchun: Sozlamalar tepasida jonli Yulduz kartasi
+function starPromo() {
+  const big = STAR_I.replace('width="13" height="13"', 'width="40" height="40"').replace('class="star-i"', 'class="sp-star"');
+  return `<a href="/yulduz" data-link class="sp-card" aria-label="Yulduz obunasi haqida">
+    <span class="sp-shine" aria-hidden="true"></span><span class="sp-dot d1" aria-hidden="true">✦</span><span class="sp-dot d2" aria-hidden="true">✦</span><span class="sp-dot d3" aria-hidden="true">✦</span><span class="sp-dot d4" aria-hidden="true">✦</span>
+    <span class="sp-ico">${big}</span>
+    <span style="flex:1;min-width:0"><b class="sp-t">Lahzam Yulduz</b><span class="sp-s">Rangli nametag, profil muqovasi, 3 harfli username va boshqalar</span><span class="sp-p">oyiga 4 000 so‘mdan</span></span>
+    <span class="sp-go">›</span></a>`;
+}
 function starSettings(u) {
   const S = SESSION || {}, sw = (act2, on, label) => `<button class="switch${on ? ' on' : ''}" data-act="${act2}" role="switch" aria-checked="${on}" aria-label="${label}"><i></i></button>`;
   const row = (title, sub, right) => `<div class="li set-row"><span style="flex:1;min-width:0"><b>${title}</b>${sub ? `<span class="muted" style="display:block">${sub}</span>` : ''}</span>${right}</div>`;
-  if (!u.star) return `<a href="/yulduz" data-link class="card star-promo"><span class="star-big sm">${STAR_I.replace('width="13" height="13"', 'width="30" height="30"')}</span><span style="flex:1"><b>⭐ Yulduz</b><span style="display:block;font-size:14px;opacity:.9">Rangli nametag, muqova, 3 harfli username va boshqalar</span></span>›</a>`;
+  if (!u.star) return '';
   const cv = /^g(\d+)(?:\.p(\d+))?$/.exec(S.cover || '') || [], g = +cv[1] || 0, pt = +cv[2] || 0;
   return `<h3 class="set-h">⭐ Yulduz</h3>
     <div class="card" style="padding:14px 16px">
@@ -935,6 +944,7 @@ function settings() {
         <span style="display:block;font-size:14px;margin-top:4px;color:${u.bio ? 'var(--ink)' : 'var(--mute)'}">${u.bio ? esc(u.bio) : 'Bio yozilmagan'}</span></span></div>
       <div class="row" style="gap:8px;margin-top:12px"><button class="btn ghost" style="flex:1;height:42px" data-act="editprofile">✏️ Tahrirlash</button><a href="/@${esc(u.u)}" data-link class="btn ghost" style="flex:1;height:42px">👤 Profilim</a></div></div>
 
+    ${!u.star ? starPromo() : ''}
     <h3 class="set-h">Ko‘rinish</h3>
     <div class="card" style="padding:2px 16px">
       ${row('🌙 Tungi rejim', 'Qorong‘i ko‘rinish, ko‘zni charchatmaydi', sw('theme', DB.theme === 'dark', 'Tungi rejim'))}

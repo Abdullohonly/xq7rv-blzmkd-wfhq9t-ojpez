@@ -439,3 +439,20 @@ button.seen{background:none;padding:0;cursor:pointer}
 .cv-pick{height:44px;border-radius:12px;border:0}
 .cv-pick.on{outline:3px solid var(--ink,#121212);outline-offset:2px}
 .star-adm{color:#B8860B}
+/* 1.4.1: Sozlamalar tepasidagi jonli Yulduz kartasi */
+.sp-card{position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;padding:18px;border-radius:24px;text-decoration:none;color:#fff;
+  border:3px solid transparent;background:linear-gradient(135deg,#121212,#3a2a0c) padding-box,conic-gradient(from var(--na),#B8860B,#FFF3C4,#F5C542,#FF8A3D,#F5C542,#FFF3C4,#B8860B) border-box;
+  animation:narot 3s linear infinite,spglow 2.8s ease-in-out infinite;box-shadow:0 8px 24px rgba(245,197,66,.25)}
+@keyframes spglow{50%{box-shadow:0 10px 34px rgba(245,197,66,.55)}}
+.sp-shine{position:absolute;top:0;bottom:0;left:0;width:70px;background:linear-gradient(90deg,transparent,rgba(255,240,190,.35),transparent);transform:translateX(-120%) skewX(-20deg);animation:spsweep 3.6s ease-in-out infinite;pointer-events:none}
+@keyframes spsweep{0%{transform:translateX(-140%) skewX(-20deg)}55%,100%{transform:translateX(650%) skewX(-20deg)}}
+.sp-ico{width:58px;height:58px;border-radius:18px;background:rgba(245,197,66,.14);display:flex;align-items:center;justify-content:center;flex:none;position:relative}
+.sp-star{color:#F5C542;filter:drop-shadow(0 0 10px rgba(245,197,66,.8));animation:sbig 2.4s ease-in-out infinite}
+.sp-t{display:block;font-family:var(--head);font-size:18px;background:linear-gradient(90deg,#F5C542,#FFF3C4,#E8A92A,#FFE9A3,#F5C542);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;animation:nshine 2.6s linear infinite}
+.sp-s{display:block;font-size:13.5px;opacity:.88;line-height:1.35;margin-top:2px}
+.sp-p{display:inline-block;margin-top:6px;font-size:12px;font-weight:800;color:#121212;background:#F5C542;padding:3px 10px;border-radius:999px}
+.sp-go{width:34px;height:34px;border-radius:50%;background:#F5C542;color:#121212;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;position:relative}
+.sp-dot{position:absolute;color:#FFE27A;font-size:12px;opacity:0;animation:sptw 2.8s ease-in-out infinite;pointer-events:none}
+.sp-dot.d1{top:10px;left:46%}.sp-dot.d2{bottom:10px;left:30%;animation-delay:.7s;font-size:10px}.sp-dot.d3{top:14px;right:64px;animation-delay:1.4s;font-size:14px}.sp-dot.d4{bottom:14px;right:22%;animation-delay:2.1s}
+@keyframes sptw{0%,100%{opacity:0;transform:scale(.4) rotate(0)}50%{opacity:1;transform:scale(1) rotate(45deg)}}
+@media (prefers-reduced-motion:reduce){.sp-card,.sp-shine,.sp-star,.sp-t,.sp-dot{animation:none}}
