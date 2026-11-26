@@ -1,8 +1,8 @@
-/* Lahzam v1.2.1 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.2.2 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.2.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.2.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { post: 500, reply: 300, msg: 2000 };
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
@@ -1110,7 +1110,7 @@ document.addEventListener('click', async e => {
       loadQR(url); break;
     }
     case 'theme': { DB.theme = DB.theme === 'dark' ? 'light' : 'dark'; save(); const y = scrollY; render(); scrollTo(0, y); break; }
-    case 'logout': try { localStorage.setItem('lahzam_noauto', '1'); window.google && google.accounts && google.accounts.id.disableAutoSelect(); } catch (e) {} await api('auth/me', { method: 'DELETE' }); ADM = { checked: false, configured: false, verified: false }; adoptSession(null); AUTH = { step: 'start' }; save(); go('/kirish'); break;
+    case 'logout': $('#modal-root').innerHTML = ''; el.disabled = true; try { localStorage.setItem('lahzam_noauto', '1'); window.google && google.accounts && google.accounts.id.disableAutoSelect(); } catch (e) {} await api('auth/me', { method: 'DELETE' }); ADM = { checked: false, configured: false, verified: false }; adoptSession(null); AUTH = { step: 'start' }; save(); $('#modal-root').innerHTML = ''; go('/kirish'); toast('Akkauntdan chiqdingiz 👋'); break;
     case 'reset': { const keep = DB; DB = Object.assign(fresh(keep), { me: keep.me, sess: keep.sess, users: keep.users.filter(x => x.id === keep.me) }); SYNC.sig = ''; save(); toast('Yangilanmoqda…'); await sync(true); render(); break; }
     case 'newgroup': sheet(`<h2>Yangi guruh</h2><form class="stack" data-form="group">
       <div class="field"><label for="gn">Nomi</label><input class="inp" id="gn" required maxlength="40" placeholder="Masalan: SAT tayyorgarlik"></div>
