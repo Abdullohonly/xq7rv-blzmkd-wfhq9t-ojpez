@@ -50,7 +50,7 @@ export default async function handler(req, res) {
     const readable = [...new Set([...mem, ...peek])];
     let msgs = [], reacts = [], votes = [];
     if (readable.length) {
-      msgs = await db`select * from (select id, chat_id, user_id, body, is_game, is_sys, reply_to, edited, (img is not null) as has_img, poll, fwd_user, created_at,
+      msgs = await db`select * from (select id, chat_id, user_id, body, is_game, is_sys, reply_to, edited, case when img like 'https://%' then img when img is not null then '' end as img_url, poll, fwd_user, created_at,
           row_number() over (partition by chat_id order by created_at desc) rn from messages where chat_id = any(${readable}::bigint[])) x where rn <= 300 order by created_at`;
       if (msgs.length) {
         const mids = msgs.map(m => Number(m.id));
@@ -76,7 +76,7 @@ export default async function handler(req, res) {
       if (m.is_game) out.game = true;
       if (m.reply_to) out.replyTo = 'm' + m.reply_to;
       if (m.edited) out.edited = true;
-      if (m.has_img) out.img = `/api/img?m=${m.id}`;
+      if (m.img_url != null) out.img = m.img_url || `/api/img?m=${m.id}`;
       if (m.fwd_user) out.fwd = Number(m.fwd_user);
       if (P) out.poll = { q: P.q, opts: P.opts.map((t, i) => ({ t, v: (voteMap[m.id] || []).filter(v => v.o === i).map(v => v.u) })) };
       (byChat[m.chat_id] = byChat[m.chat_id] || []).push(out);

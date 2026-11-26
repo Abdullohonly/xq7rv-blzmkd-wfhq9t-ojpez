@@ -3,6 +3,7 @@ import { sql, currentUser, isOwnerEmail, hasAdminPass, send } from './_lib.js';
 // GET /api/img?m=ID — chatdagi rasm (faqat shu chat a'zolari ko'radi)
 const TYPES = { jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
 function out(res, dataUrl, cache) {
+  if (/^https:\/\//.test(dataUrl || '')) { res.setHeader('Location', dataUrl); res.setHeader('Cache-Control', cache); return res.status(302).end(); }
   const m = /^data:image\/(jpeg|png|webp);base64,(.+)$/.exec(dataUrl || '');
   if (!m) return send(res, 404, { error: 'not_found' });
   const buf = Buffer.from(m[2], 'base64');

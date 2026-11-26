@@ -1,4 +1,5 @@
 import { sql, currentUser, publicUser, clearSession, send, sameOrigin, rateLimit, tooMany } from '../_lib.js';
+import { r2PutDataUrl } from '../_r2.js';
 // GET /api/auth/me — kim kirgan; PATCH — profil (ism, bio, rang, rasm); DELETE — chiqish
 const PHOTO_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 export default async function handler(req, res) {
@@ -16,7 +17,7 @@ export default async function handler(req, res) {
       if (b.photo === null) photo = null;
       else if (b.photo !== undefined) {
         if (typeof b.photo !== 'string' || b.photo.length > 150000 || !PHOTO_RE.test(b.photo)) return send(res, 400, { error: 'photo', message: 'Rasm juda katta yoki noto‘g‘ri formatda' });
-        photo = b.photo;
+        photo = (await r2PutDataUrl(b.photo, 'u').catch(() => null)) || b.photo; // R2 bo'lsa havola, bo'lmasa bazada
       }
       const dmFrom = b.dmFrom === 'fol' || b.dmFrom === 'all' ? b.dmFrom : (u.dm_from || 'all');
       const notifOff = typeof b.notifOff === 'boolean' ? b.notifOff : !!u.notif_off, rrOff = typeof b.rrOff === 'boolean' ? b.rrOff : !!u.rr_off;

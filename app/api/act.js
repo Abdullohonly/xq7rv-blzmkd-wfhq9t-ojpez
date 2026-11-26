@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { sql, currentUser, isOwnerEmail, hasAdminPass, rateLimit, tooMany, send, sameOrigin } from './_lib.js';
+import { r2PutDataUrl } from './_r2.js';
 // POST /api/act — ilovadagi har bir amal: post, javob, layk, kuzatish, guruh, xabar, reaksiya, so'rovnoma...
 // Har bir amalda: kim qilayotgani (sessiya), ruxsati (a'zo/admin/egasi) va chegaralar serverda tekshiriladi.
 const REACTS = ['❤️', '👎', '⭐', '🫶', '😂', '😮', '😢', '🤲'];
@@ -190,7 +191,7 @@ export default async function handler(req, res) {
           body = src.body; img = src.img; fwd = Number(src.fwd_user || src.user_id);
           if (src.poll) { const P = typeof src.poll === 'string' ? JSON.parse(src.poll) : src.poll; poll = { q: P.q, opts: P.opts }; }
         } else {
-          if (b.img != null) { if (typeof b.img !== 'string' || b.img.length > 400000 || !IMG_RE.test(b.img)) return bad(res, 'Rasm juda katta yoki noto‘g‘ri'); img = b.img; }
+          if (b.img != null) { if (typeof b.img !== 'string' || b.img.length > 400000 || !IMG_RE.test(b.img)) return bad(res, 'Rasm juda katta yoki noto‘g‘ri'); img = b.img; const url = await r2PutDataUrl(img, 'm').catch(() => null); if (url) img = url; }
           if (b.poll) {
             const q = str(b.poll.q, 200), opts = (Array.isArray(b.poll.opts) ? b.poll.opts : []).map(o => str(o, 80)).filter(Boolean).slice(0, 4);
             if (!q || opts.length < 2) return bad(res, 'Savol va kamida 2 ta variant yozing'); poll = { q, opts }; body = '';
