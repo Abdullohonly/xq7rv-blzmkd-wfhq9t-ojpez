@@ -638,7 +638,7 @@ function profile(name) {
       ${own && (!p.bio || !p.photo) ? `<button class="link-btn" style="margin-top:8px" data-act="editprofile">+ ${!p.photo ? 'Rasm' : ''}${!p.photo && !p.bio ? ' va ' : ''}${!p.bio ? 'bio' : ''} qo‘shish</button>` : ''}
       ${p.blocked ? '<span class="tag red" style="margin-top:8px">Bloklangan</span>' : ''}</div>
     <div class="stats">
-      <div class="stat"><b>${fmt(fl.length)}</b><span>kuzatuvchi</span></div><div class="stat"><b>${fmt(fw.length)}</b><span>kuzatmoqda</span></div>
+      <button class="stat" data-act="follist" data-id="${p.id}" data-v="fl"><b>${fmt(fl.length)}</b><span>kuzatuvchi</span></button><button class="stat" data-act="follist" data-id="${p.id}" data-v="fw"><b>${fmt(fw.length)}</b><span>kuzatmoqda</span></button>
       <div class="stat"><b>${myPosts.length}</b><span>post</span></div><div class="stat" title="Guruhlarda ⭐ Foydali bosgan turli odamlar soni"><b>⭐ ${foydaliCount(p.id)}</b><span>foydali</span></div></div>
     <div class="row" style="gap:8px;margin:12px 16px 0">
       ${own ? `<button class="btn ghost" style="flex:1" data-act="editprofile">Profilni tahrirlash</button>` : followBtn}
@@ -932,6 +932,7 @@ document.addEventListener('click', async e => {
       const i = DB.follows.findIndex(f => f[0] === u.id && f[1] === t);
       if (i >= 0) DB.follows.splice(i, 1); else DB.follows.push([u.id, t]);
       server({ t: 'follow', user: t });
+      if (el.closest('.sheet')) { el.className = 'btn ' + (isFollowing(u.id, t) ? 'ghost' : 'ink'); el.textContent = isFollowing(u.id, t) ? 'Kuzatilmoqda' : 'Kuzatish'; save(); break; }
       if (route()[0] === 'search') { save(); after.search(); } else render(); break;
     }
     case 'dm': {
@@ -951,7 +952,7 @@ document.addEventListener('click', async e => {
         ${tg.photo ? `<button type="button" class="btn ghost" style="height:42px;color:var(--danger)" data-act="ph-clear" data-u="${tg.id}">Olib tashlash</button>` : ''}</div></div>
       <div class="field"><label for="pn">Ism</label><input class="inp" id="pn" maxlength="40" required value="${esc(tg.name)}"></div>
       <div class="field"><label for="pb">Bio</label><textarea class="inp" id="pb" maxlength="160" style="height:96px;padding:12px 16px" placeholder="O‘zingiz haqingizda qisqacha">${esc(tg.bio || '')}</textarea></div>
-      <div class="field"><span style="font-size:14px;font-weight:700">Rang</span><div class="row" style="flex-wrap:wrap">${COLORS.map(c => `<label style="cursor:pointer"><input type="radio" name="pc" value="${c}" class="sr" ${c === tg.color ? 'checked' : ''}><span class="av" style="width:40px;height:40px;background:${c};${c === tg.color ? 'outline:3px solid var(--acc)' : ''}"></span></label>`).join('')}</div></div>
+      <div class="field"><span style="font-size:14px;font-weight:700">Rang</span><div class="row" style="flex-wrap:wrap">${COLORS.map(c => `<label style="cursor:pointer"><input type="radio" name="pc" value="${c}" class="sr" ${c === tg.color ? 'checked' : ''}><span class="av swatch" style="width:40px;height:40px;background:${c}"></span></label>`).join('')}</div></div>
       <button class="btn acc full">Saqlash</button></form>`); break;
     }
     case 'qr': {
@@ -1107,6 +1108,12 @@ document.addEventListener('click', async e => {
     }
     case 'postimg-x': POSTIMG = null; $('#post-prev').innerHTML = ''; break;
     case 'viewpimg': { const p = P(); if (p && p.img) sheet(`<img src="${esc(p.img)}" alt="Post rasmi" style="width:100%;border-radius:16px;display:block"><button class="btn ghost full" style="margin-top:10px" data-act="close-sheet-btn">Yopish</button>`); break; }
+    case 'follist': {
+      const pid = +id, isFl = el.dataset.v === 'fl', ids = isFl ? followers(pid) : following(pid), who = user(pid);
+      const list = ids.map(user).filter(x => x && !x.ghost && !x.blocked);
+      sheet(`<h2>${isFl ? 'Kuzatuvchilar' : 'Kuzatmoqda'} · ${list.length}</h2><p class="muted" style="margin:-6px 0 10px">@${esc(who.u)}</p><div class="card" style="padding:4px 16px">${list.map(x => `<div class="li"><a href="/@${esc(x.u)}" data-link class="row" style="flex:1;text-decoration:none;min-width:0">${avatar(x, 42)}<span style="min-width:0"><b>${esc(x.name)}</b>${founderPill(x)}<span class="muted" style="display:block">@${esc(x.u)}</span></span></a>${u && x.id !== u.id && !x.system ? `<button class="btn ${isFollowing(u.id, x.id) ? 'ghost' : 'ink'}" style="height:36px;font-size:13px;border-radius:999px" data-act="follow" data-id="${x.id}">${isFollowing(u.id, x.id) ? 'Kuzatilmoqda' : 'Kuzatish'}</button>` : ''}</div>`).join('') || `<p class="muted">${isFl ? 'Hali hech kim kuzatmayapti.' : 'Hali hech kimni kuzatmayapti.'}</p>`}</div>`);
+      break;
+    }
     case 'close-sheet-btn': closeSheet(); break;
   }
   save();
@@ -1269,6 +1276,20 @@ setInterval(() => {
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && SESSION) sync(); });
 addEventListener('online', () => SESSION && sync(true));
 loadUpdates().then(() => { if (!busy() && route()[0] !== 'chat') render(); });
+// Har push'dan keyin: server build raqami o'zgarsa, ilova o'zini yangilaydi (yozayotgan bo'lsangiz, tugatishingizni kutadi)
+let BUILD = null, buildReload = false;
+async function checkBuild() {
+  if (buildReload) return;
+  const r = await api('auth/config'); if (!r.ok || !r.build) return;
+  if (!BUILD) { BUILD = r.build; return; }
+  if (r.build !== BUILD) {
+    buildReload = true;
+    const doReload = () => { if (busy()) return setTimeout(doReload, 3000); location.reload(); };
+    toast('Lahzam yangilandi ✨ Bir lahzada qayta yuklanadi'); setTimeout(doReload, 1500);
+  }
+}
+checkBuild(); setInterval(() => document.visibilityState === 'visible' && checkBuild(), 60e3);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkBuild(); });
 // Avtomatik yangilanish: yangi versiya chiqsa, telefon o'zi aniqlaydi va sahifani yangilaydi
 if ('serviceWorker' in navigator) addEventListener('load', () => {
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;

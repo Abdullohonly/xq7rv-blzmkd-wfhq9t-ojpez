@@ -3,7 +3,8 @@ import { sql, currentUser, isOwnerEmail, hasAdminPass, send } from './_lib.js';
 // GET /api/sync — ilova uchun hamma umumiy ma'lumot bitta so'rovda: odamlar, postlar, guruhlar, chatlar, bildirishnomalar
 // Rasmlar bu yerga kirmaydi (og'ir): ular /api/img orqali alohida, keshlanib yuklanadi
 const ms = t => new Date(t).getTime();
-const photoUrl = (id, hash) => !hash ? null : hash.startsWith('https://') ? hash : `/api/img?u=${id}&v=${hash}`;
+// Rasmlar doim o'z domenimiz orqali (r2.dev ba'zi tarmoqlarda sekin/bloklangan bo'lishi mumkin)
+const photoUrl = (id, hash) => hash ? `/api/img?u=${id}&v=${hash}` : null;
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return send(res, 405, { error: 'method' });
@@ -15,7 +16,7 @@ export default async function handler(req, res) {
 
     const [users, follows, posts, likes, replies, myReports, chats, members, notifs, stars] = await Promise.all([
       db`select id, username, name, bio, color, is_system, is_blocked, created_at, dm_from, rr_off, warns,
-           case when photo is null then null when photo like 'https://%' then photo else substr(md5(photo), 1, 10) end as ph
+           case when photo is null then null else substr(md5(photo), 1, 10) end as ph
          from users order by id limit 2000`,
       db`select follower_id, followee_id from follows limit 20000`,
       db`select p.id, p.user_id, p.body, p.is_lahza, p.is_hidden, p.created_at,
@@ -77,7 +78,7 @@ export default async function handler(req, res) {
       if (m.is_game) out.game = true;
       if (m.reply_to) out.replyTo = 'm' + m.reply_to;
       if (m.edited) out.edited = true;
-      if (m.img_url != null) out.img = m.img_url || `/api/img?m=${m.id}`;
+      if (m.img_url != null) out.img = `/api/img?m=${m.id}`;
       if (m.fwd_user) out.fwd = Number(m.fwd_user);
       if (P) out.poll = { q: P.q, opts: P.opts.map((t, i) => ({ t, v: (voteMap[m.id] || []).filter(v => v.o === i).map(v => v.u) })) };
       (byChat[m.chat_id] = byChat[m.chat_id] || []).push(out);
@@ -95,7 +96,7 @@ export default async function handler(req, res) {
       follows: follows.map(f => [Number(f.follower_id), Number(f.followee_id)]),
       posts: posts.map(p => ({
         id: 'p' + p.id, uid: Number(p.user_id), text: p.body, t: ms(p.created_at), lahza: p.is_lahza || undefined, hidden: p.is_hidden || undefined,
-        img: p.img_url == null ? undefined : (p.img_url || `/api/img?p=${p.id}`),
+        img: p.img_url == null ? undefined : `/api/img?p=${p.id}`,
         likes: likeMap[p.id] || [], views: p.views, seen: p.seen, replies: repMap[p.id] || [],
         reports: admin ? p.reports : undefined, reported: reported.has(Number(p.id)) || undefined
       })),

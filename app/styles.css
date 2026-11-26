@@ -255,3 +255,10 @@ html[data-fs=lg] .txt,html[data-fs=lg] .m{font-size:18px}
 .pprev{position:relative;margin-top:10px;border-radius:16px;overflow:hidden;max-width:260px}
 .pprev img{display:block;width:100%}
 .pprev button{position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:16px}
+
+/* rang tanlash: tanlangani aniq ko'rinadi */
+.swatch{outline:3px solid transparent;outline-offset:2px;transition:outline-color .15s,transform .15s}
+input:checked + .swatch{outline-color:var(--acc);transform:scale(1.08)}
+input:focus-visible + .swatch{outline-color:var(--ink)}
+button.stat{border:0;font:inherit;color:inherit;cursor:pointer}
+button.stat:active{transform:scale(.97)}
