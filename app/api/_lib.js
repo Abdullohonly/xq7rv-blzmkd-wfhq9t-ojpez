@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 
 const scrypt = promisify(_scrypt);
 export const OWNER_EMAIL = 'musoxonshovkatov@gmail.com';
-export const RESERVED = ['admin', 'lahzam', 'musoojon', 'support', 'yordam', 'root', 'api', 'flappy', 'musoxon'];
+export const RESERVED = ['admin', 'lahzam', 'musoojon', 'support', 'yordam', 'root', 'api', 'flappy', 'tetris', '2048', 'musoxon'];
 const COOKIE = 'lz_s';
 const MONTH = 30 * 24 * 3600;
 
@@ -103,17 +103,21 @@ export async function currentUser(req) {
   if (!u || u.is_blocked) return null;
   return u;
 }
+export const TERMS_VER = 1; // hujjatlar o'zgarsa oshiriladi: hamma qayta rozilik beradi
 export const publicUser = u => u && ({
   id: Number(u.id), username: u.username, name: u.name, bio: u.bio, color: u.color, photo: u.photo || null,
   email: u.email, isOwner: isOwnerEmail(u.email), hasPassword: !!u.password_hash, createdAt: u.created_at,
-  dmFrom: u.dm_from || 'all', notifOff: !!u.notif_off, rrOff: !!u.rr_off
+  dmFrom: u.dm_from || 'all', notifOff: !!u.notif_off, rrOff: !!u.rr_off, termsOk: Number(u.terms_ver || 0) >= TERMS_VER
 });
 
 export function checkUsername(v, email) {
   v = String(v || '');
   if (v.length < 3) return 'Kamida 3 belgi';
-  if (v.length > 20) return 'Ko‘pi bilan 20 belgi';
+  if (v.length > 15) return 'Ko‘pi bilan 15 belgi';
   if (!/^[a-z0-9._]+$/.test(v)) return 'Faqat kichik harf, raqam, nuqta (.) va pastki chiziq (_)';
+  if (/^[0-9]/.test(v)) return 'Username raqam bilan boshlanmasin';
+  if (!/[a-z]/.test(v)) return 'Username faqat raqamdan iborat bo‘lmasin: kamida bitta harf kerak';
+  if ((v.match(/\./g) || []).length > 2) return 'Ko‘pi bilan 2 ta nuqta (.) ishlatish mumkin';
   if (/^\.|\.$/.test(v) || v.includes('..')) return 'Nuqta boshida, oxirida yoki ketma-ket bo‘lmasin';
   if (RESERVED.includes(v) && !(v === 'musoxon' && isOwnerEmail(email))) return `@${v} band`;
   return null;

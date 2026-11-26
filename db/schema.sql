@@ -179,3 +179,5 @@ do $$ declare k text; begin
   if k is not null then execute 'alter table chat_members drop constraint ' || quote_ident(k);
     alter table chat_members add constraint chat_members_status_check check (status in ('member', 'pending', 'banned')); end if;
 end $$;
+-- 1.2.0: foydalanish shartlari va maxfiylik siyosatiga rozilik (13+)
+alter table users add column if not exists terms_ver int not null default 0, add column if not exists terms_at timestamptz;

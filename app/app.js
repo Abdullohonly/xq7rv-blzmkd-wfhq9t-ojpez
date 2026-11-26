@@ -1,8 +1,8 @@
-/* Lahzam v1.1.8 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.2.0 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.1.8'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.2.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { post: 500, reply: 300, msg: 2000 };
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
@@ -249,6 +249,7 @@ function route() {
   if (p === '/musoojon') return ['admin'];
   if (p === '/yangiliklar') return ['updates'];
   if (p === '/reyting') return ['leaders'];
+  if (p === '/shartlar' || p === '/maxfiylik' || p === '/qoidalar') return ['doc', p.slice(1)];
   if ((m = p.match(/^\/@([a-z0-9._]+)$/i))) return ['profile', m[1]];
   if ((m = p.match(/^\/p\/([\w-]+)$/))) return ['post', m[1]];
   if ((m = p.match(/^\/c\/([\w-]+)$/))) return ['chat', m[1]];
@@ -256,7 +257,7 @@ function route() {
   if ((m = p.match(/^\/t\/(.+)$/))) return ['tag', m[1]];
   return ['404'];
 }
-const PUBLIC = ['auth', 'profile', 'post', 'tag', 'admin', 'updates', '404'];
+const PUBLIC = ['auth', 'profile', 'post', 'tag', 'admin', 'updates', 'doc', '404'];
 function render() {
   document.documentElement.dataset.theme = DB.theme;
   document.documentElement.dataset.fs = DB.fs || 'md';
@@ -264,13 +265,14 @@ function render() {
   if (me() && me().blocked) { DB.me = null; save(); toast('Akkauntingiz bloklangan.', true); }
   if (!me() && !PUBLIC.includes(name)) return go('/kirish', true);
   if (me() && name === 'auth') return go('/', true);
-  const V = { home, auth, groups, dms, search, notifs, settings, admin, profile, post, chat, group, tag, updates, leaders, '404': notFound }[name];
+  const V = { home, auth, groups, dms, search, notifs, settings, admin, profile, post, chat, group, tag, updates, leaders, doc: docPage, '404': notFound }[name];
   const html = V(arg);
   const desk = DESK.matches && me() && !['auth', 'admin'].includes(name);
   document.body.classList.toggle('is-desk', !!desk);
   app.innerHTML = desk ? deskShell(name, html) : html;
   document.title = name === 'home' ? 'Lahzam — Har lahza yoningizda!' : (TITLES[name] || '') + ' · Lahzam';
   after[name] && after[name](arg);
+  if (SESSION && SESSION.termsOk === false && name !== 'doc') consentGate();
   save();
 }
 /* Kompyuter ko'rinishi: chapda menyu, o'rtada asosiy qism, o'ngda reyting va yangiliklar */
@@ -309,7 +311,7 @@ function deskShell(name, html) {
       <p class="muted" style="text-align:center">Lahzam v${VERSION} · Har lahza yoningizda!</p>
     </aside></div>`;
 }
-const TITLES = { auth: 'Kirish', groups: 'Guruhlar', dms: 'Shaxsiy', search: 'Qidiruv', notifs: 'Bildirishnomalar', settings: 'Sozlamalar', admin: 'Admin', updates: 'Lahzam Updates', leaders: 'Reyting', profile: 'Profil', post: 'Post', chat: 'Suhbat', group: 'Guruh', tag: 'Heshteg' };
+const TITLES = { doc: 'Hujjatlar', auth: 'Kirish', groups: 'Guruhlar', dms: 'Shaxsiy', search: 'Qidiruv', notifs: 'Bildirishnomalar', settings: 'Sozlamalar', admin: 'Admin', updates: 'Lahzam Updates', leaders: 'Reyting', profile: 'Profil', post: 'Post', chat: 'Suhbat', group: 'Guruh', tag: 'Heshteg' };
 const after = {};
 
 /* ---------------- shared pieces ---------------- */
@@ -339,6 +341,27 @@ function header(extra = '', deskTitle = '') {
       <a href="/bildirishnomalar" data-link class="ibtn" aria-label="Bildirishnomalar${n ? ', ' + n + ' ta yangi' : ''}">${NI('bell', false, 20)}${n ? `<span class="badge">${n > 99 ? '99+' : n}</span>` : ''}</a>
       ${u ? `<a href="/@${esc(u.u)}" data-link aria-label="Profilim" style="border-radius:50%;border:2px solid #fff;display:inline-flex">${avatar(u, 40)}</a>` : `<a href="/kirish" data-link class="btn" style="height:40px;background:#fff;color:#111;border-radius:999px">Kirish</a>`}
     </div></div>${extra}</header>`;
+}
+function docPage(k) {
+  const d = window.LahzamDocs && LahzamDocs[k]; if (!d) return notFound();
+  const tabs = [['shartlar', 'Shartlar'], ['maxfiylik', 'Maxfiylik'], ['qoidalar', 'Qoidalar']];
+  return `<div class="shell">${backBar(d.title)}<div class="pad stack">
+    <div class="seg doc-tabs" style="grid-template-columns:repeat(3,minmax(0,1fr))">${tabs.map(([key, l]) => `<a href="/${key}" data-link class="${key === k ? 'on' : ''}" aria-current="${key === k}">${l}</a>`).join('')}</div>
+    <article class="card doc">${d.html}</article></div></div>`;
+}
+function consentGate() {
+  if (document.querySelector('.consent')) return;
+  $('#modal-root').innerHTML = `<div class="scrim"><div class="sheet consent" role="dialog" aria-modal="true" aria-labelledby="cg-h">
+    <h2 id="cg-h">Lahzam shartlari 📜</h2>
+    <p class="muted" style="margin:-4px 0 12px">Davom etish uchun hujjatlar bilan tanishib, rozilik bildiring.</p>
+    <div class="card" style="padding:4px 16px;margin-bottom:12px">
+      <a href="/shartlar" data-link class="li"><span style="flex:1"><b>📄 Foydalanish shartlari</b></span>›</a>
+      <a href="/maxfiylik" data-link class="li"><span style="flex:1"><b>🔒 Maxfiylik siyosati</b></span>›</a>
+      <a href="/qoidalar" data-link class="li" style="border:0"><span style="flex:1"><b>🤝 Jamiyat qoidalari</b></span>›</a></div>
+    <label class="agree"><input type="checkbox" id="agree3"><span>Men <b>13 yoshdan kattaman</b> va yuqoridagi hujjatlarga roziman</span></label>
+    <button class="btn acc full" style="margin-top:12px" data-act="agree-go" disabled id="agree-go">Roziman, davom etish</button>
+    <button class="btn ghost full" style="margin-top:8px" data-act="logout">Rozi emasman, chiqish</button></div></div>`;
+  const c = $('#agree3'); c.addEventListener('change', () => { $('#agree-go').disabled = !c.checked; });
 }
 function backBar(title, sub = '', right = '') {
   return `<header class="top"><div class="top-row">
@@ -415,21 +438,23 @@ function auth() {
     </div>
     <div class="card stack" style="margin:-30px 12px 0;gap:14px;padding:20px">${inner}</div></div>`;
   if (s === 'start') return shell(`
-    <div class="gwrap"><button type="button" class="gfake" data-act="gfake"><svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg><span>Google bilan davom etish</span></button><div id="gbtn" class="greal"></div></div>
+    <label class="agree"><input type="checkbox" id="agree" ${AUTH.agree ? 'checked' : ''}><span>Men <b>13 yoshdan kattaman</b> va Lahzamning <a href="/shartlar" data-link>Foydalanish shartlari</a>, <a href="/maxfiylik" data-link>Maxfiylik siyosati</a> hamda <a href="/qoidalar" data-link>Jamiyat qoidalari</a>ga roziman</span></label>
+    <div class="gwrap${AUTH.agree ? '' : ' locked'}"><button type="button" class="gfake" data-act="gfake"><svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg><span>Google bilan davom etish</span></button><div id="gbtn" class="greal"></div><button type="button" class="glock" data-act="glock" aria-label="Avval rozilik belgisini qo‘ying"></button></div>
     <div class="row muted" style="justify-content:center">yoki</div>
     <button class="btn ghost full" data-act="auth-login">Akkauntim bor: username va parol</button>
-    <p class="muted" style="margin:0;text-align:center">Davom etish orqali siz Lahzam qoidalariga rozilik bildirasiz.</p>`);
+    <p class="muted" style="margin:0;text-align:center;font-size:13px">Belgini qo‘ymaguningizcha akkaunt ochib bo‘lmaydi.</p>`);
   if (s === 'username') return shell(`
     <h2 style="font-family:var(--head);font-size:20px;margin:0">Username tanlang</h2>
-    <p class="muted" style="margin:0">${esc(AUTH.email)} ✅ Google tasdiqladi. Username: kamida 3 belgi, kichik harf, raqam, nuqta yoki pastki chiziq.</p>
+    <p class="muted" style="margin:0">${esc(AUTH.email)} ✅ Google tasdiqladi. Username: 3–15 belgi, harf bilan boshlanadi, kichik harf, raqam, ko‘pi bilan 2 ta nuqta yoki pastki chiziq.</p>
     <form class="stack" data-form="signup">
       <div class="field"><label for="un">Username</label>
         <div style="position:relative"><span style="position:absolute;left:16px;top:14px;color:var(--mute);font-weight:700">@</span>
-        <input class="inp" id="un" style="padding-left:34px" required autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" placeholder="masalan: aziz.k"></div>
+        <input class="inp" id="un" style="padding-left:34px" required autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="15" placeholder="masalan: aziz.k"></div>
         <div class="hint" id="un-hint" aria-live="polite"></div></div>
       <div class="field"><label for="nm">Ismingiz</label><input class="inp" id="nm" required maxlength="40" placeholder="Ism Familiya" autocomplete="name" value="${esc(AUTH.name || '')}"></div>
       ${AUTH.owner ? '<p class="card" style="background:#121212;color:#fff;margin:0">👑 Siz Lahzam egasisiz. Parol kerak emas: bu akkauntga faqat Google orqali kiriladi.</p>' : `<div class="field"><label for="pw">Parol</label><input class="inp" id="pw" type="password" required minlength="6" autocomplete="new-password" placeholder="Kamida 6 belgi">
         <div class="hint" id="pw-hint"></div></div>`}
+      <label class="agree"><input type="checkbox" id="agree2" ${AUTH.agree ? 'checked' : ''}><span>Men <b>13 yoshdan kattaman</b> va Lahzamning <a href="/shartlar" data-link>Foydalanish shartlari</a>, <a href="/maxfiylik" data-link>Maxfiylik siyosati</a> hamda <a href="/qoidalar" data-link>Jamiyat qoidalari</a>ga roziman</span></label>
       <div class="hint bad" id="su-hint"></div>
       <button class="btn acc full" id="su-btn" disabled>Ro‘yxatdan o‘tish</button>
     </form>`);
@@ -447,9 +472,13 @@ function auth() {
 function checkUsername(v) {
   if (!v) return ['', null];
   if (v.length < 3) return ['Kamida 3 belgi', false];
+  if (v.length > 15) return ['Ko‘pi bilan 15 belgi', false];
   if (!/^[a-z0-9._]+$/.test(v)) return ['Faqat kichik harf, raqam, nuqta (.) va pastki chiziq (_)', false];
+  if (/^[0-9]/.test(v)) return ['Username raqam bilan boshlanmasin', false];
+  if (!/[a-z]/.test(v)) return ['Faqat raqam bo‘lmasin: kamida bitta harf kerak', false];
+  if ((v.match(/\./g) || []).length > 2) return ['Ko‘pi bilan 2 ta nuqta (.)', false];
   if (/^\.|\.$/.test(v) || v.includes('..')) return ['Nuqta boshida, oxirida yoki ketma-ket bo‘lmasin', false];
-  if ((RESERVED.includes(v) || v === 'flappy') && !(v === 'musoxon' && AUTH.owner)) return [`@${v} band ❌`, false];
+  if ((RESERVED.includes(v) || ['flappy', 'tetris', '2048'].includes(v)) && !(v === 'musoxon' && AUTH.owner)) return [`@${v} band ❌`, false];
   return [`@${v} bo‘sh ✅`, true];
 }
 let GCFG; try { GCFG = localStorage.getItem('lahzam_gcid') || undefined; } catch (e) {}
@@ -481,16 +510,18 @@ const noAuto = () => { try { return localStorage.getItem('lahzam_noauto') === '1
 async function onGoogle(resp) {
   const r = await api('auth/google', { method: 'POST', body: { credential: resp.credential } });
   if (r.user) { try { localStorage.removeItem('lahzam_noauto'); } catch (e) {} adoptSession(r.user); AUTH = { step: 'start' }; save(); go('/'); toast(`Xush kelibsiz, ${r.user.name.split(' ')[0]} 👋`); if (isOwnerSession()) refreshAdm(); sync(true); return; }
-  if (r.needsSignup) { AUTH = { step: 'username', ticket: r.ticket, email: r.email, name: r.name, owner: r.owner }; render(); return; }
+  if (r.needsSignup) { AUTH = { step: 'username', ticket: r.ticket, email: r.email, name: r.name, owner: r.owner, agree: !!AUTH.agree }; render(); return; }
   toast(r.message || 'Kirib bo‘lmadi', true);
 }
 after.auth = () => {
   if (AUTH.step === 'start') initGoogle();
+  const ag = $('#agree'); if (ag) ag.addEventListener('change', () => { AUTH.agree = ag.checked; const w = $('.gwrap'); w && w.classList.toggle('locked', !ag.checked); });
   const un = $('#un'); if (!un) return;
   api('auth/username?u='); // serverni oldindan uyg'otamiz: birinchi tekshiruv tez bo'ladi
   let okU = false, okP = !!AUTH.owner, tm, seq = 0;
   const btn = $('#su-btn'), uh = $('#un-hint'), pw = $('#pw'), ph = $('#pw-hint');
-  const sync = () => { btn.disabled = !(okU && okP && $('#nm').value.trim()); };
+  const sync = () => { btn.disabled = !(okU && okP && $('#nm').value.trim() && $('#agree2').checked); };
+  $('#agree2').addEventListener('change', () => { AUTH.agree = $('#agree2').checked; sync(); });
   un.addEventListener('input', () => {
     un.value = un.value.toLowerCase().replace(/\s/g, '');
     clearTimeout(tm); uh.textContent = un.value.length >= 3 ? 'Tekshirilmoqda…' : ''; uh.className = 'hint';
@@ -836,6 +867,9 @@ function settings() {
       <a href="/yangiliklar" data-link class="li set-row"><span style="flex:1"><b>✨ Lahzam Updates</b><span class="muted" style="display:block">Ilovada nimalar yangilandi</span></span>${unreadUpdates() ? `<span class="dot">${unreadUpdates()}</span>` : '›'}</a>
       ${standalone() ? '' : `<button class="li set-row" style="width:100%;text-align:left" data-act="install"><span style="flex:1"><b>📲 Ilovani o‘rnatish</b><span class="muted" style="display:block">Lahzam telefon ekraningizda alohida ilova bo‘ladi</span></span>›</button>`}
       <button class="li set-row" style="width:100%;text-align:left" data-act="opensaved"><span style="flex:1"><b>🔖 Saqlangan xabarlar</b><span class="muted" style="display:block">Faqat siz ko‘radigan shaxsiy chat</span></span>›</button>
+      <a href="/shartlar" data-link class="li set-row"><span style="flex:1"><b>📄 Foydalanish shartlari</b></span>›</a>
+      <a href="/maxfiylik" data-link class="li set-row"><span style="flex:1"><b>🔒 Maxfiylik siyosati</b></span>›</a>
+      <a href="/qoidalar" data-link class="li set-row"><span style="flex:1"><b>🤝 Jamiyat qoidalari</b></span>›</a>
       <a href="/reyting" data-link class="li set-row"><span style="flex:1"><b>🏆 Foydali reytingi</b><span class="muted" style="display:block">Eng ko‘p ⭐ olganlar</span></span>›</a>
       <button class="li set-row" style="width:100%;text-align:left" data-act="sharelahzam"><span style="flex:1"><b>💌 Do‘stlarni taklif qilish</b><span class="muted" style="display:block">Birinchi 50 kishi “Asoschi” bo‘ladi</span></span>›</button>
     </div>
@@ -985,7 +1019,7 @@ function sheet(html) {
   const f = root.querySelector('input,textarea,button'); f && f.focus();
 }
 const closeSheet = () => { $('#modal-root').innerHTML = ''; };
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !document.querySelector('.consent')) closeSheet(); });
 // Xabarni ikki marta bossangiz ❤️ reaksiya qo'yiladi (Telegram'dagidek)
 document.addEventListener('dblclick', e => {
   const mEl = e.target.closest('.m[data-msg]'); if (!mEl || e.target.closest('button,a,input') || !CH.cid || String(mEl.dataset.msg).startsWith('tmp')) return;
@@ -1172,6 +1206,13 @@ document.addEventListener('click', async e => {
       const r = await server({ t: 'ban', chat: c.id, user: t2 }, `@${w.u} guruhdan chetlatildi 🚫`); if (r.ok) { c.members = c.members.filter(x => x !== t2); c.banned = [...(c.banned || []), t2]; render(); } break;
     }
     case 'gunban': { const c = DB.chats.find(x => x.id === id), t2 = +el.dataset.u; if (!c) break; const r = await server({ t: 'unban', chat: c.id, user: t2 }, 'Qaytarildi: endi qayta qo‘shila oladi'); if (r.ok) { c.banned = (c.banned || []).filter(x => x !== t2); render(); } break; }
+    case 'glock': { const a = $('#agree'); toast('Avval rozilik belgisini qo‘ying ☑️', true); if (a) { const l = a.closest('.agree'); l.classList.remove('shake'); void l.offsetWidth; l.classList.add('shake'); a.focus(); } break; }
+    case 'agree-go': {
+      if (!$('#agree3') || !$('#agree3').checked) break; el.disabled = true;
+      const r = await api('act', { method: 'POST', body: { t: 'agree', agree: true } });
+      if (!r.ok) { el.disabled = false; toast(r.message || 'Bajarilmadi', true); break; }
+      SESSION.termsOk = true; DB.sess = SESSION; save(); $('#modal-root').innerHTML = ''; toast('Rahmat! Xush kelibsiz 👋'); render(); break;
+    }
     case 'install': if (DEFER) doInstall(); else showInstall(true); break;
     case 'pushon': { const r = await pushEnable(true); toast(r === 'ok' ? 'Bildirishnomalar yoqildi 🔔' : r === 'ios' ? 'iPhone’da avval Lahzam’ni ekranga o‘rnating 📲' : r === 'denied' ? 'Brauzer sozlamalarida Lahzam’ga ruxsat bering' : 'Bu brauzer push’ni qo‘llamaydi', r !== 'ok'); closeSheet(); render(); break; }
     case 'pushoff': { await pushDisable(); toast('Push o‘chirildi'); render(); break; }
@@ -1346,7 +1387,8 @@ document.addEventListener('submit', async e => {
   if (kind === 'signup') {
     const un = $('#un').value.trim(), nm = $('#nm').value.trim(), pw = $('#pw') ? $('#pw').value : '';
     const btn = $('#su-btn'); btn.disabled = true;
-    const r = await api('auth/signup', { method: 'POST', body: { ticket: AUTH.ticket, username: un, name: nm, password: pw } });
+    if (!$('#agree2').checked) { $('#su-hint').textContent = 'Avval 13 yoshdan kattaligingizni va shartlarga rozilikni belgilang'; btn.disabled = false; return; }
+    const r = await api('auth/signup', { method: 'POST', body: { ticket: AUTH.ticket, username: un, name: nm, password: pw, agree: true } });
     if (!r.user) { btn.disabled = false; $('#su-hint').textContent = r.message || 'Ro‘yxatdan o‘tib bo‘lmadi'; if (r.error === 'ticket') { AUTH = { step: 'start' }; render(); } return; }
     adoptSession(r.user); AUTH = { step: 'start' };
     save(); go('/'); toast('Xush kelibsiz 👋 Har lahza yoningizda!'); sync(true); return;

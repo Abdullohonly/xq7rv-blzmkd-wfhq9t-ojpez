@@ -1,10 +1,10 @@
-import { sql, unsign, checkUsername, hashPassword, setSession, publicUser, send, onlyMethod, sameOrigin, isOwnerEmail, rateLimit, clientIp, tooMany } from '../_lib.js';
+import { TERMS_VER, sql, unsign, checkUsername, hashPassword, setSession, publicUser, send, onlyMethod, sameOrigin, isOwnerEmail, rateLimit, clientIp, tooMany } from '../_lib.js';
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
 // POST /api/auth/signup { ticket, username, name, password }
 export default async function handler(req, res) {
   if (!onlyMethod(req, res, 'POST')) return;
   if (!sameOrigin(req)) return send(res, 403, { error: 'origin' });
-  const { ticket, username, name, password } = req.body || {};
+  const { ticket, username, name, password, agree } = req.body || {};
   const t = unsign(ticket);
   if (!t || t.k !== 't') return send(res, 401, { error: 'ticket', message: 'Vaqt tugadi, Google bilan qayta kiring' });
   const owner = isOwnerEmail(t.email);
@@ -13,6 +13,7 @@ export default async function handler(req, res) {
   const bad = checkUsername(un, t.email);
   if (bad) return send(res, 400, { error: 'username', message: bad });
   if (!nm) return send(res, 400, { error: 'name', message: 'Ismingizni yozing' });
+  if (agree !== true) return send(res, 400, { error: 'agree', message: '13 yoshdan kattaligingizni va shartlarga rozilikni belgilang' });
   if (!owner && (typeof password !== 'string' || password.length < 6 || password.length > 200)) return send(res, 400, { error: 'password', message: 'Parol kamida 6 belgi' });
   try {
     if (!(await rateLimit('signup:' + clientIp(req), 10, 3600))) return tooMany(res);
@@ -21,8 +22,8 @@ export default async function handler(req, res) {
     if (ban) return send(res, 403, { error: 'banned', message: 'Bu Gmail bloklangan' });
     const ph = owner ? null : await hashPassword(password);
     const [{ n }] = await db`select count(*)::int as n from users`;
-    const [u] = await db`insert into users (username, name, email, google_sub, password_hash, photo, color)
-      values (${un}, ${nm}, ${t.email}, ${t.sub}, ${ph}, ${t.picture || null}, ${COLORS[n % COLORS.length]}) returning *`;
+    const [u] = await db`insert into users (username, name, email, google_sub, password_hash, photo, color, terms_ver, terms_at)
+      values (${un}, ${nm}, ${t.email}, ${t.sub}, ${ph}, ${t.picture || null}, ${COLORS[n % COLORS.length]}, ${TERMS_VER}, now()) returning *`;
     setSession(res, u);
     return send(res, 201, { user: publicUser(u) });
   } catch (e) {

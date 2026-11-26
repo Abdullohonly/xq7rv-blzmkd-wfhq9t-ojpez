@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { sql, currentUser, isOwnerEmail, hasAdminPass, rateLimit, tooMany, send, sameOrigin } from './_lib.js';
+import { TERMS_VER, sql, currentUser, isOwnerEmail, hasAdminPass, rateLimit, tooMany, send, sameOrigin } from './_lib.js';
 import { r2PutDataUrl } from './_r2.js';
 import { pushTo } from './_push.js';
 // POST /api/act — ilovadagi har bir amal: post, javob, layk, kuzatish, guruh, xabar, reaksiya, so'rovnoma...
@@ -41,6 +41,11 @@ export default async function handler(req, res) {
     const admin = isOwnerEmail(me.email) && hasAdminPass(req, me);
     if (!(await rateLimit('act:' + uid, 240, 60))) return tooMany(res);
 
+    if (t === 'agree') {
+      if (b.agree !== true) return bad(res, 'Rozilik belgilanmagan');
+      await db`update users set terms_ver = ${TERMS_VER}, terms_at = now() where id = ${uid}`;
+      return send(res, 200, { ok: true });
+    }
     switch (t) {
       /* ---------- Ochiq maydon ---------- */
       case 'post': {
