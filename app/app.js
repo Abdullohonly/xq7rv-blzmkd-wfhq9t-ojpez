@@ -665,12 +665,23 @@ function post(id) {
   const u = me();
   return `<div class="shell">${backBar('Suhbat', `${p.replies.length} javob`)}
   <div class="pad stack">${postCard(p, true)}
-    ${u ? `<form class="card comp" data-form="reply" data-id="${p.id}"><label><span class="sr">Javob</span><textarea id="reply-text" rows="2" maxlength="400" placeholder="Javobingizni yozing"></textarea></label>
+    ${u ? `<form class="card comp" data-form="reply" data-id="${p.id}">${RTO && RTO.post === p.id ? `<div class="cbar" style="margin-bottom:8px"><span>↩️ <b>@${esc(user(RTO.uid).u)}</b> ga javob<em>${esc(RTO.text.slice(0, 80))}</em></span><button type="button" data-act="replyto-x" aria-label="Bekor qilish">✕</button></div>` : ''}<label><span class="sr">Javob</span><textarea id="reply-text" rows="2" maxlength="400" placeholder="${RTO && RTO.post === p.id ? 'Javobingiz…' : 'Javobingizni yozing'}"></textarea></label>
       <div class="row" style="justify-content:flex-end;gap:10px"><span class="counter" id="reply-count"></span><button class="btn acc" style="height:40px;border-radius:999px">Javob</button></div></form>` : `<a href="/kirish" data-link class="btn acc full">Javob yozish uchun kiring</a>`}
-    <div class="card" style="padding:4px 16px">${p.replies.map(r => { const a = user(r.uid); return `<div class="li" style="align-items:flex-start">${avatar(a, 38)}<span style="flex:1"><span><a href="/@${esc(a.u)}" data-link style="text-decoration:none" class="name">${esc(a.name)}</a>${founderPill(a)} <span class="muted">· ${ago(r.t)}</span>${u && (r.uid === u.id || isAdmin()) && !String(r.id).startsWith('tmp') ? ` <button class="link-btn" style="font-size:13px" data-act="delreply" data-id="${p.id}" data-r="${r.id}">O‘chirish</button>` : ''}</span><p class="txt" style="font-size:15px">${linkify(r.text)}</p></span></div>`; }).join('') || '<p class="muted">Birinchi bo‘lib javob yozing.</p>'}</div>
+    <div class="card" style="padding:4px 16px">${threadOrder(p.replies).map(r => { const a = user(r.uid), par = r.parent && p.replies.find(x => x.id === r.parent), pa = par && user(par.uid); const real = !String(r.id).startsWith('tmp'); return `<div class="li${r.parent ? ' sub' : ''}" id="r-${r.id}" style="align-items:flex-start">${avatar(a, r.parent ? 32 : 38)}<span style="flex:1;min-width:0"><span><a href="/@${esc(a.u)}" data-link style="text-decoration:none" class="name">${esc(a.name)}</a>${founderPill(a)} <span class="muted">· ${ago(r.t)}</span></span>
+      ${r.parent ? `<button class="rquote" data-act="jumpr" data-r="${r.parent}">↩ ${par ? `<b>@${esc(pa.u)}</b> ${esc(par.text.slice(0, 60))}` : 'o‘chirilgan komment'}</button>` : ''}
+      <p class="txt" style="font-size:15px">${linkify(r.text)}</p>
+      <span class="row" style="gap:14px;margin-top:2px">${u && real ? `<button class="link-btn" style="font-size:13px" data-act="replyto" data-id="${p.id}" data-r="${r.id}">↩ Javob berish</button>` : ''}${u && (r.uid === u.id || isAdmin()) && real ? `<button class="link-btn" style="font-size:13px;color:var(--mute)" data-act="delreply" data-id="${p.id}" data-r="${r.id}">O‘chirish</button>` : ''}</span></span></div>`; }).join('') || '<p class="muted">Birinchi bo‘lib javob yozing.</p>'}</div>
   </div></div>`;
 }
 after.post = () => bindCounter('#reply-text', '#reply-count', LIMIT.reply);
+// Kommentlar: har bir javob o'z kommenti ostida (vaqt bo'yicha)
+function threadOrder(list) {
+  const byId = new Map(list.map(r => [r.id, r])), root = r => { let x = r, n = 0; while (x.parent && byId.has(x.parent) && n++ < 50) x = byId.get(x.parent); return x; };
+  const roots = list.filter(r => root(r) === r), out = [];
+  roots.forEach(rt => { out.push(rt); list.filter(r => r !== rt && root(r) === rt).forEach(r => out.push(r)); });
+  return out;
+}
+let RTO = null; // kommentga javob: { post, id, uid, text }
 let SEARCH_TAB = 'people', SEARCH_Q = '';
 function search() {
   return `<div class="shell">${backBar('Qidiruv', SEARCH_TAB === 'people' ? 'Odamlar' : 'Guruhlar')}
@@ -1123,6 +1134,9 @@ document.addEventListener('click', async e => {
       sheet(`<h2>${isFl ? 'Kuzatuvchilar' : 'Kuzatmoqda'} · ${list.length}</h2><p class="muted" style="margin:-6px 0 10px">@${esc(who.u)}</p><div class="card" style="padding:4px 16px">${list.map(x => `<div class="li"><a href="/@${esc(x.u)}" data-link class="row" style="flex:1;text-decoration:none;min-width:0">${avatar(x, 42)}<span style="min-width:0"><b>${esc(x.name)}</b>${founderPill(x)}<span class="muted" style="display:block">@${esc(x.u)}</span></span></a>${u && x.id !== u.id && !x.system ? `<button class="btn ${isFollowing(u.id, x.id) ? 'ghost' : 'ink'}" style="height:36px;font-size:13px;border-radius:999px" data-act="follow" data-id="${x.id}">${isFollowing(u.id, x.id) ? 'Kuzatilmoqda' : 'Kuzatish'}</button>` : ''}</div>`).join('') || `<p class="muted">${isFl ? 'Hali hech kim kuzatmayapti.' : 'Hali hech kimni kuzatmayapti.'}</p>`}</div>`);
       break;
     }
+    case 'replyto': { const p = P(), r = p && p.replies.find(x => x.id === el.dataset.r); if (!r) break; RTO = { post: p.id, id: r.id, uid: r.uid, text: r.text }; render(); const t = $('#reply-text'); if (t) { t.focus(); t.scrollIntoView({ block: 'center', behavior: 'smooth' }); } break; }
+    case 'replyto-x': RTO = null; render(); break;
+    case 'jumpr': { const t = document.getElementById('r-' + el.dataset.r); if (t) { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); t.classList.add('flash'); setTimeout(() => t.classList.remove('flash'), 1400); } return; }
     case 'close-sheet-btn': closeSheet(); break;
   }
   save();
@@ -1189,8 +1203,9 @@ document.addEventListener('submit', async e => {
   if (kind === 'reply') {
     const p = DB.posts.find(x => x.id === f.dataset.id), ta = $('#reply-text'), text = ta.value; if (!p) return;
     if (!guard('reply', text)) return save();
-    p.replies.push({ id: 'tmp' + uid(), uid: u.id, text: text.trim(), t: now() });
-    render(); server({ t: 'reply', post: p.id, body: text.trim() }); return;
+    const parent = RTO && RTO.post === p.id ? RTO.id : undefined; RTO = null;
+    p.replies.push({ id: 'tmp' + uid(), uid: u.id, text: text.trim(), t: now(), parent });
+    render(); server({ t: 'reply', post: p.id, body: text.trim(), parent }); return;
   }
   if (kind === 'msg') {
     const c = DB.chats.find(x => x.id === f.dataset.id), inp = $('#msg-in'), text = inp.value; if (!c) return;

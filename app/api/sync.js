@@ -28,7 +28,7 @@ export default async function handler(req, res) {
          where (${admin} or not p.is_hidden) and (not p.is_lahza or p.created_at > now() - interval '1 day')
          order by p.created_at desc limit 200`,
       db`select l.post_id, l.user_id from post_likes l join (select id from posts order by created_at desc limit 200) p on p.id = l.post_id`,
-      db`select r.id, r.post_id, r.user_id, r.body, r.created_at from replies r join (select id from posts order by created_at desc limit 200) p on p.id = r.post_id order by r.created_at`,
+      db`select r.id, r.post_id, r.user_id, r.body, r.created_at, r.parent_id from replies r join (select id from posts order by created_at desc limit 200) p on p.id = r.post_id order by r.created_at`,
       db`select post_id from reports where reporter_id = ${uid}`,
       db`select c.* from chats c
          where exists(select 1 from chat_members m where m.chat_id = c.id and m.user_id = ${uid})
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
 
     const likeMap = {}, repMap = {};
     likes.forEach(l => (likeMap[l.post_id] = likeMap[l.post_id] || []).push(Number(l.user_id)));
-    replies.forEach(r => (repMap[r.post_id] = repMap[r.post_id] || []).push({ id: 'r' + r.id, uid: Number(r.user_id), text: r.body, t: ms(r.created_at) }));
+    replies.forEach(r => (repMap[r.post_id] = repMap[r.post_id] || []).push({ id: 'r' + r.id, uid: Number(r.user_id), text: r.body, t: ms(r.created_at), parent: r.parent_id ? 'r' + r.parent_id : undefined }));
     const reported = new Set(myReports.map(r => Number(r.post_id)));
     const rxMap = {}, voteMap = {};
     reacts.forEach(r => { const m = (rxMap[r.message_id] = rxMap[r.message_id] || {}); (m[r.emoji] = m[r.emoji] || []).push(Number(r.user_id)); });

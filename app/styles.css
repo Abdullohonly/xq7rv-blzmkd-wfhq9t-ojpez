@@ -262,3 +262,9 @@ input:checked + .swatch{outline-color:var(--acc);transform:scale(1.08)}
 input:focus-visible + .swatch{outline-color:var(--ink)}
 button.stat{border:0;font:inherit;color:inherit;cursor:pointer}
 button.stat:active{transform:scale(.97)}
+
+/* kommentga javob */
+.li.sub{margin-left:28px;border-left:2px solid var(--line);padding-left:10px}
+.rquote{display:block;max-width:100%;text-align:left;font-size:12px;color:var(--mute);background:var(--soft);border-radius:8px;padding:3px 8px;margin:4px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li.flash{animation:flash 1.4s}
+.comp .cbar{background:var(--soft);color:var(--ink)}.comp .cbar em{color:var(--mute)}.comp .cbar button{color:var(--ink)}

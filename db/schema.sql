@@ -163,3 +163,5 @@ alter table chats add constraint chats_flappy_user_fkey foreign key (flappy_user
 alter table posts add column if not exists img text;
 alter table posts drop constraint if exists posts_body_check;
 alter table posts add constraint posts_body_check check (char_length(body) <= 500);
+-- Kommentga javob
+alter table replies add column if not exists parent_id bigint references replies(id) on delete set null;

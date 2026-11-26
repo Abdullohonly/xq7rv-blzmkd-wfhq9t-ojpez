@@ -58,7 +58,10 @@ export default async function handler(req, res) {
         const pid = idOf(b.post, 'p'), body = str(b.body, 300); if (!pid || !body) return bad(res, 'Javob bo‘sh');
         if (!(await rateLimit('reply:' + uid, 30, 3600))) return send(res, 429, { error: 'rate', message: 'Soatiga ko‘pi bilan 30 ta javob' });
         const [p] = await db`select user_id from posts where id = ${pid} and not is_hidden`; if (!p) return bad(res, 'Post topilmadi', 404);
-        await db`insert into replies (post_id, user_id, body) values (${pid}, ${uid}, ${body})`;
+        const parentId = idOf(b.parent, 'r');
+        const [par] = parentId ? await db`select id, user_id from replies where id = ${parentId} and post_id = ${pid}` : [];
+        await db`insert into replies (post_id, user_id, body, parent_id) values (${pid}, ${uid}, ${body}, ${par ? par.id : null})`;
+        if (par && Number(par.user_id) !== Number(p.user_id)) await notify(db, Number(par.user_id), `@${me.username} kommentingizga javob yozdi`, `/p/${pid}`, uid);
         await notify(db, Number(p.user_id), `@${me.username} postingizga javob yozdi`, `/p/${pid}`, uid);
         await notifyMentions(db, body, uid, me.username, 'javobda', `/p/${pid}`);
         return send(res, 200, { ok: true });
