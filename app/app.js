@@ -1,8 +1,8 @@
-/* Lahzam v1.4.1 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.5.0 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.4.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.5.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -253,6 +253,7 @@ function route() {
   if (p === '/reyting') return ['leaders'];
   if (p === '/oyinlar') return ['games'];
   if (p === '/yulduz') return ['star'];
+  if (p === '/statistika') return ['stats'];
   if (p === '/shartlar' || p === '/maxfiylik' || p === '/qoidalar') return ['doc', p.slice(1)];
   if ((m = p.match(/^\/@([a-z0-9._]+)$/i))) return ['profile', m[1]];
   if ((m = p.match(/^\/p\/([\w-]+)$/))) return ['post', m[1]];
@@ -269,7 +270,7 @@ function render() {
   if (me() && me().blocked) { DB.me = null; save(); toast('Akkauntingiz bloklangan.', true); }
   if (!me() && !PUBLIC.includes(name)) return go('/kirish', true);
   if (me() && name === 'auth') return go('/', true);
-  const V = { home, auth, groups, dms, search, notifs, settings, admin, profile, post, chat, group, tag, updates, leaders, doc: docPage, games: gamesPage, star: starPage, '404': notFound }[name];
+  const V = { home, auth, groups, dms, search, notifs, settings, admin, profile, post, chat, group, tag, updates, leaders, doc: docPage, games: gamesPage, star: starPage, stats: statsPage, '404': notFound }[name];
   const html = V(arg);
   const desk = DESK.matches && me() && !['auth', 'admin'].includes(name);
   document.body.classList.toggle('is-desk', !!desk);
@@ -316,7 +317,7 @@ function deskShell(name, html) {
       <p class="muted" style="text-align:center">Lahzam v${VERSION} · Har lahza yoningizda!</p>
     </aside></div>`;
 }
-const TITLES = { star: 'Yulduz', games: 'O‘yinlar', doc: 'Hujjatlar', auth: 'Kirish', groups: 'Guruhlar', dms: 'Shaxsiy', search: 'Qidiruv', notifs: 'Bildirishnomalar', settings: 'Sozlamalar', admin: 'Admin', updates: 'Lahzam Updates', leaders: 'Reyting', profile: 'Profil', post: 'Post', chat: 'Suhbat', group: 'Guruh', tag: 'Heshteg' };
+const TITLES = { stats: 'Statistika', star: 'Yulduz', games: 'O‘yinlar', doc: 'Hujjatlar', auth: 'Kirish', groups: 'Guruhlar', dms: 'Shaxsiy', search: 'Qidiruv', notifs: 'Bildirishnomalar', settings: 'Sozlamalar', admin: 'Admin', updates: 'Lahzam Updates', leaders: 'Reyting', profile: 'Profil', post: 'Post', chat: 'Suhbat', group: 'Guruh', tag: 'Heshteg' };
 const after = {};
 
 /* ---------------- shared pieces ---------------- */
@@ -403,6 +404,30 @@ function starPromo() {
     <span style="flex:1;min-width:0"><b class="sp-t">Lahzam Yulduz</b><span class="sp-s">Rangli nametag, profil muqovasi, 3 harfli username va boshqalar</span><span class="sp-p">oyiga 4 000 so‘mdan</span></span>
     <span class="sp-go">›</span></a>`;
 }
+const ICONS = [['', 'Lahzam', '/icon-192.png'], ['qora', 'Qora', '/icons/qora-192.png'], ['tilla', 'Tilla', '/icons/tilla-192.png'], ['kok', 'Ko‘k', '/icons/kok-192.png']];
+// Tanlangan ilova ikonkasi: manifest, iPhone ikonkasi va favicon almashadi (o'rnatishda va Android yangilanishida qo'llanadi)
+function applyIcon() {
+  const k = SESSION && me() && me().star && SESSION.appIcon; const set = (sel, attr, v) => { const e = document.querySelector(sel); if (e) e.setAttribute(attr, v); };
+  set('link[rel=manifest]', 'href', k ? `/icons/${k}.webmanifest` : '/manifest.webmanifest');
+  set('link[rel=apple-touch-icon]', 'href', k ? `/icons/${k}-apple.png` : '/apple-touch-icon.png');
+  set('link[rel=icon]', 'href', k ? `/icons/${k}-192.png` : '/icon.svg');
+}
+let STATS = null;
+function statsPage() {
+  const u = me(); if (!u || !u.star) return starPage();
+  if (!STATS) { api('act', { method: 'POST', body: { t: 'stats' } }).then(r => { STATS = r.ok ? r : { err: r.message || 'Yuklab bo‘lmadi' }; if (route()[0] === 'stats') render(); }); return `<div class="shell">${backBar('📊 Statistika')}<div class="pad"><div class="card muted">Yuklanmoqda…</div></div></div>`; }
+  if (STATS.err) return `<div class="shell">${backBar('📊 Statistika')}<div class="pad"><div class="card">${esc(STATS.err)}</div></div></div>`;
+  const days = [...Array(14)].map((_, i) => { const d = new Date(Date.now() - (13 - i) * DAY), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; });
+  const chart = (rows, label) => { const m = Object.fromEntries(rows.map(r => [r.d, r.n])), vals = days.map(d => m[d] || 0), mx = Math.max(1, ...vals), sum = vals.reduce((a, b) => a + b, 0);
+    return `<div class="card"><div class="row" style="justify-content:space-between"><b>${label}</b><span class="muted">14 kunda: <b style="color:var(--ink)">${fmt(sum)}</b></span></div>
+      <div class="bars">${vals.map((v, i) => `<div class="bar" title="${days[i].slice(5)}: ${v}"><span style="height:${Math.round(v / mx * 100)}%"></span><i>${i % 2 ? '' : days[i].slice(8)}</i></div>`).join('')}</div></div>`; };
+  const T = STATS.total, tile = (v, l) => `<div class="card st-tile"><b>${fmt(v)}</b><span class="muted">${l}</span></div>`;
+  return `<div class="shell">${backBar('📊 Statistika', 'Oxirgi 14 kun')}<div class="pad stack">
+    <div class="st-grid">${tile(T.views, 'ko‘rish')}${tile(T.likes, 'layk')}${tile(T.replies, 'javob')}${tile(T.followers, 'kuzatuvchi')}${tile(T.posts, 'post')}${tile(T.views ? Math.round((T.likes + T.replies) / T.views * 100) : 0, '% faollik')}</div>
+    ${chart(STATS.views, '👁 Postlaringiz ko‘rilishi')}${chart(STATS.fols, '👥 Yangi kuzatuvchilar')}
+    <div class="card"><b>🏆 Eng ko‘p ko‘rilgan postlaringiz</b>${STATS.top.map(p => `<a href="/p/${p.id.slice(1)}" data-link class="li"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.text)}</span><span class="muted" style="white-space:nowrap">👁 ${fmt(p.views)} · ❤ ${fmt(p.likes)}</span></a>`).join('') || '<p class="muted">Hali post yo‘q</p>'}</div>
+    <button class="btn ghost full" data-act="restats">↻ Yangilash</button></div></div>`;
+}
 function starSettings(u) {
   const S = SESSION || {}, sw = (act2, on, label) => `<button class="switch${on ? ' on' : ''}" data-act="${act2}" role="switch" aria-checked="${on}" aria-label="${label}"><i></i></button>`;
   const row = (title, sub, right) => `<div class="li set-row"><span style="flex:1;min-width:0"><b>${title}</b>${sub ? `<span class="muted" style="display:block">${sub}</span>` : ''}</span>${right}</div>`;
@@ -418,6 +443,9 @@ function starSettings(u) {
       ${row('👻 Onlayn holatni yashirish', 'Boshqalar onlayn ekaningizni va oxirgi kirgan vaqtingizni ko‘rmaydi', sw('hideonline', !!S.hideOnline, 'Onlayn holatni yashirish'))}
       ${row('👁 “O‘qildi”ni yashirish', 'Xabarni o‘qiganingiz boshqalarga ko‘rinmaydi', sw('hideread', !!S.hideRead, 'O‘qildi belgisini yashirish'))}
       <button class="li set-row" style="width:100%;text-align:left" data-act="chun"><span style="flex:1"><b>🔤 Username’ni almashtirish</b><span class="muted" style="display:block">@${esc(u.u)} · oyiga bir marta, 3 harfli ham bo‘ladi</span></span>›</button>
+      <a href="/statistika" data-link class="li set-row"><span style="flex:1"><b>📊 Statistika</b><span class="muted" style="display:block">Ko‘rishlar, kuzatuvchilar o‘sishi, eng yaxshi postlar</span></span>›</a>
+      <div class="li set-row" style="flex-wrap:wrap"><span style="flex:1;min-width:160px"><b>📱 Ilova ikonkasi</b><span class="muted" style="display:block">Ilovani o‘rnatganda shu ikonka chiqadi</span></span>
+        <div class="row" style="gap:8px">${ICONS.map(([k, l, src]) => `<button class="ic-pick${(SESSION.appIcon || '') === k ? ' on' : ''}" data-act="appicon" data-v="${k}" aria-label="${l} ikonka" title="${l}"><img src="${src}" alt="" width="44" height="44"></button>`).join('')}</div></div>
       <a href="/yulduz" data-link class="li set-row"><span style="flex:1"><b>⭐ Obuna</b><span class="muted" style="display:block">${S.starUntil && !isOwnerSession() ? uzDate(new Date(S.starUntil).getTime(), true) + ' gacha' : 'Faol'}</span></span>›</a></div>`;
 }
 async function patchMe(body, ok) {
@@ -724,9 +752,9 @@ function msgHtml(c, m) {
   else if (m.poll) body = pollHtml(c, m);
   else body = (m.img ? `<button class="mimg" data-act="viewimg" data-c="${c.id}" data-m="${m.id}"><img src="${esc(m.img)}" alt="Rasm" loading="lazy"></button>` : '') + (m.text ? `<span class="mtx">${linkify(m.text)}</span>` : '');
   const rd = mine && !isSaved(c) ? readersOf(c, m).length : 0;
-  const meta = `<span class="mt">${m.edited ? 'tahrirlandi · ' : ''}${clock(m.t)}${mine && !isSaved(c) ? (m.tmp ? '<i class="tick">🕓</i>' : `<i class="tick${rd ? ' read' : ''}" aria-label="${rd ? 'O‘qildi' : 'Yetkazildi'}">✓✓</i>`) : ''}</span>`;
+  const meta = m.sched ? `<span class="mt sched">⏰ ${dayLabel(m.t) === 'Bugun' ? '' : uzDate(m.t) + ' '}${clock(m.t)} da yuboriladi</span>` : `<span class="mt">${m.edited ? 'tahrirlandi · ' : ''}${clock(m.t)}${mine && !isSaved(c) ? (m.tmp ? '<i class="tick">🕓</i>' : `<i class="tick${rd ? ' read' : ''}" aria-label="${rd ? 'O‘qildi' : 'Yetkazildi'}">✓✓</i>`) : ''}</span>`;
   const hit = CH.q && m.text && m.text.toLowerCase().includes(CH.q) ? ' hit' : '';
-  return `<div class="m ${mine ? 'out' : 'in'}${hit}${stk ? ' stkm' : ''}" data-msg="${m.id}" id="m-${m.id}">${c.type === 'group' && !mine ? `<a class="who" href="/@${esc(a.u)}" data-link style="text-decoration:none">${NM(a)}</a>` : ''}${fwd}${quote}${body}
+  return `<div class="m ${mine ? 'out' : 'in'}${hit}${stk ? ' stkm' : ''}${m.sched ? ' schedm' : ''}" data-msg="${m.id}" id="m-${m.id}">${c.type === 'group' && !mine ? `<a class="who" href="/@${esc(a.u)}" data-link style="text-decoration:none">${NM(a)}</a>` : ''}${fwd}${quote}${body}
     <div class="reacts">${rx.map(([e, v]) => `<button class="rx ${v.includes(u.id) ? 'mine' : ''}" data-act="react" data-c="${c.id}" data-m="${m.id}" data-e="${e}" aria-label="${e} reaksiya, ${v.length}">${e} ${v.length}</button>`).join('')}
       <button class="rx-add rx-btn" data-act="rxbar" data-c="${c.id}" data-m="${m.id}" aria-label="Reaksiya bildirish">😊<b>+</b></button><button class="rx-add" data-act="msgmenu" data-c="${c.id}" data-m="${m.id}" aria-label="Xabar amallari">⋯</button>${meta}</div></div>`;
 }
@@ -1357,6 +1385,16 @@ document.addEventListener('click', async e => {
     case 'pinpost': { closeSheet(); const unpin = u.pin === id; patchMe({ pinned: unpin ? null : id }, unpin ? 'Profildan olib tashlandi' : 'Profilga qadaldi 📌'); break; }
     case 'chun': sheet(`<h2>🔤 Username’ni almashtirish</h2><form class="stack" data-form="chun"><div class="field"><label for="cu">Yangi username</label><div style="position:relative"><span style="position:absolute;left:16px;top:14px;color:var(--mute);font-weight:700">@</span><input class="inp" id="cu" style="padding-left:34px" maxlength="15" autocomplete="off" autocapitalize="none" spellcheck="false" value="${esc(u.u)}"></div><div class="hint" id="cu-h">3–15 belgi · oyiga bir marta almashtirish mumkin</div></div><button class="btn acc full">Saqlash</button></form>`); break;
     case 'admstar': { const r = await api('admin/users', { method: 'POST', body: { action: el.dataset.a, id: +id, months: +el.dataset.m || undefined } }); if (r.status === 401) { ADM.verified = false; render(); break; } toast(r.ok ? (el.dataset.a === 'star' ? `⭐ ${el.dataset.m} oyga Yulduz berildi` : 'Yulduz olib tashlandi') : (r.message || 'Bajarilmadi'), !r.ok); if (r.ok) { await sync(true); render(); } break; }
+    case 'schedmsg': {
+      if (!u.star) { closeSheet(); go('/yulduz'); toast('Keyinroq yuborish ⭐ Yulduz a’zolari uchun'); break; }
+      const d = new Date(Date.now() + 3600e3), pad = n => String(n).padStart(2, '0'), v = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      const cur = ($('#msg-in') && $('#msg-in').value) || '';
+      sheet(`<h2>⏰ Keyinroq yuborish</h2><form class="stack" data-form="sched" data-id="${id}"><div class="field"><label for="sc-t">Xabar</label><textarea class="inp" id="sc-t" maxlength="2000" style="height:100px;padding:12px 16px" required>${esc(cur)}</textarea></div>
+        <div class="field"><label for="sc-d">Qachon yuborilsin</label><input class="inp" id="sc-d" type="datetime-local" value="${v}" required></div><div class="hint bad" id="sc-h"></div>
+        <button class="btn acc full">Rejalashtirish</button><p class="muted" style="margin:0;font-size:13px">Belgilangan vaqtgacha xabarni faqat siz ko‘rasiz. Bekor qilish uchun xabarni o‘chiring.</p></form>`); break;
+    }
+    case 'appicon': { await patchMe({ appIcon: el.dataset.v || null }, 'Ikonka tanlandi ✅'); applyIcon(); break; }
+    case 'restats': STATS = null; render(); break;
     case 'install': if (DEFER) doInstall(); else showInstall(true); break;
     case 'pushon': { const r = await pushEnable(true); toast(r === 'ok' ? 'Bildirishnomalar yoqildi 🔔' : r === 'ios' ? 'iPhone’da avval Lahzam’ni ekranga o‘rnating 📲' : r === 'denied' ? 'Brauzer sozlamalarida Lahzam’ga ruxsat bering' : 'Bu brauzer push’ni qo‘llamaydi', r !== 'ok'); closeSheet(); render(); break; }
     case 'pushoff': { await pushDisable(); toast('Push o‘chirildi'); render(); break; }
@@ -1433,7 +1471,8 @@ document.addEventListener('click', async e => {
         <button class="btn ghost full" style="justify-content:flex-start" data-act="sendflappy" data-id="${id}">🐤 Flappy o‘yini</button>
         <button class="btn ghost full" style="justify-content:flex-start" data-act="sendtetris" data-id="${id}">🧱 Tetris</button>
         <button class="btn ghost full" style="justify-content:flex-start" data-act="send2048" data-id="${id}">🔢 2048</button>
-        <button class="btn ghost full" style="justify-content:flex-start" data-act="stickers" data-id="${id}">🎨 Stikerlar</button></div>`); break;
+        <button class="btn ghost full" style="justify-content:flex-start" data-act="stickers" data-id="${id}">🎨 Stikerlar</button>
+        <button class="btn ghost full" style="justify-content:flex-start" data-act="schedmsg" data-id="${id}">⏰ Keyinroq yuborish ${u.star ? '' : '<span class="tag" style="margin-left:auto">⭐ Yulduz</span>'}</button></div>`); break;
     case 'send2048': { closeSheet(); const i = $('#msg-in'); i.value = '@2048'; i.form.requestSubmit(); break; }
     case 'stickers': sheet(`<h2>Lahzam stikerlari 🎨</h2><div class="stk-grid">${Stickers.list.map(k => `<button class="stk-pick" data-act="sendstk" data-id="${id}" data-k="${k}" aria-label="${esc(Stickers.label(k))}">${Stickers.svg(k)}</button>`).join('')}</div>`); break;
     case 'sendstk': {
@@ -1540,6 +1579,13 @@ document.addEventListener('submit', async e => {
   if (kind === 'editpost') {
     const p = DB.posts.find(x => x.id === f.dataset.id || x.id === 'p' + f.dataset.id), t = $('#ep-t').value.trim(); if (!p || !t) return;
     const r = await server({ t: 'editpost', post: p.id, body: t }, 'Saqlandi ✅'); if (r.ok) { p.text = t; p.edited = true; closeSheet(); render(); } return;
+  }
+  if (kind === 'sched') {
+    const c = DB.chats.find(x => x.id === f.dataset.id), text = $('#sc-t').value.trim(), ts = new Date($('#sc-d').value).getTime(), h = $('#sc-h');
+    if (!c || !text) return; if (!(ts > Date.now() + 50e3)) { h.textContent = '❌ Kelajakdagi vaqtni tanlang'; return; }
+    const r = await api('act', { method: 'POST', body: { t: 'msg', chat: c.id, body: text, at: ts } });
+    if (!r.ok) { h.textContent = '❌ ' + (r.message || 'Bo‘lmadi'); return; }
+    closeSheet(); const mi = $('#msg-in'); if (mi) mi.value = ''; toast(`⏰ ${clock(ts)} da yuboriladi`); await sync(true); render(); return;
   }
   if (kind === 'chun') {
     const v = $('#cu').value.trim().toLowerCase(), h = $('#cu-h'); if (v === me().u) { closeSheet(); return; }
@@ -1755,7 +1801,7 @@ api('auth/me').then(async r => {
   if (isOwnerSession()) await refreshAdm();
   if (DB.me !== before) render();
   if (SESSION) await sync(true); else render();
-  if (SESSION) setTimeout(() => { if (standalone() || instSeen()) maybeAskPush(); }, 3000);
+  if (SESSION) { applyIcon(); setTimeout(() => { if (standalone() || instSeen()) maybeAskPush(); }, 3000); }
 });
 // Jonli yangilanish: chat ochiq bo'lsa har 3 soniyada, boshqa sahifalarda har 8 soniyada yangi narsalar o'zi keladi
 setInterval(() => {

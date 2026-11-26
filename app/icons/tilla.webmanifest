@@ -1,0 +1,62 @@
+{
+ "id": "/",
+ "name": "Lahzam",
+ "short_name": "Lahzam",
+ "description": "Fikrlar, guruhlar va shaxsiy suhbatlar uchun o‘zbekcha ijtimoiy tarmoq",
+ "lang": "uz",
+ "start_url": "/?source=app",
+ "scope": "/",
+ "display": "standalone",
+ "display_override": [
+  "window-controls-overlay",
+  "standalone"
+ ],
+ "orientation": "portrait",
+ "background_color": "#FF5A1F",
+ "theme_color": "#FF5A1F",
+ "categories": [
+  "social"
+ ],
+ "icons": [
+  {
+   "src": "/icons/tilla-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "/icons/tilla-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "/icons/tilla-mask.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ],
+ "shortcuts": [
+  {
+   "name": "Shaxsiy",
+   "url": "/shaxsiy",
+   "icons": [
+    {
+     "src": "/icon-192.png",
+     "sizes": "192x192"
+    }
+   ]
+  },
+  {
+   "name": "Guruhlar",
+   "url": "/guruhlar",
+   "icons": [
+    {
+     "src": "/icon-192.png",
+     "sizes": "192x192"
+    }
+   ]
+  }
+ ]
+}

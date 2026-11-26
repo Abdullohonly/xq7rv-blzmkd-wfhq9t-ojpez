@@ -187,3 +187,7 @@ insert into users (username, name, bio, color, is_system, terms_ver) values
   ('2048', '2048', 'Istalgan chat yoki guruhda @2048 deb yozing va o‘ynang. Bir xil sonlarni qo‘shib, 2048 ga yeting!', '#FFC531', true, 1)
 on conflict (username) do nothing;
 alter table posts add column if not exists edited boolean not null default false;
+-- 1.5.0: statistika, rejalashtirilgan xabarlar, ilova ikonkasi
+alter table post_views add column if not exists created_at timestamptz not null default now();
+alter table messages add column if not exists scheduled boolean not null default false;
+alter table users add column if not exists app_icon text;

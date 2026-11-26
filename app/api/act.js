@@ -41,6 +41,23 @@ export default async function handler(req, res) {
     const admin = isOwnerEmail(me.email) && hasAdminPass(req, me);
     if (!(await rateLimit('act:' + uid, 240, 60))) return tooMany(res);
 
+    if (t === 'stats') {
+      // ⭐ Kengaytirilgan statistika: oxirgi 14 kun
+      if (!isStar(me)) return send(res, 403, { error: 'star', message: 'Statistika faqat ⭐ Yulduz a’zolari uchun' });
+      const [tot, views, fols, top] = await Promise.all([
+        db`select (select count(*)::int from posts where user_id = ${uid}) as posts,
+             (select count(*)::int from post_views v join posts p on p.id = v.post_id where p.user_id = ${uid}) as views,
+             (select count(*)::int from post_likes l join posts p on p.id = l.post_id where p.user_id = ${uid}) as likes,
+             (select count(*)::int from replies r join posts p on p.id = r.post_id where p.user_id = ${uid} and r.user_id <> ${uid}) as replies,
+             (select count(*)::int from follows where followee_id = ${uid}) as followers`,
+        db`select to_char(date_trunc('day', v.created_at at time zone 'Asia/Tashkent'), 'YYYY-MM-DD') as d, count(*)::int as n from post_views v join posts p on p.id = v.post_id
+           where p.user_id = ${uid} and v.created_at > now() - interval '14 days' group by 1 order by 1`,
+        db`select to_char(date_trunc('day', created_at at time zone 'Asia/Tashkent'), 'YYYY-MM-DD') as d, count(*)::int as n from follows
+           where followee_id = ${uid} and created_at > now() - interval '14 days' group by 1 order by 1`,
+        db`select p.id, p.body, (select count(*)::int from post_views v where v.post_id = p.id) as views, (select count(*)::int from post_likes l where l.post_id = p.id) as likes
+           from posts p where p.user_id = ${uid} order by views desc, p.created_at desc limit 5`]);
+      return send(res, 200, { ok: true, total: tot[0], views, fols, top: top.map(x => ({ id: 'p' + x.id, text: x.body, views: x.views, likes: x.likes })) });
+    }
     if (t === 'deleteme') {
       // Foydalanuvchi o'z akkauntini butunlay o'chiradi: postlar, xabarlar, reaksiyalar ham o'chadi (cascade)
       if (isOwnerEmail(me.email)) return bad(res, 'Owner akkauntini o‘chirib bo‘lmaydi');
@@ -166,6 +183,10 @@ export default async function handler(req, res) {
         const name = str(b.name, 40), desc = str(b.desc, 160), cat = CATS.includes(b.cat) ? b.cat : 'Boshqa', access = ['open', 'ask', 'closed'].includes(b.access) ? b.access : 'open';
         if (!name) return bad(res, 'Guruh nomini yozing');
         if (!(await rateLimit('group:' + uid, 5, 86400))) return send(res, 429, { error: 'rate', message: 'Kuniga ko‘pi bilan 5 ta guruh' });
+        if (!isOwnerEmail(me.email)) {
+          const [{ n }] = await db`select count(*)::int as n from chats where kind = 'group' and admin_id = ${uid}`, max = isStar(me) ? 10 : 3;
+          if (n >= max) return send(res, 403, { error: 'glimit', message: isStar(me) ? 'Ko‘pi bilan 10 ta guruh yarata olasiz' : 'Bepul akkaunt ko‘pi bilan 3 ta guruh yarata oladi. ⭐ Yulduz bilan 10 tagacha', star: !isStar(me) });
+        }
         const color = COLORS[Math.floor(Math.random() * COLORS.length)];
         const [c] = await db`insert into chats (kind, name, description, category, access, color, admin_id) values ('group', ${name}, ${desc}, ${cat}, ${access}, ${color}, ${uid}) returning id`;
         await db`insert into chat_members (chat_id, user_id) values (${c.id}, ${uid})`;
@@ -243,8 +264,18 @@ export default async function handler(req, res) {
           const rt = idOf(b.replyTo, 'm');
           if (rt) { const [r] = await db`select id, user_id from messages where id = ${rt} and chat_id = ${cid}`; if (r) replyTo = Number(r.id); }
         }
-        const [m] = await db`insert into messages (chat_id, user_id, body, is_game, reply_to, img, poll, fwd_user)
+        // ⭐ Keyinroq yuborish: xabar belgilangan vaqtgacha faqat yuboruvchiga ko'rinadi
+        let at = null;
+        if (b.at != null && t === 'msg') {
+          if (!isStar(me)) return send(res, 403, { error: 'star', message: 'Keyinroq yuborish faqat ⭐ Yulduz a’zolari uchun' });
+          const ts = Number(b.at); if (!Number.isFinite(ts) || ts < Date.now() + 50e3 || ts > Date.now() + 30 * 864e5) return bad(res, 'Vaqt 1 daqiqadan 30 kungacha bo‘lsin');
+          at = new Date(ts);
+        }
+        const [m] = at ? await db`insert into messages (chat_id, user_id, body, is_game, reply_to, img, poll, fwd_user, created_at, scheduled)
+          values (${cid}, ${uid}, ${body}, ${game}, ${replyTo}, ${img}, ${poll ? JSON.stringify(poll) : null}::jsonb, ${fwd}, ${at}, true) returning id`
+          : await db`insert into messages (chat_id, user_id, body, is_game, reply_to, img, poll, fwd_user)
           values (${cid}, ${uid}, ${body}, ${game}, ${replyTo}, ${img}, ${poll ? JSON.stringify(poll) : null}::jsonb, ${fwd}) returning id`;
+        if (at) return send(res, 200, { ok: true, id: 'm' + m.id, scheduled: true });
         await db`update chat_members set last_read = now() where chat_id = ${cid} and user_id = ${uid}`;
         // chat xabarlari bildirishnomalar ro'yxatiga tushmaydi, lekin telefonga push keladi
         const others = await db`select user_id from chat_members where chat_id = ${cid} and status = 'member' and user_id <> ${uid}`;
@@ -344,7 +375,7 @@ export default async function handler(req, res) {
         const cid = idOf(b.chat, 'c'), q = str(b.q, 100); const c = cid && await chatOf(db, cid, uid);
         if (!isMember(c) || q.length < 2) return send(res, 200, { ok: true, list: [] });
         const like = '%' + q.replace(/[\\%_]/g, m => '\\' + m) + '%';
-        const rows = await db`select id, user_id, body, created_at from messages where chat_id = ${cid} and not is_sys and not is_game and body ilike ${like} order by created_at desc limit 60`;
+        const rows = await db`select id, user_id, body, created_at from messages where chat_id = ${cid} and not is_sys and not is_game and (created_at <= now() or user_id = ${uid}) and body ilike ${like} order by created_at desc limit 60`;
         return send(res, 200, { ok: true, list: rows.map(r => ({ id: 'm' + r.id, uid: Number(r.user_id), text: r.body, t: new Date(r.created_at).getTime() })) });
       }
       case 'mctx': {

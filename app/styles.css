@@ -456,3 +456,16 @@ button.seen{background:none;padding:0;cursor:pointer}
 .sp-dot.d1{top:10px;left:46%}.sp-dot.d2{bottom:10px;left:30%;animation-delay:.7s;font-size:10px}.sp-dot.d3{top:14px;right:64px;animation-delay:1.4s;font-size:14px}.sp-dot.d4{bottom:14px;right:22%;animation-delay:2.1s}
 @keyframes sptw{0%,100%{opacity:0;transform:scale(.4) rotate(0)}50%{opacity:1;transform:scale(1) rotate(45deg)}}
 @media (prefers-reduced-motion:reduce){.sp-card,.sp-shine,.sp-star,.sp-t,.sp-dot{animation:none}}
+/* 1.5.0: statistika, keyinroq yuborish, ilova ikonkasi */
+.st-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.st-tile{display:flex;flex-direction:column;align-items:center;padding:14px 8px;text-align:center}
+.st-tile b{font-family:var(--head);font-size:20px}
+.bars{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:4px;height:120px;margin-top:12px;align-items:end}
+.bar{height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px}
+.bar span{width:100%;min-height:3px;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,#FF8A3D,#FF5A1F)}
+.bar i{font-style:normal;font-size:10px;color:var(--mute);height:12px}
+.m.schedm{opacity:.62;border:2px dashed currentColor}
+.mt.sched{font-weight:700}
+.ic-pick{border-radius:14px;padding:3px;background:none;line-height:0}
+.ic-pick img{border-radius:11px}
+.ic-pick.on{outline:3px solid var(--acc);outline-offset:1px}

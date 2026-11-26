@@ -27,6 +27,7 @@ export default async function handler(req, res) {
       const yz = k => b[k] !== undefined && star;
       const starColor = yz('starColor') && STAR_COLORS.includes(b.starColor) ? b.starColor : u.star_color;
       const cover = yz('cover') ? (b.cover === null ? null : COVER_RE.test(String(b.cover)) ? String(b.cover) : u.cover) : u.cover;
+      const appIcon = yz('appIcon') ? (['qora', 'tilla', 'kok'].includes(b.appIcon) ? b.appIcon : null) : u.app_icon;
       const hideOnline = yz('hideOnline') ? !!b.hideOnline : !!u.hide_online, hideRead = yz('hideRead') ? !!b.hideRead : !!u.hide_read;
       let pinned = u.pinned_post;
       if (yz('pinned')) { if (b.pinned === null) pinned = null; else { const pid = Number(String(b.pinned).replace('p', '')); const [pp] = Number.isSafeInteger(pid) ? await sql()`select id from posts where id = ${pid} and user_id = ${u.id}` : []; if (!pp) return send(res, 400, { error: 'pin', message: 'Post topilmadi' }); pinned = pid; } }
@@ -48,7 +49,7 @@ export default async function handler(req, res) {
       const dmFrom = b.dmFrom === 'fol' || b.dmFrom === 'all' ? b.dmFrom : (u.dm_from || 'all');
       const notifOff = typeof b.notifOff === 'boolean' ? b.notifOff : !!u.notif_off, rrOff = typeof b.rrOff === 'boolean' ? b.rrOff : !!u.rr_off;
       const [r] = await sql()`update users set name = ${name}, bio = ${bio}, color = ${color}, photo = ${photo}, dm_from = ${dmFrom}, notif_off = ${notifOff}, rr_off = ${rrOff},
-        star_color = ${starColor}, cover = ${cover}, hide_online = ${hideOnline}, hide_read = ${hideRead}, pinned_post = ${pinned}, username = ${username}, un_changed_at = ${unAt} where id = ${u.id} returning *`;
+        star_color = ${starColor}, cover = ${cover}, hide_online = ${hideOnline}, hide_read = ${hideRead}, pinned_post = ${pinned}, app_icon = ${appIcon}, username = ${username}, un_changed_at = ${unAt} where id = ${u.id} returning *`;
       return send(res, 200, { user: publicUser(r) });
     } catch { return send(res, 500, { error: 'server' }); }
   }

@@ -57,7 +57,7 @@ export default async function handler(req, res) {
     let msgs = [], reacts = [], votes = [];
     if (readable.length) {
       msgs = await db`select * from (select id, chat_id, user_id, body, is_game, is_sys, reply_to, edited, case when img like 'https://%' then img when img is not null then '' end as img_url, poll, fwd_user, created_at,
-          row_number() over (partition by chat_id order by created_at desc) rn from messages where chat_id = any(${readable}::bigint[])) x where rn <= 300 order by created_at`;
+          row_number() over (partition by chat_id order by created_at desc) rn from messages where chat_id = any(${readable}::bigint[]) and (created_at <= now() or user_id = ${uid})) x where rn <= 300 order by created_at`;
       if (msgs.length) {
         const mids = msgs.map(m => Number(m.id));
         [reacts, votes] = await Promise.all([
@@ -82,6 +82,7 @@ export default async function handler(req, res) {
       const out = { id: 'm' + m.id, uid: m.user_id == null ? null : Number(m.user_id), text: m.body, t: ms(m.created_at), reacts: rxMap[m.id] || {} };
       if (m.is_sys) out.sys = true;
       if (m.is_game) out.game = true;
+      if (new Date(m.created_at) > new Date()) out.sched = true;
       if (m.reply_to) out.replyTo = 'm' + m.reply_to;
       if (m.edited) out.edited = true;
       if (m.img_url != null) out.img = `/api/img?m=${m.id}`;
