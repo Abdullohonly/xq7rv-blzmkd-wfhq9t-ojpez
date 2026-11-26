@@ -1,8 +1,8 @@
-/* Lahzam v1.2.3 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.2.4 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.2.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.2.4'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { post: 500, reply: 300, msg: 2000 };
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
@@ -1020,6 +1020,7 @@ function sheet(html) {
 }
 const closeSheet = () => { $('#modal-root').innerHTML = ''; };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !document.querySelector('.consent')) closeSheet(); });
+document.addEventListener('input', e => { if (e.target.id === 'lp' || e.target.id === 'lu') { $('#lp') && $('#lp').classList.remove('inp-bad'); } });
 // Xabarni ikki marta bossangiz ❤️ reaksiya qo'yiladi (Telegram'dagidek)
 document.addEventListener('dblclick', e => {
   const mEl = e.target.closest('.m[data-msg]'); if (!mEl || e.target.closest('button,a,input') || !CH.cid || String(mEl.dataset.msg).startsWith('tmp')) return;
@@ -1396,8 +1397,15 @@ document.addEventListener('submit', async e => {
     save(); go('/'); toast('Xush kelibsiz 👋 Har lahza yoningizda!'); sync(true); return;
   }
   if (kind === 'login') {
+    const btn = f.querySelector('button.btn.acc, button[type=submit], button:not([type=button])'), hint = $('#li-hint'), old = btn && btn.textContent;
+    if (btn) { btn.disabled = true; btn.textContent = 'Tekshirilmoqda…'; } hint.classList.remove('shake');
     const r = await api('auth/login', { method: 'POST', body: { username: $('#lu').value.trim(), password: $('#lp').value } });
-    if (!r.user) { $('#li-hint').textContent = r.message || 'Kirib bo‘lmadi'; return; }
+    if (btn) { btn.disabled = false; btn.textContent = old; }
+    if (!r.user) {
+      // har safar xato bo'lganda yozuv silkinadi: foydalanuvchi sayt qotib qolgan deb o'ylamasin
+      hint.textContent = '❌ ' + (r.message || 'Kirib bo‘lmadi'); void hint.offsetWidth; hint.classList.add('shake');
+      $('#lp').classList.add('inp-bad'); $('#lp').select(); if (navigator.vibrate) navigator.vibrate(120); return;
+    }
     adoptSession(r.user); AUTH = { step: 'start' }; save(); go('/'); sync(true); return;
   }
   if (kind === 'post') {

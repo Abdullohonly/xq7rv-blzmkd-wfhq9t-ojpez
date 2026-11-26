@@ -397,3 +397,7 @@ button.seen{background:none;padding:0;cursor:pointer}
 .doc-meta{color:var(--mute);font-size:13px}
 .doc-tabs a{display:flex;align-items:center;justify-content:center;text-decoration:none;color:inherit}
 .seg a{height:44px;border-radius:14px;background:var(--soft);font-weight:700;font-size:13px}.seg a.on{background:var(--ink);color:var(--bg)}
+/* 1.2.4: xato parol — qizil yozuv silkinadi */
+.hint.shake{animation:hshake .45s;font-weight:700}
+@keyframes hshake{15%,55%{transform:translateX(-8px)}35%,75%{transform:translateX(8px)}100%{transform:none}}
+.inp.inp-bad{border-color:var(--danger,#E8423A)!important;box-shadow:0 0 0 3px rgba(232,66,58,.15)}
