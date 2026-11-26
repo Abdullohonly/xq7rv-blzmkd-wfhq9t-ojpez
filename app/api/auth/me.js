@@ -1,3 +1,4 @@
+import { clean } from '../_clean.js';
 import { isStar, STAR_COLORS, COVER_RE, checkUsername, sql, currentUser, publicUser, clearSession, send, sameOrigin, rateLimit, tooMany } from '../_lib.js';
 import { r2PutDataUrl } from '../_r2.js';
 // Bio cheklovlari: qisqa, havolasiz, telefon raqamsiz, spamsiz
@@ -19,8 +20,8 @@ export default async function handler(req, res) {
       const u = await currentUser(req); if (!u) return send(res, 401, { error: 'auth' });
       if (!(await rateLimit('profile:' + u.id, 30, 600))) return tooMany(res);
       const b = req.body || {};
-      const name = String(b.name ?? u.name).trim().slice(0, 40) || u.name;
-      const bio = String(b.bio ?? u.bio ?? '').replace(/\r/g, '').replace(/\n{2,}/g, '\n').trim();
+      const name = clean(String(b.name ?? u.name).trim().slice(0, 40)) || u.name;
+      const bio = clean(String(b.bio ?? u.bio ?? '').replace(/\r/g, '').replace(/\n{2,}/g, '\n').trim());
       const star = isStar(u);
       if (b.bio != null && bio !== (u.bio || '')) { const bp = bioProblem(bio, star ? 200 : 100); if (bp) return send(res, 400, { error: 'bio', message: bp }); }
       // ⭐ Yulduz sozlamalari: faqat faol obunada o'zgaradi

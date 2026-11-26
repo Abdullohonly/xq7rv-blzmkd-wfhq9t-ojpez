@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { TERMS_VER, isStar, clearSession, sql, currentUser, isOwnerEmail, hasAdminPass, rateLimit, tooMany, send, sameOrigin } from './_lib.js';
 import { r2PutDataUrl } from './_r2.js';
 import { pushTo } from './_push.js';
+import { clean } from './_clean.js';
 // POST /api/act — ilovadagi har bir amal: post, javob, layk, kuzatish, guruh, xabar, reaksiya, so'rovnoma...
 // Har bir amalda: kim qilayotgani (sessiya), ruxsati (a'zo/admin/egasi) va chegaralar serverda tekshiriladi.
 const REACTS = ['❤️', '👎', '⭐', '🫶', '😂', '😮', '😢', '🤲'];
@@ -74,10 +75,15 @@ export default async function handler(req, res) {
     switch (t) {
       /* ---------- Ochiq maydon ---------- */
       case 'post': {
-        const body = str(b.body, isStar(me) ? 1500 : 500); let img = null;
+        const body = clean(str(b.body, isStar(me) ? 1500 : 500)); let img = null;
         if (b.img != null) { if (typeof b.img !== 'string' || b.img.length > 400000 || !IMG_RE.test(b.img)) return bad(res, 'Rasm juda katta yoki noto‘g‘ri'); img = (await r2PutDataUrl(b.img, 'p').catch(() => null)) || b.img; }
         if (!body && !img) return bad(res, 'Avval biror narsa yozing');
         if (!(await rateLimit('post:' + uid, 10, 3600))) return send(res, 429, { error: 'rate', message: 'Soatiga ko‘pi bilan 10 ta post' });
+        // Yangi akkaunt birinchi haftada ko'pi bilan 7 ta post saqlay oladi (eskisini o'chirsa, joy bo'shaydi)
+        if (!isOwnerEmail(me.email) && Date.now() - new Date(me.created_at).getTime() < 7 * 864e5) {
+          const [{ n }] = await db`select count(*)::int as n from posts where user_id = ${uid}`;
+          if (n >= 7) return send(res, 429, { error: 'newlimit', message: 'Yangi akkauntlar birinchi haftada ko‘pi bilan 7 ta post joylay oladi. Yozish uchun eski postlaringizni o‘chiring' });
+        }
         const hash = createHash('sha256').update(body.toLowerCase().replace(/\s+/g, ' ') + (img ? '|' + img.slice(-40) : '')).digest('hex');
         const [dup] = body ? await db`select 1 from posts where user_id = ${uid} and body_hash = ${hash} and created_at > now() - interval '1 day'` : [];
         if (dup) return bad(res, 'Bu matnni 24 soat ichida allaqachon joylagansiz');
@@ -87,7 +93,7 @@ export default async function handler(req, res) {
         return send(res, 200, { ok: true, id: 'p' + p.id });
       }
       case 'reply': {
-        const pid = idOf(b.post, 'p'), body = str(b.body, 300); if (!pid || !body) return bad(res, 'Javob bo‘sh');
+        const pid = idOf(b.post, 'p'), body = clean(str(b.body, 300)); if (!pid || !body) return bad(res, 'Javob bo‘sh');
         if (!(await rateLimit('reply:' + uid, 30, 3600))) return send(res, 429, { error: 'rate', message: 'Soatiga ko‘pi bilan 30 ta javob' });
         const [p] = await db`select user_id from posts where id = ${pid} and not is_hidden`; if (!p) return bad(res, 'Post topilmadi', 404);
         const parentId = idOf(b.parent, 'r');
@@ -115,7 +121,7 @@ export default async function handler(req, res) {
         return send(res, 200, { ok: true });
       }
       case 'editpost': {
-        const pid = idOf(b.post, 'p'), body = str(b.body, isStar(me) ? 1500 : 500); if (!pid || !body) return bad(res, 'Matn bo‘sh bo‘lmasin');
+        const pid = idOf(b.post, 'p'), body = clean(str(b.body, isStar(me) ? 1500 : 500)); if (!pid || !body) return bad(res, 'Matn bo‘sh bo‘lmasin');
         const up = await db`update posts set body = ${body}, edited = true where id = ${pid} and user_id = ${uid} and body <> ${body} returning id`;
         return send(res, 200, { ok: true, changed: up.length > 0 });
       }
@@ -246,7 +252,7 @@ export default async function handler(req, res) {
         const cid = idOf(b.chat, 'c'); const c = cid && await chatOf(db, cid, uid);
         if (!isMember(c)) return send(res, 403, { error: 'forbidden', message: 'Siz bu chat a‘zosi emassiz' });
         if (!(await rateLimit('msg:' + uid, 40, 60))) return send(res, 429, { error: 'rate', message: 'Shoshmang 🙂 Biroz dam olib yozing' });
-        let body = str(b.body, 2000), img = null, poll = null, fwd = null, replyTo = null, game = false;
+        let body = t === 'fwd' ? '' : clean(str(b.body, 2000)), img = null, poll = null, fwd = null, replyTo = null, game = false;
         if (t === 'fwd') {
           const mid = idOf(b.msg, 'm');
           const [src] = await db`select m.* from messages m join chat_members a on a.chat_id = m.chat_id and a.user_id = ${uid} and a.status = 'member' where m.id = ${mid} and not m.is_game and not m.is_sys`;
@@ -256,7 +262,7 @@ export default async function handler(req, res) {
         } else {
           if (b.img != null) { if (typeof b.img !== 'string' || b.img.length > 400000 || !IMG_RE.test(b.img)) return bad(res, 'Rasm juda katta yoki noto‘g‘ri'); img = b.img; const url = await r2PutDataUrl(img, 'm').catch(() => null); if (url) img = url; }
           if (b.poll) {
-            const q = str(b.poll.q, 200), opts = (Array.isArray(b.poll.opts) ? b.poll.opts : []).map(o => str(o, 80)).filter(Boolean).slice(0, 4);
+            const q = clean(str(b.poll.q, 200)), opts = (Array.isArray(b.poll.opts) ? b.poll.opts : []).map(o => clean(str(o, 80))).filter(Boolean).slice(0, 4);
             if (!q || opts.length < 2) return bad(res, 'Savol va kamida 2 ta variant yozing'); poll = { q, opts }; body = '';
           }
           if (!body && !img && !poll) return bad(res, 'Avval biror narsa yozing');
@@ -288,7 +294,7 @@ export default async function handler(req, res) {
         return send(res, 200, { ok: true, id: 'm' + m.id });
       }
       case 'edit': {
-        const mid = idOf(b.msg, 'm'), body = str(b.body, 2000); if (!mid || !body) return bad(res, 'Matn bo‘sh');
+        const mid = idOf(b.msg, 'm'), body = clean(str(b.body, 2000)); if (!mid || !body) return bad(res, 'Matn bo‘sh');
         await db`update messages set body = ${body}, edited = true where id = ${mid} and user_id = ${uid} and not is_game and poll is null and body <> ${body}`;
         return send(res, 200, { ok: true });
       }
@@ -387,6 +393,27 @@ export default async function handler(req, res) {
           db`select id, user_id, body, created_at, img is not null as has_img from messages where chat_id = ${cid} and created_at >= ${at.created_at} and not is_sys order by created_at limit 13`]);
         const rows = [...before.reverse(), ...after];
         return send(res, 200, { ok: true, list: rows.map(r => ({ id: 'm' + r.id, uid: Number(r.user_id), text: r.body, img: r.has_img || undefined, t: new Date(r.created_at).getTime() })) });
+      }
+      case 'tstart': {
+        // 🏁 Guruhda o'yin turniri: belgilangan vaqt ichida eng ko'p ochko yiqqan g'olib
+        const cid = idOf(b.chat, 'c'), game = String(b.game || ''), mins = Number(b.mins); const c = cid && await chatOf(db, cid, uid);
+        if (!isMember(c) || c.kind !== 'group') return bad(res, 'Turnir faqat guruhlarda');
+        if (!['flappy', 'tetris', '2048'].includes(game) || ![5, 10, 30, 60].includes(mins)) return bad(res, 'O‘yin yoki vaqt noto‘g‘ri');
+        const [act] = await db`select id from tournaments where chat_id = ${cid} and not done and ends_at > now() limit 1`;
+        if (act) return bad(res, 'Bu guruhda turnir allaqachon ketyapti');
+        const [tn] = await db`insert into tournaments (chat_id, game, ends_at, created_by) values (${cid}, ${game}, now() + make_interval(mins => ${mins}), ${uid}) returning id`;
+        const gname = { flappy: 'Flappy', tetris: 'Tetris', '2048': '2048' }[game];
+        await db`insert into messages (chat_id, user_id, body, is_sys) values (${cid}, null, ${'🏁 @' + me.username + ' ' + gname + ' turnirini boshladi! ' + mins + ' daqiqa ichida eng ko‘p ochko yiqqan g‘olib bo‘ladi'}, true)`;
+        const others = await db`select user_id from chat_members where chat_id = ${cid} and status = 'member' and user_id <> ${uid}`;
+        if (others.length) await pushTo(db, others.map(o => o.user_id), { title: c.name, body: `🏁 ${gname} turniri boshlandi! ${mins} daqiqa`, url: '/c/c' + cid, tag: 't' + tn.id });
+        return send(res, 200, { ok: true, id: Number(tn.id) });
+      }
+      case 'tscore': {
+        const tid = Number(b.tid), score = Number(b.score); if (!Number.isSafeInteger(tid) || !Number.isInteger(score) || score < 1 || score > 9999999) return bad(res, 'score');
+        const [tn] = await db`select t.id from tournaments t join chat_members m on m.chat_id = t.chat_id and m.user_id = ${uid} and m.status = 'member' where t.id = ${tid} and not t.done and t.ends_at > now()`;
+        if (!tn) return bad(res, 'Turnir tugagan');
+        await db`insert into tourney_scores (tid, user_id, score) values (${tid}, ${uid}, ${score}) on conflict (tid, user_id) do update set score = greatest(tourney_scores.score, excluded.score)`;
+        return send(res, 200, { ok: true });
       }
       case 'tetris': {
         const cid = idOf(b.chat, 'c'), score = Number(b.score); const c = cid && await chatOf(db, cid, uid);

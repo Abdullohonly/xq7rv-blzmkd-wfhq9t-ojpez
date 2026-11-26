@@ -49,6 +49,17 @@ export default async function handler(req, res) {
          group by m.user_id`
     ]);
     await seenQ.catch(() => {});
+    // 🏁 Vaqti tugagan turnirlar yakunlanadi: g'olib chatga e'lon qilinadi (faqat bir marta)
+    const ended = await db`update tournaments set done = true where not done and ends_at <= now() returning id, chat_id, game`;
+    for (const tn of ended) {
+      const top = await db`select u.username, s.score from tourney_scores s join users u on u.id = s.user_id where s.tid = ${tn.id} order by s.score desc limit 3`;
+      const g = { flappy: 'Flappy', tetris: 'Tetris', '2048': '2048' }[tn.game];
+      const body = top.length ? `🏆 ${g} turniri tugadi! G‘olib: @${top[0].username} (${top[0].score} ochko)` + (top[1] ? ` · 🥈 @${top[1].username} (${top[1].score})` : '') + (top[2] ? ` · 🥉 @${top[2].username} (${top[2].score})` : '') : `🏁 ${g} turniri tugadi: hech kim o‘ynamadi`;
+      await db`insert into messages (chat_id, user_id, body, is_sys) values (${tn.chat_id}, null, ${body}, true)`;
+    }
+    const tours = await db`select t.id, t.chat_id, t.game, t.ends_at, coalesce(json_agg(json_build_object('u', s.user_id, 's', s.score) order by s.score desc) filter (where s.user_id is not null), '[]') as sc
+      from tournaments t left join tourney_scores s on s.tid = t.id where not t.done and t.ends_at > now() group by t.id`;
+    const tourBy = Object.fromEntries(tours.map(x => [Number(x.chat_id), { id: Number(x.id), game: x.game, ends: ms(x.ends_at), sc: (typeof x.sc === 'string' ? JSON.parse(x.sc) : x.sc).map(r => ({ u: Number(r.u), s: Number(r.s) })) }]));
 
     // Xabarlar: faqat a'zo bo'lgan chatlar (admin esa ochiq guruhlarni ham ko'radi)
     const mem = members.filter(m => Number(m.user_id) === uid && m.status === 'member').map(m => Number(m.chat_id));
@@ -125,6 +136,7 @@ export default async function handler(req, res) {
           pending: (isMember && Number(c.admin_id) === uid) || (mine && mine.status === 'pending') ? ms2.filter(m => m.status === 'pending').map(m => Number(m.user_id)) : [],
           record: c.flappy_score ? { score: c.flappy_score, uid: Number(c.flappy_user) } : null,
           trecord: c.tetris_score ? { score: c.tetris_score, uid: Number(c.tetris_user) } : null,
+          tour: isMember ? tourBy[Number(c.id)] || null : null,
           grecord: c.g2048_score ? { score: c.g2048_score, uid: Number(c.g2048_user) } : null,
           typing: isMember ? ms2.filter(m => m.typing && Number(m.user_id) !== uid).map(m => Number(m.user_id)) : [],
           pin: c.pin_id ? 'm' + c.pin_id : null, read, msgs: canRead ? (byChat[c.id] || []) : [], full: canRead

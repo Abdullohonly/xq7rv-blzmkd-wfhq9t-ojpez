@@ -1,8 +1,8 @@
-/* Lahzam v1.5.1 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.6.0 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.5.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.6.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -132,8 +132,42 @@ function ago(t) {
   return uzDate(t);
 }
 const fmt = n => n >= 1000 ? (n / 1000).toFixed(1).replace('.', ',').replace(',0', '') + 'k' : String(n);
+// 🔤 Lotin ↔ Kirill: foydalanuvchi matnlari tanlangan yozuvda ko'rsatiladi (havola, @username va #teglar o'zgarmaydi)
+const L2C = [["sh", "ш"], ["ch", "ч"], ["o‘", "ў"], ["o'", "ў"], ["oʻ", "ў"], ["o`", "ў"], ["g‘", "ғ"], ["g'", "ғ"], ["gʻ", "ғ"], ["g`", "ғ"], ["yo", "ё"], ["yu", "ю"], ["ya", "я"], ["ye", "е"], ["ts", "ц"],
+  ["a", "а"], ["b", "б"], ["d", "д"], ["e", "е"], ["f", "ф"], ["g", "г"], ["h", "ҳ"], ["i", "и"], ["j", "ж"], ["k", "к"], ["l", "л"], ["m", "м"], ["n", "н"], ["o", "о"], ["p", "п"], ["q", "қ"], ["r", "р"], ["s", "с"], ["t", "т"], ["u", "у"], ["v", "в"], ["x", "х"], ["y", "й"], ["z", "з"], ["’", "ъ"], ["ʼ", "ъ"], ["'", "ъ"]];
+const C2L = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'j', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'x', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sh', ъ: '’', ы: 'i', ь: '', э: 'e', ю: 'yu', я: 'ya', ў: 'o‘', қ: 'q', ғ: 'g‘', ҳ: 'h' };
+const caseLike = (src, out) => { const up0 = src[0] !== src[0].toLowerCase(), all = src.length > 1 && src[1] !== src[1].toLowerCase(); return up0 && all ? out.toUpperCase() : up0 ? out[0].toUpperCase() + out.slice(1) : out; };
+function wordToCyr(w) {
+  let out = '', i = 0;
+  while (i < w.length) {
+    let hit = null;
+    for (const [l, c] of L2C) { if (w.substr(i, l.length).toLowerCase() === l) { hit = [l, c]; break; } }
+    if (!hit) { out += w[i]; i++; continue; }
+    let c = hit[1]; if (hit[0] === 'e' && i === 0) c = 'э';
+    out += caseLike(w.substr(i, hit[0].length), c); i += hit[0].length;
+  }
+  return out;
+}
+function wordToLat(w) {
+  let out = '';
+  for (let i = 0; i < w.length; i++) {
+    const ch = w[i], lo = ch.toLowerCase(); let l = C2L[lo];
+    if (l === undefined) { out += ch; continue; }
+    if (lo === 'е' && (i === 0 || /[аеёиоуўэюяaeiou]/i.test(w[i - 1]))) l = 'ye';
+    out += ch !== lo ? (l.length > 1 && w[i + 1] && w[i + 1] === w[i + 1].toUpperCase() ? l.toUpperCase() : l[0].toUpperCase() + l.slice(1)) : l;
+  }
+  return out;
+}
+function translit(text) {
+  const sc = DB.script; if (!sc || !text) return text;
+  return String(text).split(/(\s+)/).map(tok => {
+    if (/^(@|#|https?:|www\.)/i.test(tok) || /\.[a-z]{2,}/i.test(tok) || /^\[(s|post):/.test(tok)) return tok;
+    const cyr = /[\u0400-\u04FF]/.test(tok);
+    return sc === 'cyr' && !cyr && /[a-z]/i.test(tok) ? wordToCyr(tok) : sc === 'lat' && cyr ? wordToLat(tok) : tok;
+  }).join('');
+}
 function linkify(text) {
-  return esc(text)
+  return esc(translit(text))
     .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener nofollow">$1</a>')
     .replace(/(^|[^\w/])@([a-z0-9._]{3,20})/gi, '$1<a href="/@$2" data-link>@$2</a>')
     .replace(/(^|\s)#([\p{L}0-9_]{2,30})/gu, '$1<a href="/t/$2" data-link>#$2</a>');
@@ -146,7 +180,11 @@ function avatar(u, size = 44) {
   return `<span class="av" style="width:${size}px;height:${size}px;background:${u.color};font-size:${Math.round(size * .38)}px" aria-hidden="true">${esc(u.name[0] || u.u[0]).toUpperCase()}</span>`;
 }
 const OWNER_PILL = '<span class="founder owner-pill">Owner</span>';
-const founderPill = u => !u ? '' : u.owner ? ' ' + OWNER_PILL : isFounder(u) ? ' <span class="founder">Asoschi</span>' : '';
+// 🏆 Foydali darajalari: guruhlarda olingan ⭐ soniga qarab
+const LEVELS = [[200, '🎓', 'Ustoz'], [50, '📚', 'Bilimdon'], [10, '🤝', 'Yordamchi']];
+const levelOf = u => u && !u.system ? LEVELS.find(([n]) => foydaliCount(u.id) >= n) : null;
+const levelPill = u => { const l = levelOf(u); return l ? ` <span class="lvl" title="${l[2]}: ${l[0]}+ ⭐">${l[1]} ${l[2]}</span>` : ''; };
+const founderPill = u => !u ? '' : (u.owner ? ' ' + OWNER_PILL : isFounder(u) ? ' <span class="founder">Asoschi</span>' : '') + levelPill(u);
 let toastT;
 function toast(msg, warn) { const el = $('#toast'); el.textContent = msg; el.className = 'toast show' + (warn ? ' warn' : ''); clearTimeout(toastT); toastT = setTimeout(() => el.className = 'toast', warn ? 3200 : 2000); }
 async function hash(s) { try { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('lahzam:' + s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); } catch (e) { return 'x' + s.length + s; } }
@@ -214,7 +252,7 @@ function guard(kind, text) {
     if (DB.posts.some(p => p.uid === u.id && t - p.t < DAY && norm(p.text) === norm(clean))) { toast('Bu matnni 24 soat ichida allaqachon joylagansiz', true); return false; }
     const lastHour = L.sends.filter(s => s.k === 'post' && t - s.t < HOUR).length;
     if (lastHour >= 10) { toast('Soatiga ko‘pi bilan 10 ta post', true); return false; }
-    if (t - u.joined < 7 * DAY && !isOwnerSession() && L.sends.filter(s => s.k === 'post' && t - s.t < DAY).length >= 3) { toast('Yangi akkauntlar birinchi 7 kunda kuniga 3 ta post', true); return false; }
+    if (t - u.joined < 7 * DAY && !isOwnerSession() && DB.posts.filter(p => p.uid === u.id).length >= 7) { toast('Yangi akkauntlar birinchi haftada ko‘pi bilan 7 ta post joylay oladi. Yozish uchun eski postlaringizni o‘chiring', true); return false; }
   }
   if (kind === 'reply' && L.sends.filter(s => s.k === 'reply' && t - s.t < HOUR).length >= 30) { toast('Soatiga ko‘pi bilan 30 ta javob', true); return false; }
   const junk = clean.length <= 2 || /^[\s.\-_,!?…*]+$/.test(clean) || /^(.)\1+$/.test(clean.replace(/\s/g, ''));
@@ -341,6 +379,7 @@ function header(extra = '', deskTitle = '') {
   return `<header class="top"><div class="top-row">
     <a href="/" data-link class="brand" aria-label="Lahzam bosh sahifa">${I.logo()}<b>lahzam</b></a>${deskTitle ? `<b class="desk-title">${deskTitle}</b>` : ''}
     <div class="row" style="gap:6px">
+      <button class="ibtn script-btn" data-act="script" aria-label="Yozuvni almashtirish: lotin yoki kirill" title="Lotin / Кирилл">${DB.script === 'cyr' ? 'Ўз' : DB.script === 'lat' ? 'Oʻz' : 'A/Я'}</button>
       <button class="ibtn" data-act="theme" aria-label="${DB.theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}">${THEME_ICO()}</button>
       <a href="/reyting" data-link class="ibtn" aria-label="Foydali reytingi">${NI('trophy', false, 20)}</a>
       <a href="/qidiruv" data-link class="ibtn" aria-label="Qidirish">${NI('search', false, 20)}</a>
@@ -786,6 +825,13 @@ function msgList(c) {
   }
   return out || `<div class="sys">${CH.q ? (CH.q.length > 1 && !(CH.srv && CH.srv.q === CH.q) ? 'Qidirilmoqda…' : 'Hech narsa topilmadi') : 'Hali xabar yo‘q. Birinchi bo‘lib yozing 👋'}</div>`;
 }
+// 🏁 Turnir paneli: qolgan vaqt va jonli reyting
+function tourBar(c) {
+  const T = c.tour, g = GAMES.find(x => x.k === T.game), left = Math.max(0, T.ends - now()), mm = Math.floor(left / 60000), ss = Math.floor(left % 60000 / 1000);
+  const top = T.sc.slice(0, 3).map((r, i) => `${['🥇', '🥈', '🥉'][i]} @${esc((user(r.u) || { u: '?' }).u)} ${r.s}`).join(' · ');
+  return `<div class="tourbar"><span class="tb-i">${g ? g.ico(30) : ''}</span><span style="flex:1;min-width:0"><b>🏁 ${g ? g.name : ''} turniri · <span class="tb-t" data-ends="${T.ends}">${mm}:${String(ss).padStart(2, '0')}</span></b><span class="tb-s">${top || 'Hali hech kim o‘ynamadi: birinchi bo‘ling!'}</span></span><button class="btn acc tb-go" data-act="tplay" data-id="${c.id}">O‘ynash</button></div>`;
+}
+setInterval(() => document.querySelectorAll('.tb-t').forEach(e => { const l = Math.max(0, +e.dataset.ends - now()); e.textContent = `${Math.floor(l / 60000)}:${String(Math.floor(l % 60000 / 1000)).padStart(2, '0')}`; if (!l) e.textContent = 'tugadi'; }), 1000);
 function chat(id) {
   const u = me(), c = DB.chats.find(x => x.id === id);
   const peek = c && c.full && isAdmin() && c.type === 'group' && c.access === 'open';
@@ -806,6 +852,7 @@ function chat(id) {
       <span style="min-width:0"><b style="display:block;font-family:var(--head);font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${title}</b><span class="sub-h" id="chat-sub" style="font-size:13px">${sub}</span></span></a>
       <button class="ibtn" data-act="chatsearch" aria-label="Chatda qidirish" aria-pressed="${CH.search}">${I.search}</button></div>
     ${CH.search ? `<label class="csearch"><span class="sr">Chatda qidirish</span><input id="cq" autocomplete="off" placeholder="Xabarlardan qidirish…" value="${esc(CH.q)}"></label>` : ''}
+    ${c.tour ? tourBar(c) : ''}
     ${pin ? `<button class="pinbar" data-act="jump" data-m="${pin.id}"><span>📌 <b>Qadalgan xabar</b><em>${esc(msgPreview(pin)).slice(0, 90)}</em></span></button>` : ''}
     <div class="msgs" id="msgs">${msgList(c)}</div>
     <form class="chat-in" data-form="msg" data-id="${c.id}">${bar}<div class="cin-row">
@@ -975,6 +1022,8 @@ function settings() {
     ${!u.star ? starPromo() : ''}
     <h3 class="set-h">Ko‘rinish</h3>
     <div class="card" style="padding:2px 16px">
+      <div class="li set-row" style="flex-wrap:wrap"><span style="flex:1;min-width:160px"><b>🔤 Yozuv</b><span class="muted" style="display:block">Post va xabarlarni lotin yoki kirillda o‘qish</span></span>
+        <div class="seg" style="grid-template-columns:repeat(3,64px)">${[['', 'Asl'], ['lat', 'Lotin'], ['cyr', 'Кирилл']].map(([k, l]) => `<button type="button" class="${(DB.script || '') === k ? 'on' : ''}" data-act="setscript" data-v="${k}" aria-pressed="${(DB.script || '') === k}">${l}</button>`).join('')}</div></div>
       ${row('🌙 Tungi rejim', 'Qorong‘i ko‘rinish, ko‘zni charchatmaydi', sw('theme', DB.theme === 'dark', 'Tungi rejim'))}
       <div class="li set-row" style="flex-wrap:wrap"><span style="flex:1;min-width:160px"><b>🔠 Matn o‘lchami</b><span class="muted" style="display:block">Postlar va xabarlar</span></span>
         <div class="seg" style="grid-template-columns:repeat(3,64px)">${[['sm', 'A-'], ['md', 'A'], ['lg', 'A+']].map(([k, l]) => `<button type="button" class="${fs === k ? 'on' : ''}" data-act="fs" data-v="${k}" aria-pressed="${fs === k}">${l}</button>`).join('')}</div></div>
@@ -1395,6 +1444,21 @@ document.addEventListener('click', async e => {
     }
     case 'appicon': { await patchMe({ appIcon: el.dataset.v || null }, 'Ikonka tanlandi ✅'); applyIcon(); break; }
     case 'restats': STATS = null; render(); break;
+    case 'script': { DB.script = DB.script === 'cyr' ? 'lat' : DB.script === 'lat' ? '' : 'cyr'; save(); const y = scrollY; render(); scrollTo(0, y); toast(DB.script === 'cyr' ? 'Матнлар кириллда' : DB.script === 'lat' ? 'Matnlar lotinda' : 'Matnlar asl holida'); break; }
+    case 'setscript': { DB.script = el.dataset.v || ''; save(); const y = scrollY; render(); scrollTo(0, y); break; }
+    case 'tnew': sheet(`<h2>🏁 Turnir boshlash</h2><p class="muted" style="margin:-4px 0 10px">Belgilangan vaqt ichida eng ko‘p ochko yiqqan a’zo g‘olib bo‘ladi. Natija chatga e’lon qilinadi.</p>
+      <form class="stack" data-form="tnew" data-id="${id}"><div class="field"><span style="font-size:14px;font-weight:700">O‘yin</span><div class="seg" style="grid-template-columns:repeat(3,minmax(0,1fr))">${GAMES.map((g, i) => `<label class="tn-opt"><input type="radio" name="tg" value="${g.k}" ${i ? '' : 'checked'}><span>${g.name}</span></label>`).join('')}</div></div>
+      <div class="field"><span style="font-size:14px;font-weight:700">Davomiyligi</span><div class="seg" style="grid-template-columns:repeat(4,minmax(0,1fr))">${[5, 10, 30, 60].map((n, i) => `<label class="tn-opt"><input type="radio" name="tm" value="${n}" ${i === 1 ? 'checked' : ''}><span>${n} daq</span></label>`).join('')}</div></div>
+      <button class="btn acc full">Boshlash 🏁</button></form>`); break;
+    case 'tplay': {
+      const c = DB.chats.find(x => x.id === id); if (!c || !c.tour) break; const T = c.tour, g = GAMES.find(x => x.k === T.game);
+      const mine = (T.sc.find(r => r.u === u.id) || {}).s || 0, lead = T.sc[0];
+      g.open({ record: lead && lead.s, recordBy: lead && (user(lead.u) || {}).u, onEnd: score => {
+        if (score > 0 && score > mine && T.ends > now()) { api('act', { method: 'POST', body: { t: 'tscore', tid: T.id, score } }).then(() => sync(true)); const r = T.sc.find(x => x.u === u.id); if (r) r.s = score; else T.sc.push({ u: u.id, s: score }); T.sc.sort((a, b) => b.s - a.s); toast(`Turnir natijangiz: ${score} 🏁`); }
+        return lead && score > lead.s ? { record: score, recordBy: u.u } : null;
+      } });
+      break;
+    }
     case 'install': if (DEFER) doInstall(); else showInstall(true); break;
     case 'pushon': { const r = await pushEnable(true); toast(r === 'ok' ? 'Bildirishnomalar yoqildi 🔔' : r === 'ios' ? 'iPhone’da avval Lahzam’ni ekranga o‘rnating 📲' : r === 'denied' ? 'Brauzer sozlamalarida Lahzam’ga ruxsat bering' : 'Bu brauzer push’ni qo‘llamaydi', r !== 'ok'); closeSheet(); render(); break; }
     case 'pushoff': { await pushDisable(); toast('Push o‘chirildi'); render(); break; }
@@ -1472,6 +1536,7 @@ document.addEventListener('click', async e => {
         <button class="btn ghost full" style="justify-content:flex-start" data-act="sendtetris" data-id="${id}">🧱 Tetris</button>
         <button class="btn ghost full" style="justify-content:flex-start" data-act="send2048" data-id="${id}">🔢 2048</button>
         <button class="btn ghost full" style="justify-content:flex-start" data-act="stickers" data-id="${id}">🎨 Stikerlar</button>
+        ${(DB.chats.find(x => x.id === id) || {}).type === 'group' ? `<button class="btn ghost full" style="justify-content:flex-start" data-act="tnew" data-id="${id}">🏁 Turnir boshlash</button>` : ''}
         <button class="btn ghost full" style="justify-content:flex-start" data-act="schedmsg" data-id="${id}">⏰ Keyinroq yuborish ${u.star ? '' : '<span class="tag" style="margin-left:auto">⭐ Yulduz</span>'}</button></div>`); break;
     case 'send2048': { closeSheet(); const i = $('#msg-in'); i.value = '@2048'; i.form.requestSubmit(); break; }
     case 'stickers': sheet(`<h2>Lahzam stikerlari 🎨</h2><div class="stk-grid">${Stickers.list.map(k => `<button class="stk-pick" data-act="sendstk" data-id="${id}" data-k="${k}" aria-label="${esc(Stickers.label(k))}">${Stickers.svg(k)}</button>`).join('')}</div>`); break;
@@ -1579,6 +1644,10 @@ document.addEventListener('submit', async e => {
   if (kind === 'editpost') {
     const p = DB.posts.find(x => x.id === f.dataset.id || x.id === 'p' + f.dataset.id), t = $('#ep-t').value.trim(); if (!p || !t) return;
     const r = await server({ t: 'editpost', post: p.id, body: t }, 'Saqlandi ✅'); if (r.ok) { p.text = t; p.edited = true; closeSheet(); render(); } return;
+  }
+  if (kind === 'tnew') {
+    const game = (f.querySelector('input[name=tg]:checked') || {}).value, mins = +(f.querySelector('input[name=tm]:checked') || {}).value;
+    const r = await server({ t: 'tstart', chat: f.dataset.id, game, mins }, 'Turnir boshlandi! 🏁'); if (r.ok) { closeSheet(); await sync(true); render(); } return;
   }
   if (kind === 'sched') {
     const c = DB.chats.find(x => x.id === f.dataset.id), text = $('#sc-t').value.trim(), ts = new Date($('#sc-d').value).getTime(), h = $('#sc-h');

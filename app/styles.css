@@ -469,3 +469,17 @@ button.seen{background:none;padding:0;cursor:pointer}
 .ic-pick{border-radius:14px;padding:3px;background:none;line-height:0}
 .ic-pick img{border-radius:11px}
 .ic-pick.on{outline:3px solid var(--acc);outline-offset:1px}
+/* 1.6.0: yozuv tugmasi, Foydali darajalari, turnirlar */
+.script-btn{font-weight:800;font-size:12px;letter-spacing:-.02em}
+.lvl{display:inline-flex;align-items:center;gap:2px;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;background:#E9F7EF;color:#1F7A4D;vertical-align:middle;white-space:nowrap}
+[data-theme=dark] .lvl{background:#16352a;color:#7FE0AE}
+.tourbar{display:flex;align-items:center;gap:10px;margin:8px 12px 0;padding:10px 12px;border-radius:18px;background:#121212;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.tb-i{width:40px;height:40px;border-radius:12px;background:#1d1d22;display:flex;align-items:center;justify-content:center;flex:none}
+.tourbar b{display:block;font-size:14px}.tb-t{color:#FFC531;font-variant-numeric:tabular-nums}
+.tb-s{display:block;font-size:12px;color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-go{height:38px;border-radius:999px;font-size:13px;padding:0 14px;flex:none}
+.tn-opt{position:relative;display:block}
+.tn-opt input{position:absolute;opacity:0;inset:0}
+.tn-opt span{display:flex;align-items:center;justify-content:center;height:44px;border-radius:14px;background:var(--soft);font-weight:700;font-size:13px}
+.tn-opt input:checked+span{background:var(--ink);color:var(--bg)}
+.tn-opt input:focus-visible+span{outline:2px solid var(--acc)}
