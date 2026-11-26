@@ -401,3 +401,11 @@ button.seen{background:none;padding:0;cursor:pointer}
 .hint.shake{animation:hshake .45s;font-weight:700}
 @keyframes hshake{15%,55%{transform:translateX(-8px)}35%,75%{transform:translateX(8px)}100%{transform:none}}
 .inp.inp-bad{border-color:var(--danger,#E8423A)!important;box-shadow:0 0 0 3px rgba(232,66,58,.15)}
+/* 1.3.0: o'yinlar */
+.games-strip{display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;padding:12px 14px}
+.gs-i{width:40px;height:40px;border-radius:12px;background:#1d1d22;display:flex;align-items:center;justify-content:center;flex:none}
+.gs-go{width:38px;height:38px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+.game-tile svg{flex:none;border-radius:16px}
+.rnd-btn{height:48px;border-radius:999px;font-size:15px}
+.rnd-btn.spin{animation:rspin .5s ease-out}
+@keyframes rspin{40%{transform:scale(.94) rotate(-2deg)}70%{transform:scale(1.03) rotate(1deg)}}

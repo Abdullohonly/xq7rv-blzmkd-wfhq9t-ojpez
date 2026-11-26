@@ -181,3 +181,9 @@ do $$ declare k text; begin
 end $$;
 -- 1.2.0: foydalanish shartlari va maxfiylik siyosatiga rozilik (13+)
 alter table users add column if not exists terms_ver int not null default 0, add column if not exists terms_at timestamptz;
+-- 1.3.0: @tetris va @2048 tizim akkauntlari (Flappy kabi)
+insert into users (username, name, bio, color, is_system, terms_ver) values
+  ('tetris', 'Tetris', 'Istalgan chat yoki guruhda @tetris deb yozing va o‘ynang. Har chatning o‘z rekordi bor!', '#B07CFF', true, 1),
+  ('2048', '2048', 'Istalgan chat yoki guruhda @2048 deb yozing va o‘ynang. Bir xil sonlarni qo‘shib, 2048 ga yeting!', '#FFC531', true, 1)
+on conflict (username) do nothing;
+alter table posts add column if not exists edited boolean not null default false;

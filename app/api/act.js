@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { TERMS_VER, sql, currentUser, isOwnerEmail, hasAdminPass, rateLimit, tooMany, send, sameOrigin } from './_lib.js';
+import { TERMS_VER, clearSession, sql, currentUser, isOwnerEmail, hasAdminPass, rateLimit, tooMany, send, sameOrigin } from './_lib.js';
 import { r2PutDataUrl } from './_r2.js';
 import { pushTo } from './_push.js';
 // POST /api/act — ilovadagi har bir amal: post, javob, layk, kuzatish, guruh, xabar, reaksiya, so'rovnoma...
@@ -41,6 +41,14 @@ export default async function handler(req, res) {
     const admin = isOwnerEmail(me.email) && hasAdminPass(req, me);
     if (!(await rateLimit('act:' + uid, 240, 60))) return tooMany(res);
 
+    if (t === 'deleteme') {
+      // Foydalanuvchi o'z akkauntini butunlay o'chiradi: postlar, xabarlar, reaksiyalar ham o'chadi (cascade)
+      if (isOwnerEmail(me.email)) return bad(res, 'Owner akkauntini o‘chirib bo‘lmaydi');
+      if (String(b.confirm || '').trim().toLowerCase() !== me.username) return bad(res, 'Tasdiqlash uchun username’ingizni to‘g‘ri yozing');
+      await db`delete from users where id = ${uid} and not is_system`;
+      clearSession(res);
+      return send(res, 200, { ok: true });
+    }
     if (t === 'agree') {
       if (b.agree !== true) return bad(res, 'Rozilik belgilanmagan');
       await db`update users set terms_ver = ${TERMS_VER}, terms_at = now() where id = ${uid}`;
@@ -88,6 +96,11 @@ export default async function handler(req, res) {
         const ids = (Array.isArray(b.posts) ? b.posts : []).slice(0, 100).map(x => idOf(x, 'p')).filter(Boolean);
         if (ids.length) await db`insert into post_views (post_id, user_id) select id, ${uid} from posts where id = any(${ids}::bigint[]) on conflict do nothing`;
         return send(res, 200, { ok: true });
+      }
+      case 'editpost': {
+        const pid = idOf(b.post, 'p'), body = str(b.body, 500); if (!pid || !body) return bad(res, 'Matn bo‘sh bo‘lmasin');
+        const up = await db`update posts set body = ${body}, edited = true where id = ${pid} and user_id = ${uid} and body <> ${body} returning id`;
+        return send(res, 200, { ok: true, changed: up.length > 0 });
       }
       case 'delpost': {
         const pid = idOf(b.post, 'p'); if (!pid) return bad(res, 'post');

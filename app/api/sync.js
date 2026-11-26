@@ -22,7 +22,7 @@ export default async function handler(req, res) {
            coalesce(last_seen > now() - interval '45 seconds', false) as online, (extract(epoch from date_trunc('minute', last_seen)) * 1000)::bigint as ls
          from users order by id limit 2000`,
       db`select follower_id, followee_id from follows limit 20000`,
-      db`select p.id, p.user_id, p.body, p.is_lahza, p.is_hidden, p.created_at,
+      db`select p.id, p.user_id, p.body, p.is_lahza, p.is_hidden, p.created_at, p.edited,
            case when p.img like 'https://%' then p.img when p.img is not null then '' end as img_url,
            (select count(*)::int from post_views v where v.post_id = p.id) as views,
            exists(select 1 from post_views v where v.post_id = p.id and v.user_id = ${uid}) as seen,
@@ -101,7 +101,7 @@ export default async function handler(req, res) {
       })),
       follows: follows.map(f => [Number(f.follower_id), Number(f.followee_id)]),
       posts: posts.map(p => ({
-        id: 'p' + p.id, uid: Number(p.user_id), text: p.body, t: ms(p.created_at), lahza: p.is_lahza || undefined, hidden: p.is_hidden || undefined,
+        id: 'p' + p.id, uid: Number(p.user_id), text: p.body, t: ms(p.created_at), edited: p.edited || undefined, lahza: p.is_lahza || undefined, hidden: p.is_hidden || undefined,
         img: p.img_url == null ? undefined : `/api/img?p=${p.id}`,
         likes: likeMap[p.id] || [], views: p.views, seen: p.seen, replies: repMap[p.id] || [],
         reports: admin ? p.reports : undefined, reported: reported.has(Number(p.id)) || undefined

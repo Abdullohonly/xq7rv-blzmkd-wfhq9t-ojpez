@@ -27,7 +27,7 @@ ${S('4. Taqiqlangan harakatlar', `<p>Quyidagilar taqiqlanadi (batafsil: <a href=
 ]))}
 ${S('5. Moderatsiya', `<p>Qoidalar buzilganda Lahzam ogohlantirish berishi, kontentni yashirishi yoki o‘chirishi, akkauntni vaqtincha yoki butunlay bloklashi mumkin. Jiddiy holatlarda akkauntga bog‘langan Gmail ham bloklanadi. Guruh admini o‘z guruhidan a‘zoni chetlatishi mumkin.</p><p>Har bir postda “Shikoyat qilish” tugmasi bor. Shikoyatlarni moderator ko‘rib chiqadi.</p>`)}
 ${S('6. Xizmat “boricha” taqdim etiladi', `<p>Lahzam doim ishlab turishiga harakat qilamiz, lekin uzilishlar, xatolar yoki ma’lumot yo‘qolishi bo‘lmasligiga kafolat bera olmaymiz. Muhim ma’lumotlaringizning nusxasini o‘zingizda saqlang. Lahzam funksiyalari oldindan ogohlantirmasdan o‘zgarishi, qo‘shilishi yoki olib tashlanishi mumkin.</p>`)}
-${S('7. Akkauntni yopish', `<p>Istalgan vaqtda Lahzamdan foydalanishni to‘xtatishingiz mumkin. Akkauntingizni va ma’lumotlaringizni butunlay o‘chirish uchun Lahzam ichida <a href="/@musoxon" data-link>@musoxon</a> ga yozing: so‘rovingiz 30 kun ichida bajariladi.</p>`)}
+${S('7. Akkauntni yopish', `<p>Istalgan vaqtda Lahzamdan foydalanishni to‘xtatishingiz mumkin. Akkauntingizni va ma’lumotlaringizni butunlay o‘chirish uchun: <b>Sozlamalar → Akkaunt → Akkauntni o‘chirish</b>. Ma’lumotlaringiz darhol o‘chiriladi.</p>`)}
 ${S('8. Shartlarning o‘zgarishi', `<p>Shartlar o‘zgarsa, ilovada xabar beramiz va yangi shartlarga rozilik so‘raymiz. Rozi bo‘lmasangiz, akkauntingizdan foydalanishni to‘xtatib, uni o‘chirishni so‘rashingiz mumkin.</p>`)}
 ${S('9. Aloqa', `<p>Savol va takliflar uchun Lahzam ichida <a href="/@musoxon" data-link>@musoxon</a> ga yozing.</p>`)}`
   };
@@ -65,13 +65,13 @@ ${S('5. Qayerda saqlanadi', UL([
   '<b>Push bildirishnomalar:</b> brauzeringizning push xizmati (Google, Apple yoki Mozilla) orqali shifrlangan holda yetkaziladi'
 ]) + `<p>Bu xizmatlar ma’lumotlaringizni faqat Lahzam uchun saqlaydi va uzatadi.</p>`)}
 ${S('6. Brauzeringizda saqlanadigan narsalar', `<p>Kirgan holatingizni saqlash uchun bitta xavfsiz cookie ishlatamiz (JavaScript uni o‘qiy olmaydi). Ilova tez ochilishi uchun ma’lumotlarning nusxasi va sozlamalaringiz (tungi rejim, matn o‘lchami) brauzeringizda saqlanadi. Reklama yoki kuzatuv cookie’lari ishlatilmaydi.</p>`)}
-${S('7. Qancha vaqt saqlanadi', `<p>Ma’lumotlaringiz akkauntingiz mavjud ekan saqlanadi. O‘chirgan post, javob va xabarlaringiz darhol o‘chiriladi. 24 soatlik “Lahza” postlari 24 soatdan keyin ko‘rinmay qoladi. Akkauntni o‘chirishni so‘rasangiz, barcha ma’lumotlaringiz 30 kun ichida o‘chiriladi.</p>`)}
+${S('7. Qancha vaqt saqlanadi', `<p>Ma’lumotlaringiz akkauntingiz mavjud ekan saqlanadi. O‘chirgan post, javob va xabarlaringiz darhol o‘chiriladi. 24 soatlik “Lahza” postlari 24 soatdan keyin ko‘rinmay qoladi. Akkauntni o‘chirsangiz (Sozlamalar → Akkauntni o‘chirish), barcha ma’lumotlaringiz darhol o‘chiriladi.</p>`)}
 ${S('8. Sizning huquqlaringiz', UL([
   'Ma’lumotlaringizni ko‘rish va tuzatish: ism, bio, rasm va sozlamalarni o‘zingiz o‘zgartira olasiz',
   'Post, javob va xabarlaringizni o‘chirish',
   'Bildirishnoma va push’ni o‘chirish, kim sizga yoza olishini cheklash',
-  'Akkauntingiz va barcha ma’lumotlaringizni butunlay o‘chirishni so‘rash'
-]) + `<p>Buning uchun Lahzam ichida <a href="/@musoxon" data-link>@musoxon</a> ga yozing.</p>`)}
+  'Akkauntingiz va barcha ma’lumotlaringizni o‘zingiz butunlay o‘chirish (Sozlamalar → Akkauntni o‘chirish)'
+]) + `<p>Savollar bo‘lsa, Lahzam ichida <a href="/@musoxon" data-link>@musoxon</a> ga yozing.</p>`)}
 ${S('9. Xavfsizlik', UL([
   'Barcha ulanishlar HTTPS orqali shifrlangan',
   'Parollar qaytarib bo‘lmaydigan xesh (scrypt) ko‘rinishida saqlanadi',

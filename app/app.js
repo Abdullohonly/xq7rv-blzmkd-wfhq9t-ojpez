@@ -1,8 +1,8 @@
-/* Lahzam v1.2.4 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.3.0 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.2.4'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.3.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { post: 500, reply: 300, msg: 2000 };
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
@@ -141,7 +141,7 @@ function avatar(u, size = 44) {
   if (!u) return '';
   if (u.owner && !u._in) { const w = size >= 80 ? 5 : size >= 44 ? 3 : 2.5; return `<span class="oav" style="--ow:${w}px">${avatar({ ...u, _in: 1 }, size - w * 2)}</span>`; }
   if (u.photo) return `<span class="av" style="width:${size}px;height:${size}px;background:${u.color}" aria-hidden="true"><img src="${esc(u.photo)}" alt="" style="width:100%;height:100%;object-fit:cover"></span>`;
-  if (u.system) return `<span class="av" style="width:${size}px;height:${size}px;background:#BFEAF7">${Flappy.birdSVG(size * .86)}</span>`;
+  if (u.system) { const g = gameOf(u); return `<span class="av" style="width:${size}px;height:${size}px;background:${g && g.k !== 'flappy' ? '#1d1d22' : '#BFEAF7'}">${g && g.k !== 'flappy' ? g.ico(size * .8) : Flappy.birdSVG(size * .86)}</span>`; }
   return `<span class="av" style="width:${size}px;height:${size}px;background:${u.color};font-size:${Math.round(size * .38)}px" aria-hidden="true">${esc(u.name[0] || u.u[0]).toUpperCase()}</span>`;
 }
 const OWNER_PILL = '<span class="founder owner-pill">Owner</span>';
@@ -162,6 +162,7 @@ function NI(name, on = false, size = 22) {
     trophy: `<path d="M7 3.5h10v5.5a5 5 0 0 1-10 0z" ${f} ${st}/><path d="M7 5.5H4v1.2A3.3 3.3 0 0 0 7.3 10M17 5.5h3v1.2a3.3 3.3 0 0 1-3.3 3.3M12 14v4M8 21h8" ${st} fill="none"/><path d="M12 5.6l.9 1.8 2 .3-1.4 1.4.3 2-1.8-.9-1.8.9.3-2-1.4-1.4 2-.3z" fill="${DOTC}"/>`,
     updates: `<path d="M11 3c.7 5 2.7 7.4 7.5 8-4.8.6-6.8 3-7.5 8-.7-5-2.7-7.4-7.5-8 4.8-.6 6.8-3 7.5-8z" ${f} ${st}/><circle cx="19.5" cy="19" r="2" fill="${DOTC}"/><circle cx="19" cy="4.5" r="1.3" fill="${DOTC}"/>`,
     gear: `<circle cx="12" cy="12" r="7.6" fill="none" stroke="currentColor" stroke-width="3.4" stroke-dasharray="3.1 2.87" transform="rotate(8 12 12)"/><circle cx="12" cy="12" r="5.6" ${f} ${st}/><circle cx="12" cy="12" r="2.2" fill="${DOTC}"/>`,
+    games: `<path d="M7 8h10a5 5 0 0 1 4.9 6l-.6 3a2.6 2.6 0 0 1-4.6 1.1L15 16H9l-1.7 2.1a2.6 2.6 0 0 1-4.6-1.1l-.6-3A5 5 0 0 1 7 8z" ${f} ${st}/><path d="M7.5 11v3M6 12.5h3" ${st}/><circle cx="16.5" cy="12.5" r="1.7" fill="${DOTC}"/>`,
     saved: `<path d="M6.5 3.5h11a1.5 1.5 0 0 1 1.5 1.5v16l-7-4.5L5 21V5a1.5 1.5 0 0 1 1.5-1.5z" ${f} ${st}/><circle cx="12" cy="9.5" r="2.2" fill="${DOTC}"/>`
   };
   return `<svg class="ni${on ? ' on' : ''}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true">${P[name]}</svg>`;
@@ -249,6 +250,7 @@ function route() {
   if (p === '/musoojon') return ['admin'];
   if (p === '/yangiliklar') return ['updates'];
   if (p === '/reyting') return ['leaders'];
+  if (p === '/oyinlar') return ['games'];
   if (p === '/shartlar' || p === '/maxfiylik' || p === '/qoidalar') return ['doc', p.slice(1)];
   if ((m = p.match(/^\/@([a-z0-9._]+)$/i))) return ['profile', m[1]];
   if ((m = p.match(/^\/p\/([\w-]+)$/))) return ['post', m[1]];
@@ -265,7 +267,7 @@ function render() {
   if (me() && me().blocked) { DB.me = null; save(); toast('Akkauntingiz bloklangan.', true); }
   if (!me() && !PUBLIC.includes(name)) return go('/kirish', true);
   if (me() && name === 'auth') return go('/', true);
-  const V = { home, auth, groups, dms, search, notifs, settings, admin, profile, post, chat, group, tag, updates, leaders, doc: docPage, '404': notFound }[name];
+  const V = { home, auth, groups, dms, search, notifs, settings, admin, profile, post, chat, group, tag, updates, leaders, doc: docPage, games: gamesPage, '404': notFound }[name];
   const html = V(arg);
   const desk = DESK.matches && me() && !['auth', 'admin'].includes(name);
   document.body.classList.toggle('is-desk', !!desk);
@@ -293,6 +295,7 @@ function deskShell(name, html) {
         ${L('/shaxsiy', NI('dms', name === 'dms'), 'Shaxsiy', name === 'dms', d)}
         ${L('/qidiruv', NI('search', name === 'search'), 'Qidiruv', name === 'search')}
         ${L('/bildirishnomalar', NI('bell', name === 'notifs'), 'Bildirishnomalar', name === 'notifs', n)}
+        ${L('/oyinlar', NI('games', name === 'games'), 'O‘yinlar', name === 'games')}
         ${L('/reyting', NI('trophy', name === 'leaders'), 'Reyting', name === 'leaders')}
         ${L('/yangiliklar', NI('updates', name === 'updates'), 'Lahzam Updates', name === 'updates', nu)}
         ${L('/sozlamalar', NI('gear', name === 'settings'), 'Sozlamalar', name === 'settings')}
@@ -311,7 +314,7 @@ function deskShell(name, html) {
       <p class="muted" style="text-align:center">Lahzam v${VERSION} · Har lahza yoningizda!</p>
     </aside></div>`;
 }
-const TITLES = { doc: 'Hujjatlar', auth: 'Kirish', groups: 'Guruhlar', dms: 'Shaxsiy', search: 'Qidiruv', notifs: 'Bildirishnomalar', settings: 'Sozlamalar', admin: 'Admin', updates: 'Lahzam Updates', leaders: 'Reyting', profile: 'Profil', post: 'Post', chat: 'Suhbat', group: 'Guruh', tag: 'Heshteg' };
+const TITLES = { games: 'O‘yinlar', doc: 'Hujjatlar', auth: 'Kirish', groups: 'Guruhlar', dms: 'Shaxsiy', search: 'Qidiruv', notifs: 'Bildirishnomalar', settings: 'Sozlamalar', admin: 'Admin', updates: 'Lahzam Updates', leaders: 'Reyting', profile: 'Profil', post: 'Post', chat: 'Suhbat', group: 'Guruh', tag: 'Heshteg' };
 const after = {};
 
 /* ---------------- shared pieces ---------------- */
@@ -341,6 +344,21 @@ function header(extra = '', deskTitle = '') {
       <a href="/bildirishnomalar" data-link class="ibtn" aria-label="Bildirishnomalar${n ? ', ' + n + ' ta yangi' : ''}">${NI('bell', false, 20)}${n ? `<span class="badge">${n > 99 ? '99+' : n}</span>` : ''}</a>
       ${u ? `<a href="/@${esc(u.u)}" data-link aria-label="Profilim" style="border-radius:50%;border:2px solid #fff;display:inline-flex">${avatar(u, 40)}</a>` : `<a href="/kirish" data-link class="btn" style="height:40px;background:#fff;color:#111;border-radius:999px">Kirish</a>`}
     </div></div>${extra}</header>`;
+}
+// Mini o'yinlar: Flappy, Tetris, 2048
+const GAMES = [
+  { k: 'flappy', name: 'Flappy', ico: s => Flappy.birdSVG(s), desc: 'Qushchani quvurlar orasidan uchiring', tag: '@flappy', act: 'sendflappy', open: o => Flappy.open(o) },
+  { k: 'tetris', name: 'Tetris', ico: s => Tetris.icon(s), desc: 'Bloklarni joylab, qatorlarni to‘ldiring', tag: '@tetris', act: 'sendtetris', open: o => Tetris.open(o) },
+  { k: '2048', name: '2048', ico: s => G2048.icon(s), desc: 'Bir xil sonlarni qo‘shib, 2048 ga yeting', tag: '@2048', act: 'send2048', open: o => G2048.open(o) }
+];
+const gameOf = u => u && u.system && GAMES.find(g => g.k === u.u);
+function gamesPage() {
+  const best = k => { try { return +localStorage.getItem({ flappy: 'lahzam_flappy_best', tetris: 'lahzam_tetris_best', '2048': 'lahzam_2048_best' }[k]) || 0; } catch (e) { return 0; } };
+  return `<div class="shell">${backBar('O‘yinlar 🎮')}<div class="pad stack">
+    <p class="muted" style="margin:0">Yakka o‘ynang yoki do‘stlaringizga chatda yuboring: har chat va guruhning o‘z rekordi bo‘ladi 🏆</p>
+    ${GAMES.map(g => `<div class="card game-tile"><div class="row" style="gap:14px">${g.ico(56)}<span style="flex:1;min-width:0"><b style="font-family:var(--head);font-size:18px;display:block">${g.name}</b><span class="muted" style="font-size:14px">${g.desc}</span>${best(g.k) ? `<span style="display:block;font-size:13px;font-weight:700;color:var(--acc-ink,var(--acc));margin-top:2px">Eng yaxshi natijangiz: ${best(g.k)}</span>` : ''}</span></div>
+      <div class="row" style="gap:8px;margin-top:12px"><button class="btn acc" style="flex:1;height:46px;border-radius:999px" data-act="solo" data-id="${g.k}">▶ O‘ynash</button><button class="btn ghost" style="flex:1;height:46px;border-radius:999px" data-act="gamesend" data-id="${g.k}">↗ Yuborish</button></div></div>`).join('')}
+  </div></div>`;
 }
 function docPage(k) {
   const d = window.LahzamDocs && LahzamDocs[k]; if (!d) return notFound();
@@ -376,7 +394,7 @@ function postCard(p, full) {
   return `<article class="card stack" data-post="${p.id}" style="gap:8px">
     <div class="row" style="justify-content:space-between">
       <a href="/@${esc(a.u)}" data-link class="row" style="text-decoration:none;gap:10px">${avatar(a, 42)}
-        <div><div class="name" style="font-size:15px">${NM(a)}${founderPill(a)}</div><div class="muted">@${esc(a.u)} · ${ago(p.t)}${p.lahza ? ' · <span class="lahza">Lahza · 24 soat</span>' : ''}</div></div></a>
+        <div><div class="name" style="font-size:15px">${NM(a)}${founderPill(a)}</div><div class="muted">@${esc(a.u)} · ${ago(p.t)}${p.edited ? ' · tahrirlandi' : ''}${p.lahza ? ' · <span class="lahza">Lahza · 24 soat</span>' : ''}</div></div></a>
       <button class="ibtn dark" style="width:38px;height:38px" data-act="postmenu" data-id="${p.id}" aria-label="Ko‘proq">${I.dots}</button>
     </div>
     ${p.text ? `<p class="txt ${long ? 'clamp' : ''}" style="${full ? 'font-size:19px' : ''}">${linkify(p.text)}</p>` : ''}
@@ -403,6 +421,7 @@ function home() {
       <b style="font-family:var(--head);font-size:16px">Birinchi postingiz 👋</b>
       <p style="margin:6px 0 10px;color:#ddd;font-size:14px">Nima yozishni bilmayapsizmi? O‘zingizni tanishtiring: kim siz va Lahzamga nima uchun keldingiz?</p>
       <button class="btn acc" style="height:42px" data-act="intro">Tanishtiruv yozish</button></div>` : ''}
+    <a href="/oyinlar" data-link class="card games-strip">${GAMES.map(g => `<span class="gs-i">${g.ico(30)}</span>`).join('')}<span style="flex:1;min-width:0"><b>O‘yinlar</b><span class="muted" style="display:block;font-size:13px">Flappy, Tetris, 2048 · yakka yoki do‘stlar bilan</span></span><span class="gs-go">▶</span></a>
     <form class="card comp" data-form="post">
       <div class="row" style="align-items:flex-start;gap:12px">${avatar(u, 40)}
         <label style="flex:1"><span class="sr">Post matni</span><textarea id="post-text" rows="2" maxlength="600" placeholder="Nima gap, ${esc(u.name.split(' ')[0])}?"></textarea></label></div>
@@ -745,7 +764,7 @@ function profile(name) {
   if (p.system) {
     return `<div class="shell"><div class="phead"><button class="ibtn" data-act="back" aria-label="Orqaga">${I.back}</button></div>
     <div class="pmain">${avatar(p, 112)}<div style="font-family:var(--head);font-weight:700;font-size:22px;margin-top:10px">${NM(p, true)}</div><div class="muted">@${esc(p.u)} · mini o‘yin</div>
-      <p style="margin:10px 0 0;max-width:340px">${esc(p.bio)}</p></div>
+      <p style="margin:10px 0 0;max-width:340px">${esc(p.bio)}</p>${gameOf(p) ? `<div class="row" style="gap:8px;margin-top:12px"><button class="btn acc" style="height:46px;border-radius:999px;padding:0 22px" data-act="solo" data-id="${p.u}">▶ O‘ynash</button><button class="btn ghost" style="height:46px;border-radius:999px;padding:0 22px" data-act="gamesend" data-id="${p.u}">↗ Chatga yuborish</button></div>` : ''}</div>
     <div class="pad stack"><div class="card row" style="justify-content:space-between"><span><b style="font-size:22px">${fl.length}</b> <span class="muted">kuzatuvchi</span></span>${followBtn}</div>
       <div class="card"><b>Kuzatuvchilar</b>${fl.map(f => `<a href="/@${esc(user(f).u)}" data-link class="li">${avatar(user(f), 40)}<span style="flex:1"><b>${NM(user(f))}</b>${founderPill(user(f))}<span class="muted" style="display:block">@${esc(user(f).u)}</span></span></a>`).join('') || '<p class="muted">Hali kuzatuvchi yo‘q.</p>'}</div></div>${u ? dock('') : ''}</div>`;
   }
@@ -800,8 +819,10 @@ function search() {
     <button type="button" class="${SEARCH_TAB === 'people' ? 'on' : ''}" data-act="stab" data-v="people" role="tab" aria-selected="${SEARCH_TAB === 'people'}">Odamlar</button>
     <button type="button" class="${SEARCH_TAB === 'groups' ? 'on' : ''}" data-act="stab" data-v="groups" role="tab" aria-selected="${SEARCH_TAB === 'groups'}">Guruhlar</button></div>
   <label class="card row"><span class="sr">Qidiruv</span>${I.search}<input id="q" class="inp" style="border:0;height:40px;padding:0" placeholder="${SEARCH_TAB === 'people' ? 'Ism yoki @username' : 'Guruh nomi, bo‘lim yoki tavsif'}" autocomplete="off" autocapitalize="none" value="${esc(SEARCH_Q)}"></label>
+  ${SEARCH_TAB === 'people' ? `<button class="btn ink full rnd-btn" data-act="rnduser">🎲 Random odam topish</button>` : ''}
   <div class="card" style="padding:4px 16px" id="results"></div></div></div>`;
 }
+let RND = null;
 after.search = () => {
   const q = $('#q'), r = $('#results'), u = me();
   const draw = () => {
@@ -811,7 +832,9 @@ after.search = () => {
       r.innerHTML = gl.map(c => `<a href="/g/${c.id}" data-link class="li"><span class="gav" style="background:${c.color}">${esc(c.name[0])}</span><span style="flex:1"><b>${esc(c.name)}</b><span class="muted" style="display:block">${esc(c.cat)} · ${c.members.length} a‘zo · ${ACCESS[c.access]}${c.members.includes(u.id) ? ' · siz a‘zosiz' : ''}</span></span></a>`).join('') || '<p class="muted" style="padding:10px 0">Bunday guruh topilmadi.</p>';
       return;
     }
-    const list = DB.users.filter(x => x.id !== u.id && !x.blocked && (!v || x.u.includes(v) || x.name.toLowerCase().includes(v))).slice(0, 30);
+    // Bo'sh qidiruvda hamma ko'rsatilmaydi: faqat yozilganda yoki "Random" bosilganda
+    const list = v ? DB.users.filter(x => x.id !== u.id && !x.blocked && (x.u.includes(v) || x.name.toLowerCase().includes(v))).slice(0, 30) : RND ? [user(RND)].filter(Boolean) : [];
+    if (!v && !list.length) { r.innerHTML = '<p class="muted" style="padding:12px 0;text-align:center">Ism yoki @username yozing, yoki 🎲 Random tugmasini bosing</p>'; return; }
     r.innerHTML = list.map(x => `<div class="li"><a href="/@${esc(x.u)}" data-link class="row" style="flex:1;text-decoration:none">${avatar(x, 44)}<span><b>${NM(x)}</b>${founderPill(x)}<span class="muted" style="display:block">@${esc(x.u)} · ${followers(x.id).length} kuzatuvchi</span></span></a>
       <button class="btn ${isFollowing(u.id, x.id) ? 'ghost' : 'ink'}" style="height:38px;font-size:13px;border-radius:999px" data-act="follow" data-id="${x.id}">${isFollowing(u.id, x.id) ? 'Kuzatilmoqda' : 'Kuzatish'}</button></div>`).join('') || '<p class="muted" style="padding:10px 0">Bunday odam topilmadi.</p>';
   };
@@ -860,12 +883,14 @@ function settings() {
       ${row('📧 Gmail', esc(S.email || '—'), '<span class="tag green">Google ✓</span>')}
       ${row('🏅 Raqamingiz', `Lahzamdagi #${realUsers().findIndex(x => x.id === u.id) + 1}-foydalanuvchi`, u.owner ? OWNER_PILL : isFounder(u) ? '<span class="founder">Asoschi</span>' : '')}
       ${row('📅 Qo‘shilgan sana', uzDate(u.joined, true), '')}
+      ${isOwnerSession() ? '' : `<button class="li set-row" style="width:100%;text-align:left" data-act="delme"><span style="flex:1"><b style="color:var(--danger,#E8423A)">🗑 Akkauntni o‘chirish</b><span class="muted" style="display:block">Hamma ma’lumotlaringiz butunlay o‘chadi</span></span>›</button>`}
     </div>
 
     <h3 class="set-h">Lahzam</h3>
     <div class="card" style="padding:2px 16px">
       <a href="/yangiliklar" data-link class="li set-row"><span style="flex:1"><b>✨ Lahzam Updates</b><span class="muted" style="display:block">Ilovada nimalar yangilandi</span></span>${unreadUpdates() ? `<span class="dot">${unreadUpdates()}</span>` : '›'}</a>
       ${standalone() ? '' : `<button class="li set-row" style="width:100%;text-align:left" data-act="install"><span style="flex:1"><b>📲 Ilovani o‘rnatish</b><span class="muted" style="display:block">Lahzam telefon ekraningizda alohida ilova bo‘ladi</span></span>›</button>`}
+      <a href="/oyinlar" data-link class="li set-row"><span style="flex:1"><b>🎮 O‘yinlar</b><span class="muted" style="display:block">Flappy, Tetris va 2048</span></span>›</a>
       <button class="li set-row" style="width:100%;text-align:left" data-act="opensaved"><span style="flex:1"><b>🔖 Saqlangan xabarlar</b><span class="muted" style="display:block">Faqat siz ko‘radigan shaxsiy chat</span></span>›</button>
       <a href="/shartlar" data-link class="li set-row"><span style="flex:1"><b>📄 Foydalanish shartlari</b></span>›</a>
       <a href="/maxfiylik" data-link class="li set-row"><span style="flex:1"><b>🔒 Maxfiylik siyosati</b></span>›</a>
@@ -1059,9 +1084,14 @@ document.addEventListener('click', async e => {
       if (cid === 'saved') { const r = await api('act', { method: 'POST', body: { t: 'saved' } }); if (!r.chat) { toast(r.message || 'Bo‘lmadi', true); break; } cid = r.chat; }
       closeSheet(); const r2 = await server({ t: 'msg', chat: cid, body: `[post:${String(p.id).replace('p', '')}]\n${p.text.slice(0, 120)}` }, cid === el.dataset.c ? 'Yuborildi ↪️' : 'Saqlandi 🔖'); break;
     }
+    case 'editpost': {
+      const p = P(); if (!p || p.uid !== u.id) break;
+      sheet(`<h2>Postni tahrirlash ✏️</h2><form class="stack" data-form="editpost" data-id="${id}"><textarea class="inp" id="ep-t" maxlength="500" style="height:140px;padding:12px 16px">${esc(p.text)}</textarea>
+        <button class="btn acc full">Saqlash</button><button type="button" class="btn ghost full" data-act="close-sheet-btn">Bekor qilish</button></form>`); break;
+    }
     case 'postmenu': {
       const p = P(); if (!p) break; const own = u && (p.uid === u.id || isAdmin());
-      sheet(`<h2>Post</h2><div class="stack">${own ? `<button class="btn ghost full" style="color:var(--danger)" data-act="delpost" data-id="${id}">O‘chirish</button>` : p.reported ? '<p class="muted" style="margin:0">Shikoyatingiz qabul qilingan ✅</p>' : `<button class="btn ghost full" data-act="report" data-id="${id}">Shikoyat qilish</button>`}<button class="btn ghost full" data-act="sharepost" data-id="${id}">Havolani nusxalash</button></div>`);
+      sheet(`<h2>Post</h2><div class="stack">${u && p.uid === u.id ? `<button class="btn ghost full" data-act="editpost" data-id="${id}">✏️ Tahrirlash</button>` : ''}${own ? `<button class="btn ghost full" style="color:var(--danger)" data-act="delpost" data-id="${id}">O‘chirish</button>` : p.reported ? '<p class="muted" style="margin:0">Shikoyatingiz qabul qilingan ✅</p>' : `<button class="btn ghost full" data-act="report" data-id="${id}">Shikoyat qilish</button>`}<button class="btn ghost full" data-act="sharepost" data-id="${id}">Havolani nusxalash</button></div>`);
       break;
     }
     case 'delpost': { const p = P(); if (!p || !(p.uid === u.id || isAdmin())) break; DB.posts = DB.posts.filter(x => x.id !== id); closeSheet(); server({ t: 'delpost', post: id }, 'O‘chirildi'); if (route()[0] === 'post') go('/'); else render(); break; }
@@ -1216,6 +1246,27 @@ document.addEventListener('click', async e => {
     }
     case 'logoutask': sheet(`<h2>Akkauntdan chiqasizmi? 👋</h2><p class="muted" style="margin:-4px 0 14px">Qayta kirish uchun Google yoki username va parol kerak bo‘ladi.</p>
       <div class="stack" style="gap:8px"><button class="btn full" style="background:var(--danger,#E8423A);color:#fff" data-act="logout">Ha, chiqish</button><button class="btn ghost full" data-act="close-sheet-btn">Bekor qilish</button></div>`); break;
+    case 'solo': { const g = GAMES.find(x => x.k === id); if (g) g.open({ solo: true, onEnd: () => null }); break; }
+    case 'gamesend': {
+      const g = GAMES.find(x => x.k === id); if (!g || !u) break;
+      const list = DB.chats.filter(c => c.members.includes(u.id) && !isSaved(c)).sort((a, b) => (b.msgs.at(-1)?.t || 0) - (a.msgs.at(-1)?.t || 0));
+      sheet(`<h2>${g.name}ni qayerga yuboramiz?</h2><div class="card" style="padding:4px 16px">${list.map(c => `<button class="li" style="width:100%;text-align:left" data-act="gamesendto" data-id="${g.k}" data-c="${c.id}">${chatAv(c, u, 40)}<b>${esc(chatName(c, u))}</b></button>`).join('') || '<p class="muted">Hali chat yo‘q. Avval biror guruhga qo‘shiling yoki kimgadir yozing.</p>'}</div>`); break;
+    }
+    case 'gamesendto': {
+      const g = GAMES.find(x => x.k === id), c = DB.chats.find(x => x.id === el.dataset.c); if (!g || !c || !guard('msg', g.tag)) break;
+      closeSheet(); c.msgs.push({ id: 'tmp' + uid(), tmp: true, uid: u.id, text: g.tag, t: now(), reacts: {}, game: true });
+      await server({ t: 'msg', chat: c.id, body: g.tag }, `${g.name} yuborildi 🎮`); go('/c/' + c.id); break;
+    }
+    case 'delme': sheet(`<h2>Akkauntni o‘chirish 🗑</h2>
+      <p style="margin:-4px 0 10px">Akkauntingiz <b>butunlay</b> o‘chadi: postlar, javoblar, xabarlar, reaksiyalar, kuzatuvlar va profil. Buni <b>qaytarib bo‘lmaydi</b>.</p>
+      <form class="stack" data-form="delme"><div class="field"><label for="dm-c">Tasdiqlash uchun username’ingizni yozing: <b>${esc(u.u)}</b></label><input class="inp" id="dm-c" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
+      <div class="hint bad" id="dm-h"></div><button class="btn full" style="background:var(--danger,#E8423A);color:#fff">Butunlay o‘chirish</button><button type="button" class="btn ghost full" data-act="close-sheet-btn">Bekor qilish</button></form>`); break;
+    case 'rnduser': {
+      const pool = DB.users.filter(x => !x.system && !x.blocked && x.id !== u.id && x.id !== RND);
+      if (!pool.length) { toast('Hozircha boshqa odam yo‘q'); break; }
+      RND = pool[Math.floor(Math.random() * pool.length)].id; const q = $('#q'); if (q) q.value = ''; SEARCH_Q = '';
+      el.classList.remove('spin'); void el.offsetWidth; el.classList.add('spin'); after.search(); break;
+    }
     case 'install': if (DEFER) doInstall(); else showInstall(true); break;
     case 'pushon': { const r = await pushEnable(true); toast(r === 'ok' ? 'Bildirishnomalar yoqildi 🔔' : r === 'ios' ? 'iPhone’da avval Lahzam’ni ekranga o‘rnating 📲' : r === 'denied' ? 'Brauzer sozlamalarida Lahzam’ga ruxsat bering' : 'Bu brauzer push’ni qo‘llamaydi', r !== 'ok'); closeSheet(); render(); break; }
     case 'pushoff': { await pushDisable(); toast('Push o‘chirildi'); render(); break; }
@@ -1395,6 +1446,18 @@ document.addEventListener('submit', async e => {
     if (!r.user) { btn.disabled = false; $('#su-hint').textContent = r.message || 'Ro‘yxatdan o‘tib bo‘lmadi'; if (r.error === 'ticket') { AUTH = { step: 'start' }; render(); } return; }
     adoptSession(r.user); AUTH = { step: 'start' };
     save(); go('/'); toast('Xush kelibsiz 👋 Har lahza yoningizda!'); sync(true); return;
+  }
+  if (kind === 'editpost') {
+    const p = DB.posts.find(x => x.id === f.dataset.id || x.id === 'p' + f.dataset.id), t = $('#ep-t').value.trim(); if (!p || !t) return;
+    const r = await server({ t: 'editpost', post: p.id, body: t }, 'Saqlandi ✅'); if (r.ok) { p.text = t; p.edited = true; closeSheet(); render(); } return;
+  }
+  if (kind === 'delme') {
+    const h = $('#dm-h'), v = $('#dm-c').value.trim().toLowerCase(); h.classList.remove('shake');
+    if (v !== me().u) { h.textContent = '❌ Username mos kelmadi'; void h.offsetWidth; h.classList.add('shake'); return; }
+    const r = await api('act', { method: 'POST', body: { t: 'deleteme', confirm: v } });
+    if (!r.ok) { h.textContent = '❌ ' + (r.message || 'O‘chirib bo‘lmadi'); void h.offsetWidth; h.classList.add('shake'); return; }
+    try { localStorage.setItem('lahzam_noauto', '1'); } catch (e) {}
+    $('#modal-root').innerHTML = ''; adoptSession(null); AUTH = { step: 'start' }; save(); go('/kirish'); toast('Akkauntingiz o‘chirildi. Xayr 👋'); return;
   }
   if (kind === 'login') {
     const btn = f.querySelector('button.btn.acc, button[type=submit], button:not([type=button])'), hint = $('#li-hint'), old = btn && btn.textContent;

@@ -52,7 +52,7 @@
     const dpr = Math.min(2, window.devicePixelRatio || 1), CELL = Math.floor(Math.min(28, (Math.min(window.innerHeight * 0.62, 560)) / ROWS));
     board.width = COLS * CELL * dpr; board.height = ROWS * CELL * dpr; board.style.width = COLS * CELL + 'px'; board.style.height = ROWS * CELL + 'px'; g.scale(dpr, dpr);
     const $ = s => wrap.querySelector(s), recEl = $('[data-rec]'), sndBtn = $('[data-sound]');
-    const setRec = () => { recEl.textContent = opts.record ? `Chat rekordi: ${opts.record} (@${opts.recordBy})` : 'Bu chatda hali rekord yo‘q'; };
+    const setRec = () => { recEl.textContent = opts.solo ? 'Yakka o‘yin · eng yaxshi natijangiz saqlanadi' : opts.record ? `Chat rekordi: ${opts.record} (@${opts.recordBy})` : 'Bu chatda hali rekord yo‘q'; };
     const setSnd = () => { sndBtn.textContent = soundOn() ? '🔊' : '🔇'; };
     setRec(); setSnd();
     let best = 0; try { best = +localStorage.getItem(BEST_KEY) || 0; } catch (e) {}

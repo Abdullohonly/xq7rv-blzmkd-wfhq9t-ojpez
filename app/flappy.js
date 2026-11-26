@@ -133,7 +133,7 @@
     const g = lo.getContext('2d');
     g.imageSmoothingEnabled = false; out.imageSmoothingEnabled = false;
     const recEl = wrap.querySelector('[data-rec]'), sndBtn = wrap.querySelector('[data-sound]');
-    const setRec = () => { recEl.textContent = opts.record ? `Chat rekordi: ${opts.record} (@${opts.recordBy})` : 'Bu chatda hali rekord yo‘q'; };
+    const setRec = () => { recEl.textContent = opts.solo ? 'Yakka o‘yin · eng yaxshi natijangiz saqlanadi' : opts.record ? `Chat rekordi: ${opts.record} (@${opts.recordBy})` : 'Bu chatda hali rekord yo‘q'; };
     const setSnd = () => { sndBtn.textContent = soundOn() ? '🔊' : '🔇'; };
     setRec(); setSnd();
     let best = 0; try { best = +localStorage.getItem(BEST_KEY) || 0; } catch (e) {}
