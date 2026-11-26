@@ -115,6 +115,8 @@ export default async function handler(req, res) {
           id: 'c' + c.id, type: c.kind, name: c.name, desc: c.description, cat: c.category, access: c.access, color: c.color,
           admin: c.admin_id == null ? null : Number(c.admin_id),
           members: ms2.filter(m => m.status === 'member').map(m => Number(m.user_id)),
+          banned: isMember && Number(c.admin_id) === uid ? ms2.filter(m => m.status === 'banned').map(m => Number(m.user_id)) : undefined,
+          isBanned: mine && mine.status === 'banned' || undefined,
           pending: (isMember && Number(c.admin_id) === uid) || (mine && mine.status === 'pending') ? ms2.filter(m => m.status === 'pending').map(m => Number(m.user_id)) : [],
           record: c.flappy_score ? { score: c.flappy_score, uid: Number(c.flappy_user) } : null,
           trecord: c.tetris_score ? { score: c.tetris_score, uid: Number(c.tetris_user) } : null,

@@ -157,6 +157,7 @@ export default async function handler(req, res) {
       case 'join': {
         const cid = idOf(b.chat, 'c'); const c = cid && await chatOf(db, cid, uid);
         if (!c || c.kind !== 'group' || c.access === 'closed') return bad(res, 'Bu guruhga faqat taklif bilan qo‘shiladi', 403);
+        if (c.my_status === 'banned') return bad(res, 'Guruh admini sizni bu guruhdan chetlatgan', 403);
         if (c.my_status) return send(res, 200, { ok: true, status: c.my_status });
         if (c.access === 'ask') {
           await db`insert into chat_members (chat_id, user_id, status) values (${cid}, ${uid}, 'pending') on conflict do nothing`;
@@ -166,6 +167,17 @@ export default async function handler(req, res) {
         await db`insert into chat_members (chat_id, user_id) values (${cid}, ${uid}) on conflict do nothing`;
         await db`insert into messages (chat_id, user_id, body, is_sys) values (${cid}, null, ${'@' + me.username + ' guruhga qo‘shildi'}, true)`;
         return send(res, 200, { ok: true, status: 'member' });
+      }
+      case 'ban': case 'unban': {
+        const cid = idOf(b.chat, 'c'), who = idOf(b.user); const c = cid && await chatOf(db, cid, uid);
+        if (!c || c.kind !== 'group' || !who || (Number(c.admin_id) !== uid && !admin)) return send(res, 403, { error: 'forbidden', message: 'Faqat guruh admini' });
+        if (who === uid || who === Number(c.admin_id)) return bad(res, 'Adminni chetlatib bo‘lmaydi');
+        const [w] = await db`select username from users where id = ${who}`; if (!w) return bad(res, 'user');
+        if (t === 'ban') {
+          await db`insert into chat_members (chat_id, user_id, status) values (${cid}, ${who}, 'banned') on conflict (chat_id, user_id) do update set status = 'banned', typing_at = null`;
+          await db`insert into messages (chat_id, user_id, body, is_sys) values (${cid}, null, ${'🚫 @' + w.username + ' guruhdan chetlatildi'}, true)`;
+        } else await db`delete from chat_members where chat_id = ${cid} and user_id = ${who} and status = 'banned'`;
+        return send(res, 200, { ok: true });
       }
       case 'approve': {
         const cid = idOf(b.chat, 'c'), who = idOf(b.user); const c = cid && await chatOf(db, cid, uid);

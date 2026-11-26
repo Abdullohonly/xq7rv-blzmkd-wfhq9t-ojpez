@@ -173,3 +173,9 @@ alter table chat_members add column if not exists typing_at timestamptz;
 alter table chats add column if not exists g2048_score int, add column if not exists g2048_user bigint references users(id) on delete set null;
 create table if not exists push_subs (id bigserial primary key, user_id bigint not null references users(id) on delete cascade, endpoint text not null unique, p256dh text not null, auth text not null, created_at timestamptz not null default now());
 create index if not exists push_subs_user on push_subs(user_id);
+-- 1.1.7: guruh admini a'zoni chetlatishi (ban) mumkin
+do $$ declare k text; begin
+  select conname into k from pg_constraint where conrelid = 'chat_members'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%pending%' and pg_get_constraintdef(oid) not like '%banned%';
+  if k is not null then execute 'alter table chat_members drop constraint ' || quote_ident(k);
+    alter table chat_members add constraint chat_members_status_check check (status in ('member', 'pending', 'banned')); end if;
+end $$;

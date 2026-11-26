@@ -374,3 +374,4 @@ button.seen{background:none;padding:0;cursor:pointer}
 .gfake{position:absolute;inset:0;width:100%;height:48px;border-radius:999px;background:#121212;color:#fff;font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;gap:10px;transition:opacity .2s}
 .greal{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s}
 .gwrap.ready .greal{opacity:1}.gwrap.ready .gfake{opacity:0;pointer-events:none}
+.ban-btn{color:var(--danger);flex:none}

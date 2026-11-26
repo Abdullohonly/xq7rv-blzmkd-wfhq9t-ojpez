@@ -1,8 +1,8 @@
-/* Lahzam v1.1.6 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.1.7 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.1.6'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.1.7'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { post: 500, reply: 300, msg: 2000 };
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
@@ -693,8 +693,9 @@ function group(id) {
         <div class="li" style="border:0;padding-bottom:0"><span style="flex:1"><b style="color:var(--acc-ink)">${location.host}/g/${c.id}</b><span class="muted" style="display:block">Taklif havolasi</span></span><button class="pill" data-act="copy" data-text="${location.origin}/g/${c.id}">Nusxa</button></div></div>
       ${c.record ? `<div class="card row" style="background:#121212;color:#fff">${Flappy.birdSVG(40)}<span>Flappy rekordi: <b>${c.record.score}</b> · @${esc(user(c.record.uid).u)}</span></div>` : ''}
       ${gAdmin && c.pending.length ? `<div class="card"><b>Qo‘shilish so‘rovlari</b>${c.pending.map(p => `<div class="li">${avatar(user(p), 36)}<span style="flex:1">${esc(user(p).name)}</span><button class="pill" data-act="approve" data-id="${c.id}" data-u="${p}">Qabul qilish</button></div>`).join('')}</div>` : ''}
-      <div class="card"><b>A‘zolar</b>${c.members.map(m => `<a href="/@${esc(user(m).u)}" data-link class="li">${avatar(user(m), 40)}<span style="flex:1"><b>${NM(user(m))}</b>${founderPill(user(m))}<span class="muted" style="display:block">@${esc(user(m).u)}</span></span>${m === c.admin ? '<span class="tag">admin</span>' : ''}</a>`).join('')}</div>
-      ${inG ? `<a href="/c/${c.id}" data-link class="btn acc full">Guruhga yozish</a>` : c.access !== 'closed' ? `<button class="btn ink full" data-act="join" data-id="${c.id}">${c.access === 'ask' ? 'So‘rov yuborish' : 'Qo‘shilish'}</button>` : '<p class="muted" style="text-align:center">Yopiq guruh: faqat taklif bilan.</p>'}
+      <div class="card"><b>A‘zolar</b>${c.members.map(m => `<div class="li"><a href="/@${esc(user(m).u)}" data-link class="row" style="flex:1;min-width:0;text-decoration:none;color:inherit;gap:12px">${avatar(user(m), 40)}<span style="flex:1;min-width:0"><b>${NM(user(m))}</b>${founderPill(user(m))}<span class="muted" style="display:block">@${esc(user(m).u)}</span></span></a>${m === c.admin ? '<span class="tag">admin</span>' : (gAdmin || isAdmin()) ? `<button class="pill ban-btn" data-act="gban" data-id="${c.id}" data-u="${m}" aria-label="@${esc(user(m).u)} ni chetlatish">🚫 Chetlatish</button>` : ''}</div>`).join('')}</div>
+      ${(gAdmin || isAdmin()) && (c.banned || []).length ? `<div class="card"><b>🚫 Chetlatilganlar</b>${c.banned.map(m => `<div class="li">${avatar(user(m), 36)}<span style="flex:1">${esc((user(m) || {}).name || '')}<span class="muted" style="display:block">@${esc((user(m) || {}).u || '')}</span></span><button class="pill" data-act="gunban" data-id="${c.id}" data-u="${m}">Qaytarish</button></div>`).join('')}</div>` : ''}
+      ${inG ? `<a href="/c/${c.id}" data-link class="btn acc full">Guruhga yozish</a>` : c.isBanned ? '<p class="muted" style="text-align:center">🚫 Guruh admini sizni bu guruhdan chetlatgan.</p>' : c.access !== 'closed' ? `<button class="btn ink full" data-act="join" data-id="${c.id}">${c.access === 'ask' ? 'So‘rov yuborish' : 'Qo‘shilish'}</button>` : '<p class="muted" style="text-align:center">Yopiq guruh: faqat taklif bilan.</p>'}
       ${isAdmin() && !inG && c.access === 'open' ? `<a href="/c/${c.id}" data-link class="btn ghost full">Admin sifatida kirish</a>` : ''}
       ${isAdmin() || gAdmin ? `<button class="btn ghost full" style="color:var(--danger)" data-act="delgroup" data-id="${c.id}">Guruhni o‘chirish</button>` : ''}
     </div></div>`;
@@ -1164,6 +1165,12 @@ document.addEventListener('click', async e => {
       setTimeout(() => { const h = document.querySelector('.ctx.hit'); h && h.scrollIntoView({ block: 'center' }); }, 30); break;
     }
     case 'gfake': { if (window.google && google.accounts && GCFG) { try { google.accounts.id.prompt(); } catch (err) {} } else { toast('Google ulanmoqda, bir soniya…'); initGoogle(); } break; }
+    case 'gban': {
+      const c = DB.chats.find(x => x.id === id), t2 = +el.dataset.u, w = user(t2); if (!c || !w) break;
+      if (!confirmInline(el, 'Rostdan? Yana bosing')) break;
+      const r = await server({ t: 'ban', chat: c.id, user: t2 }, `@${w.u} guruhdan chetlatildi 🚫`); if (r.ok) { c.members = c.members.filter(x => x !== t2); c.banned = [...(c.banned || []), t2]; render(); } break;
+    }
+    case 'gunban': { const c = DB.chats.find(x => x.id === id), t2 = +el.dataset.u; if (!c) break; const r = await server({ t: 'unban', chat: c.id, user: t2 }, 'Qaytarildi: endi qayta qo‘shila oladi'); if (r.ok) { c.banned = (c.banned || []).filter(x => x !== t2); render(); } break; }
     case 'install': if (DEFER) doInstall(); else showInstall(true); break;
     case 'pushon': { const r = await pushEnable(true); toast(r === 'ok' ? 'Bildirishnomalar yoqildi 🔔' : r === 'ios' ? 'iPhone’da avval Lahzam’ni ekranga o‘rnating 📲' : r === 'denied' ? 'Brauzer sozlamalarida Lahzam’ga ruxsat bering' : 'Bu brauzer push’ni qo‘llamaydi', r !== 'ok'); closeSheet(); render(); break; }
     case 'pushoff': { await pushDisable(); toast('Push o‘chirildi'); render(); break; }
