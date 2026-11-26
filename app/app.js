@@ -1,8 +1,8 @@
-/* Lahzam v1.3.0 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.3.1 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.3.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.3.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { post: 500, reply: 300, msg: 2000 };
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
@@ -359,6 +359,14 @@ function gamesPage() {
     ${GAMES.map(g => `<div class="card game-tile"><div class="row" style="gap:14px">${g.ico(56)}<span style="flex:1;min-width:0"><b style="font-family:var(--head);font-size:18px;display:block">${g.name}</b><span class="muted" style="font-size:14px">${g.desc}</span>${best(g.k) ? `<span style="display:block;font-size:13px;font-weight:700;color:var(--acc-ink,var(--acc));margin-top:2px">Eng yaxshi natijangiz: ${best(g.k)}</span>` : ''}</span></div>
       <div class="row" style="gap:8px;margin-top:12px"><button class="btn acc" style="flex:1;height:46px;border-radius:999px" data-act="solo" data-id="${g.k}">▶ O‘ynash</button><button class="btn ghost" style="flex:1;height:46px;border-radius:999px" data-act="gamesend" data-id="${g.k}">↗ Yuborish</button></div></div>`).join('')}
   </div></div>`;
+}
+function bioProblem(v) {
+  if (v.length > 100) return 'Bio ko‘pi bilan 100 belgi';
+  if (v.split('\n').length > 3) return 'Bio ko‘pi bilan 3 qator';
+  if (/(https?:\/\/|www\.|t\.me\/|\b[a-z0-9-]+\.(uz|com|ru|net|org|me|io|link|app)\b)/i.test(v)) return 'Bioga havola (link) qo‘yib bo‘lmaydi';
+  if ((v.match(/\d/g) || []).length >= 9) return 'Bioga telefon raqam yozmang: xavfsizligingiz uchun';
+  if (/(.)\1{5,}/u.test(v)) return 'Bir belgini ko‘p takrorlamang';
+  return null;
 }
 function docPage(k) {
   const d = window.LahzamDocs && LahzamDocs[k]; if (!d) return notFound();
@@ -1045,7 +1053,7 @@ function sheet(html) {
 }
 const closeSheet = () => { $('#modal-root').innerHTML = ''; };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !document.querySelector('.consent')) closeSheet(); });
-document.addEventListener('input', e => { if (e.target.id === 'lp' || e.target.id === 'lu') { $('#lp') && $('#lp').classList.remove('inp-bad'); } });
+document.addEventListener('input', e => { if (e.target.id === 'pb') { const v = e.target.value, bp = bioProblem(v.trim()); $('#pb-n').textContent = v.length + '/100'; $('#pb-h').textContent = bp ? '❌ ' + bp : ''; } if (e.target.id === 'lp' || e.target.id === 'lu') { $('#lp') && $('#lp').classList.remove('inp-bad'); } });
 // Xabarni ikki marta bossangiz ❤️ reaksiya qo'yiladi (Telegram'dagidek)
 document.addEventListener('dblclick', e => {
   const mEl = e.target.closest('.m[data-msg]'); if (!mEl || e.target.closest('button,a,input') || !CH.cid || String(mEl.dataset.msg).startsWith('tmp')) return;
@@ -1131,7 +1139,7 @@ document.addEventListener('click', async e => {
         <label class="btn ghost" style="height:42px;cursor:pointer;position:relative">📷 Rasm tanlash<input type="file" accept="image/*" id="ph-file" class="sr"></label>
         ${tg.photo ? `<button type="button" class="btn ghost" style="height:42px;color:var(--danger)" data-act="ph-clear" data-u="${tg.id}">Olib tashlash</button>` : ''}</div></div>
       <div class="field"><label for="pn">Ism</label><input class="inp" id="pn" maxlength="40" required value="${esc(tg.name)}"></div>
-      <div class="field"><label for="pb">Bio</label><textarea class="inp" id="pb" maxlength="160" style="height:96px;padding:12px 16px" placeholder="O‘zingiz haqingizda qisqacha">${esc(tg.bio || '')}</textarea></div>
+      <div class="field"><label for="pb">Bio</label><textarea class="inp" id="pb" maxlength="100" style="height:96px;padding:12px 16px" placeholder="O‘zingiz haqingizda qisqacha">${esc(tg.bio || '')}</textarea><div class="row" style="justify-content:space-between"><span class="hint bad" id="pb-h"></span><span class="hint" id="pb-n">${(tg.bio || '').length}/100</span></div><span class="muted" style="font-size:12px">Ko‘pi bilan 100 belgi va 3 qator · havola va telefon raqam mumkin emas</span></div>
       <div class="field"><span style="font-size:14px;font-weight:700">Rang</span><div class="row" style="flex-wrap:wrap">${COLORS.map(c => `<label style="cursor:pointer"><input type="radio" name="pc" value="${c}" class="sr" ${c === tg.color ? 'checked' : ''}><span class="av swatch" style="width:40px;height:40px;background:${c}"></span></label>`).join('')}</div></div>
       <button class="btn acc full">Saqlash</button></form>`); break;
     }
@@ -1504,7 +1512,8 @@ document.addEventListener('submit', async e => {
   }
   if (kind === 'profile') {
     const tg = u; if (!tg) return;
-    const name = $('#pn').value.trim() || tg.name, bio = $('#pb').value.trim();
+    const name = $('#pn').value.trim() || tg.name, bio = $('#pb').value.replace(/\n{2,}/g, '\n').trim();
+    { const bp = bio !== (tg.bio || '') && bioProblem(bio), h = $('#pb-h'); if (bp) { h.textContent = '❌ ' + bp; h.classList.remove('shake'); void h.offsetWidth; h.classList.add('shake'); return; } }
     const c = f.querySelector('input[name=pc]:checked'), color = c ? c.value : tg.color;
     const btn = f.querySelector('button.btn.acc'); btn.disabled = true; btn.textContent = 'Saqlanmoqda…';
     const body = { name, bio, color }; if (PHOTO !== undefined) body.photo = PHOTO || null;

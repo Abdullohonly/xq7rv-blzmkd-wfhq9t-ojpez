@@ -1,5 +1,14 @@
 import { sql, currentUser, publicUser, clearSession, send, sameOrigin, rateLimit, tooMany } from '../_lib.js';
 import { r2PutDataUrl } from '../_r2.js';
+// Bio cheklovlari: qisqa, havolasiz, telefon raqamsiz, spamsiz
+function bioProblem(v) {
+  if (v.length > 100) return 'Bio ko‘pi bilan 100 belgi';
+  if (v.split('\n').length > 3) return 'Bio ko‘pi bilan 3 qator';
+  if (/(https?:\/\/|www\.|t\.me\/|\b[a-z0-9-]+\.(uz|com|ru|net|org|me|io|link|app)\b)/i.test(v)) return 'Bioga havola (link) qo‘yib bo‘lmaydi';
+  if ((v.match(/\d/g) || []).length >= 9) return 'Bioga telefon raqam yozmang: xavfsizligingiz uchun';
+  if (/(.)\1{5,}/u.test(v)) return 'Bir belgini ko‘p takrorlamang';
+  return null;
+}
 // GET /api/auth/me — kim kirgan; PATCH — profil (ism, bio, rang, rasm); DELETE — chiqish
 const PHOTO_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 export default async function handler(req, res) {
@@ -11,7 +20,8 @@ export default async function handler(req, res) {
       if (!(await rateLimit('profile:' + u.id, 30, 600))) return tooMany(res);
       const b = req.body || {};
       const name = String(b.name ?? u.name).trim().slice(0, 40) || u.name;
-      const bio = String(b.bio ?? u.bio ?? '').trim().slice(0, 160);
+      const bio = String(b.bio ?? u.bio ?? '').replace(/\r/g, '').replace(/\n{2,}/g, '\n').trim();
+      if (b.bio != null && bio !== (u.bio || '')) { const bp = bioProblem(bio); if (bp) return send(res, 400, { error: 'bio', message: bp }); }
       const color = /^#[0-9A-Fa-f]{6}$/.test(b.color || '') ? b.color : u.color;
       let photo = u.photo;
       if (b.photo === null) photo = null;
