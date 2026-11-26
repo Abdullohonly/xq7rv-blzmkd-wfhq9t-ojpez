@@ -1,8 +1,8 @@
-/* Lahzam v1.1.1 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.1.2 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.1.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.1.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { post: 500, reply: 300, msg: 2000 };
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
@@ -574,12 +574,12 @@ function msgHtml(c, m) {
   else if (stk) body = `<div class="stk" role="img" aria-label="Stiker: ${esc(Stickers.label(stk))}">${Stickers.svg(stk)}</div>`;
   else if (m.poll) body = pollHtml(c, m);
   else body = (m.img ? `<button class="mimg" data-act="viewimg" data-c="${c.id}" data-m="${m.id}"><img src="${esc(m.img)}" alt="Rasm" loading="lazy"></button>` : '') + (m.text ? `<span class="mtx">${linkify(m.text)}</span>` : '');
-  const read = mine && c.type === 'dm' && c.members.filter(x => x !== u.id).every(x => (c.read[x] || 0) >= m.t);
-  const meta = `<span class="mt">${m.edited ? 'tahrirlandi · ' : ''}${clock(m.t)}${mine && c.type === 'dm' ? `<i class="tick${read ? ' read' : ''}">${read ? '✓✓' : '✓'}</i>` : ''}</span>`;
+  const rd = mine && !isSaved(c) ? readersOf(c, m).length : 0;
+  const meta = `<span class="mt">${m.edited ? 'tahrirlandi · ' : ''}${clock(m.t)}${mine && !isSaved(c) ? (m.tmp ? '<i class="tick">🕓</i>' : `<i class="tick${rd ? ' read' : ''}" aria-label="${rd ? 'O‘qildi' : 'Yetkazildi'}">✓✓</i>`) : ''}</span>`;
   const hit = CH.q && m.text && m.text.toLowerCase().includes(CH.q) ? ' hit' : '';
   return `<div class="m ${mine ? 'out' : 'in'}${hit}${stk ? ' stkm' : ''}" data-msg="${m.id}" id="m-${m.id}">${c.type === 'group' && !mine ? `<a class="who" href="/@${esc(a.u)}" data-link style="text-decoration:none">${esc(a.name)}</a>` : ''}${fwd}${quote}${body}
     <div class="reacts">${rx.map(([e, v]) => `<button class="rx ${v.includes(u.id) ? 'mine' : ''}" data-act="react" data-c="${c.id}" data-m="${m.id}" data-e="${e}" aria-label="${e} reaksiya, ${v.length}">${e} ${v.length}</button>`).join('')}
-      <button class="rx-add" data-act="rxbar" data-c="${c.id}" data-m="${m.id}" aria-label="Reaksiya qo‘shish">☺︎+</button><button class="rx-add" data-act="msgmenu" data-c="${c.id}" data-m="${m.id}" aria-label="Xabar amallari">⋯</button>${meta}</div></div>`;
+      <button class="rx-add rx-btn" data-act="rxbar" data-c="${c.id}" data-m="${m.id}" aria-label="Reaksiya bildirish">😊<b>+</b></button><button class="rx-add" data-act="msgmenu" data-c="${c.id}" data-m="${m.id}" aria-label="Xabar amallari">⋯</button>${meta}</div></div>`;
 }
 // Chatda qidiruv: yuklangan xabarlar + serverdagi eski xabarlar (qancha eski bo'lsa ham topiladi)
 let SRV_T = 0;
@@ -590,10 +590,19 @@ function srvSearch(c) {
     if (CH.q !== q || CH.cid !== c.id || !r.ok) return; CH.srv = { q, list: r.list }; const box = $('#msgs'); if (box) box.innerHTML = msgList(c);
   }, 350);
 }
+// Kim o'qidi: a'zoning oxirgi o'qigan vaqti xabar vaqtidan keyin bo'lsa
+const readersOf = (c, m) => c.members.filter(x => x !== m.uid && (c.read[x] || 0) >= m.t);
+function seenLine(c, m) {
+  if (m.tmp) return `<div class="seen">🕓 Yuborilmoqda…</div>`;
+  const r = readersOf(c, m);
+  if (c.type === 'dm') return r.length ? `<div class="seen on">👁 O‘qildi · ${clock(c.read[r[0]])}</div>` : `<div class="seen">✓ Yetkazildi, hali o‘qilmadi</div>`;
+  return r.length ? `<button class="seen on" data-act="readers" data-c="${c.id}" data-m="${m.id}">👁 ${r.length} kishi o‘qidi ›</button>` : `<div class="seen">✓ Yetkazildi, hali hech kim o‘qimadi</div>`;
+}
 function msgList(c) {
   let last = '', out = '';
   const list = CH.q ? c.msgs.filter(m => !m.sys && ((m.text || '').toLowerCase().includes(CH.q) || (m.poll && m.poll.q.toLowerCase().includes(CH.q)))) : c.msgs;
-  list.forEach(m => { const d = dayLabel(m.t); if (d !== last) { out += `<div class="day">${d}</div>`; last = d; } out += msgHtml(c, m); });
+  const u0 = me(), lastMine = !CH.q && !isSaved(c) && [...c.msgs].reverse().find(m => !m.sys && m.uid === u0.id);
+  list.forEach(m => { const d = dayLabel(m.t); if (d !== last) { out += `<div class="day">${d}</div>`; last = d; } out += msgHtml(c, m); if (lastMine && m.id === lastMine.id) out += seenLine(c, m); });
   if (CH.q && CH.srv && CH.srv.q === CH.q) {
     const have = new Set(c.msgs.map(m => m.id)), old = CH.srv.list.filter(m => !have.has(m.id));
     if (old.length) out += `<div class="day">Eski xabarlar</div><div class="card old-res">${old.map(m => `<button class="li" style="width:100%;text-align:left" data-act="oldmsg" data-c="${c.id}" data-m="${m.id}"><span style="flex:1;min-width:0"><b>${esc((user(m.uid) || { name: '—' }).name)}</b> <span class="muted">${uzDate(m.t)}</span><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.text)}</span></span>›</button>`).join('')}</div>`;
@@ -956,6 +965,12 @@ function sheet(html) {
 }
 const closeSheet = () => { $('#modal-root').innerHTML = ''; };
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+// Xabarni ikki marta bossangiz ❤️ reaksiya qo'yiladi (Telegram'dagidek)
+document.addEventListener('dblclick', e => {
+  const mEl = e.target.closest('.m[data-msg]'); if (!mEl || e.target.closest('button,a,input') || !CH.cid || String(mEl.dataset.msg).startsWith('tmp')) return;
+  const b = document.createElement('button'); b.hidden = true; Object.assign(b.dataset, { act: 'react', c: CH.cid, m: mEl.dataset.msg, e: '❤️' });
+  mEl.appendChild(b); b.click(); b.remove(); getSelection && getSelection().removeAllRanges();
+});
 
 /* ---------------- actions ---------------- */
 document.addEventListener('click', async e => {
@@ -1165,6 +1180,11 @@ document.addEventListener('click', async e => {
         ${!m.game && !m.tmp ? B('m-fwd', '↪️ Uzatish') : ''}${!m.game && !m.tmp && !isSaved(c) ? B('m-save', '🔖 Saqlash') : ''}${canPin(c) && !m.tmp ? B('m-pin', c.pin === m.id ? '📌 Qadashni olib tashlash' : '📌 Qadash') : ''}
         ${canDel ? B('delmsg', '🗑 O‘chirish', 'color:var(--danger)') : ''}</div>`);
       break;
+    }
+    case 'readers': {
+      const c = DB.chats.find(x => x.id === el.dataset.c), m = c && c.msgs.find(x => x.id === el.dataset.m); if (!m) break;
+      const r = readersOf(c, m).map(id => user(id)).filter(Boolean);
+      sheet(`<h2>👁 O‘qiganlar (${r.length})</h2><div class="card" style="padding:4px 16px">${r.map(x => `<a href="/@${esc(x.u)}" data-link class="li">${avatar(x, 40)}<span style="flex:1"><b>${esc(x.name)}</b><span class="muted" style="display:block">${clock(c.read[x.id])} da o‘qidi</span></span></a>`).join('')}</div>`); break;
     }
     case 'm-reply': CH.reply = el.dataset.m; CH.edit = null; closeSheet(); render(); break;
     case 'm-edit': CH.edit = el.dataset.m; CH.reply = null; closeSheet(); render(); break;

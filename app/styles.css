@@ -340,3 +340,13 @@ button.stat:active{transform:scale(.97)}
 .inst-fab-x{color:#bbb;width:36px;height:36px;border-radius:50%}
 @keyframes fabin{from{transform:translate(-50%,20px);opacity:0}}
 @media (min-width:1080px){#inst-fab{bottom:24px}}
+/* 1.1.2: o'qildi belgisi va reaksiya tugmasi */
+.m .tick{font-size:12px;opacity:.75}
+.m .tick.read{color:#fff;opacity:1;text-shadow:0 0 6px rgba(255,255,255,.6)}
+.m.in .tick.read{color:var(--acc)}
+.seen{align-self:flex-end;font-size:12px;color:var(--mute);margin:-2px 4px 6px;font-weight:600}
+.seen.on{color:var(--acc)}
+button.seen{background:none;padding:0;cursor:pointer}
+.rx-btn{opacity:1!important;display:inline-flex;align-items:center;gap:1px;height:26px;padding:0 9px!important;border-radius:999px;background:rgba(0,0,0,.07);font-size:14px!important}
+.rx-btn b{font-size:12px;font-weight:800}
+.m.out .rx-btn{background:rgba(255,255,255,.25);color:#fff}
