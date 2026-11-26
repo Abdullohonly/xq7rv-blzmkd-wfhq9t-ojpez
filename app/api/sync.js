@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { sql, currentUser, isOwnerEmail, hasAdminPass, send } from './_lib.js';
 // GET /api/sync — ilova uchun hamma umumiy ma'lumot bitta so'rovda: odamlar, postlar, guruhlar, chatlar, bildirishnomalar
 // Rasmlar bu yerga kirmaydi (og'ir): ular /api/img orqali alohida, keshlanib yuklanadi
@@ -83,8 +84,8 @@ export default async function handler(req, res) {
     const memByChat = {};
     members.forEach(m => (memByChat[m.chat_id] = memByChat[m.chat_id] || []).push(m));
 
-    send(res, 200, {
-      me: Number(me.id), admin, now: Date.now(),
+    const payload = {
+      me: Number(me.id), admin,
       users: users.filter(u => !u.is_blocked || admin || Number(u.id) === uid).map(u => ({
         id: Number(u.id), u: u.username, name: u.name, bio: u.bio, color: u.color, system: u.is_system || undefined,
         blocked: u.is_blocked || undefined, joined: ms(u.created_at), photo: photoUrl(u.id, u.ph),
@@ -112,6 +113,12 @@ export default async function handler(req, res) {
       }),
       notifs: notifs.map(n => ({ id: 'n' + n.id, text: n.body, link: n.link, read: n.is_read, t: ms(n.created_at) })),
       stars: Object.fromEntries(stars.map(s => [Number(s.receiver), { all: s.total, week: s.week }]))
-    });
+    };
+    // O'zgarmagan bo'lsa 304: telefon hech narsa yuklamaydi (trafik va tezlik)
+    const body = JSON.stringify(payload), tag = '"' + createHash('sha1').update(body).digest('base64url') + '"';
+    res.setHeader('ETag', tag); res.setHeader('Cache-Control', 'private, no-cache');
+    if (req.headers['if-none-match'] === tag) return res.status(304).end();
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.status(200).end(body);
   } catch (e) { send(res, 500, { error: 'server' }); }
 }

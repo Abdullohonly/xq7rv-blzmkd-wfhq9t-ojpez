@@ -26,6 +26,8 @@ function load() {
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) {} }
 DB = load();
+// Shriftlar sahifani kutdirmasdan yuklanadi (sekin internetda ham matn darhol ko'rinadi)
+{ const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Manrope:wght@800&family=Unbounded:wght@500;700&display=swap'; document.head.appendChild(l); }
 
 const GHOST = id => ({ id, u: 'deleted', name: 'O‘chirilgan akkaunt', color: '#E8E2D8', bio: '', ghost: true });
 const user = id => id == null ? undefined : (DB.users.find(u => u.id === id) || GHOST(id));
@@ -62,8 +64,14 @@ let SYNC = { busy: false, sig: '', last: 0, readSent: {} };
 async function sync(force) {
   if (!SESSION || (SYNC.busy && !force)) return;
   SYNC.busy = true;
-  const r = await api('sync');
-  SYNC.busy = false; SYNC.last = now();
+  let r;
+  try {
+    const res = await fetch('/api/sync', { credentials: 'same-origin', headers: SYNC.etag && !force ? { 'If-None-Match': SYNC.etag } : {} });
+    SYNC.busy = false; SYNC.last = now();
+    if (res.status === 304) return; // o'zgarish yo'q: hech narsa yuklanmaydi
+    r = { ok: res.ok, status: res.status, ...(await res.json().catch(() => ({}))) };
+    if (res.ok) SYNC.etag = res.headers.get('ETag');
+  } catch (e) { SYNC.busy = false; SYNC.last = now(); return; }
   if (r.status === 401) { adoptSession(null); save(); render(); return; }
   if (!r.ok) return;
   const sig = JSON.stringify([r.users, r.follows, r.posts, r.chats, r.notifs, r.stars]);
@@ -1146,10 +1154,10 @@ document.addEventListener('submit', async e => {
   if (kind === 'post') {
     const ta = $('#post-text'), text = ta.value, btn = f.querySelector('button.btn');
     if (!guard('post', text)) return save();
-    btn.disabled = true;
-    const r = await server({ t: 'post', body: text.trim(), lahza: $('#post-lahza').checked });
-    btn.disabled = false;
-    if (r.ok) { ta.value = ''; await sync(true); render(); toast('Joylandi ✅'); }
+    const lahza = $('#post-lahza').checked, tmp = { id: 'tmp' + uid(), uid: u.id, text: text.trim(), t: now(), lahza, likes: [], views: 1, seen: true, replies: [] };
+    DB.posts.unshift(tmp); ta.value = ''; render(); toast('Joylandi ✅');
+    const r = await server({ t: 'post', body: tmp.text, lahza });
+    if (!r.ok) { DB.posts = DB.posts.filter(x => x !== tmp); render(); }
     return;
   }
   if (kind === 'reply') {
