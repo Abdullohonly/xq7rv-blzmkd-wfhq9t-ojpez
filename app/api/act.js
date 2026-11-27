@@ -77,7 +77,14 @@ export default async function handler(req, res) {
       case 'post': {
         const body = clean(str(b.body, isStar(me) ? 1500 : 500)); let img = null;
         if (b.img != null) { if (typeof b.img !== 'string' || b.img.length > 400000 || !IMG_RE.test(b.img)) return bad(res, 'Rasm juda katta yoki noto‘g‘ri'); img = (await r2PutDataUrl(b.img, 'p').catch(() => null)) || b.img; }
-        if (!body && !img) return bad(res, 'Avval biror narsa yozing');
+        // 📊 so'rovnoma, 🔁 iqtibos (repost), ⏰ rejalashtirish (Yulduz)
+        let poll = null, quote = null, at = null;
+        if (b.poll) { const q = clean(str(b.poll.q, 140)).trim(), opts = (Array.isArray(b.poll.opts) ? b.poll.opts : []).map(o => clean(str(o, 60)).trim()).filter(Boolean).slice(0, 4);
+          if (!q || opts.length < 2) return bad(res, 'So‘rovnomaga savol va kamida 2 variant kerak'); poll = { q, opts }; }
+        if (b.quote) { quote = idOf(b.quote, 'p'); const [qp] = quote ? await db`select id from posts where id = ${quote} and not is_hidden and not is_lahza` : []; if (!qp) return bad(res, 'Iqtibos qilinadigan post topilmadi'); }
+        if (b.at) { if (!isStar(me)) return send(res, 403, { error: 'star', message: 'Postni rejalashtirish faqat ⭐ Yulduz a’zolari uchun' });
+          const t = Number(b.at); if (!(t > Date.now() + 60e3 && t < Date.now() + 30 * 864e5)) return bad(res, 'Vaqt 1 daqiqadan 30 kungacha bo‘lishi kerak'); at = new Date(t).toISOString(); }
+        if (!body && !img && !poll && !quote) return bad(res, 'Avval biror narsa yozing');
         if (!(await rateLimit('post:' + uid, 10, 3600))) return send(res, 429, { error: 'rate', message: 'Soatiga ko‘pi bilan 10 ta post' });
         // Yangi akkaunt birinchi haftada ko'pi bilan 7 ta post saqlay oladi (eskisini o'chirsa, joy bo'shaydi)
         if (!isOwnerEmail(me.email) && Date.now() - new Date(me.created_at).getTime() < 7 * 864e5) {
@@ -87,7 +94,10 @@ export default async function handler(req, res) {
         const hash = createHash('sha256').update(body.toLowerCase().replace(/\s+/g, ' ') + (img ? '|' + img.slice(-40) : '')).digest('hex');
         const [dup] = body ? await db`select 1 from posts where user_id = ${uid} and body_hash = ${hash} and created_at > now() - interval '1 day'` : [];
         if (dup) return bad(res, 'Bu matnni 24 soat ichida allaqachon joylagansiz');
-        const [p] = await db`insert into posts (user_id, body, body_hash, is_lahza, img) values (${uid}, ${body}, ${hash}, ${!!b.lahza}, ${img}) returning id`;
+        const [p] = at
+          ? await db`insert into posts (user_id, body, body_hash, is_lahza, img, poll, quote_id, created_at) values (${uid}, ${body}, ${hash}, ${!!b.lahza}, ${img}, ${poll ? JSON.stringify(poll) : null}::jsonb, ${quote}, ${at}) returning id`
+          : await db`insert into posts (user_id, body, body_hash, is_lahza, img, poll, quote_id) values (${uid}, ${body}, ${hash}, ${!!b.lahza}, ${img}, ${poll ? JSON.stringify(poll) : null}::jsonb, ${quote}) returning id`;
+        if (quote) { const [qo] = await db`select user_id from posts where id = ${quote}`; if (qo) await notify(db, Number(qo.user_id), `🔁 @${me.username} postingizni iqtibos qildi`, `/p/${p.id}`, uid).catch(() => {}); }
         await db`insert into post_views (post_id, user_id) values (${p.id}, ${uid}) on conflict do nothing`;
         await notifyMentions(db, body, uid, me.username, 'postda', `/p/${p.id}`);
         return send(res, 200, { ok: true, id: 'p' + p.id });
@@ -292,13 +302,13 @@ export default async function handler(req, res) {
         if (at) return send(res, 200, { ok: true, id: 'm' + m.id, scheduled: true });
         await db`update chat_members set last_read = now() where chat_id = ${cid} and user_id = ${uid}`;
         // chat xabarlari bildirishnomalar ro'yxatiga tushmaydi, lekin telefonga push keladi
-        const others = await db`select user_id from chat_members where chat_id = ${cid} and status = 'member' and user_id <> ${uid}`;
+        const others = await db`select user_id, muted from chat_members where chat_id = ${cid} and status = 'member' and user_id <> ${uid}`;
         await db`update chat_members set typing_at = null where chat_id = ${cid} and user_id = ${uid}`;
         if (others.length) {
           const st = /^\[s:[a-z0-9]+\]$/.test(body), pp = /^\[post:\d+\]\n?/.exec(body), prev = pp ? '📝 Post: ' + body.slice(pp[0].length) : poll ? '📊 ' + poll.q : img ? '📷 Rasm' + (body ? ': ' + body : '') : xo ? '❌⭕ X/O o‘yini' : game ? '🎮 O‘yin' : st ? '🎨 Stiker' : body;
           const grp = c.kind === 'group', who = me.name || '@' + me.username;
           // shaxsiy chat: hammaga push; guruh: faqat @belgilangan odamlarga
-          let to = others.map(o => Number(o.user_id));
+          let to = others.filter(o => !o.muted).map(o => Number(o.user_id));
           if (grp) { const ns = mentions(body); if (!ns.length) to = []; else { const rows = await db`select id from users where lower(username) = any(${ns}::text[])`; const ok = new Set(rows.map(r => Number(r.id))); to = to.filter(x => ok.has(x)); } }
           if (to.length) await pushTo(db, to, { title: grp ? c.name : who, body: (grp ? who + ': ' : '') + prev.slice(0, 160), url: '/c/c' + cid, tag: 'c' + cid });
         }
@@ -327,6 +337,30 @@ export default async function handler(req, res) {
         if (!m) return send(res, 403, { error: 'forbidden' });
         const del = await db`delete from reactions where message_id = ${mid} and user_id = ${uid} and emoji = ${emoji} returning emoji`;
         if (!del.length) await db`insert into reactions (message_id, user_id, emoji) values (${mid}, ${uid}, ${emoji}) on conflict (message_id, user_id) do update set emoji = excluded.emoji`;
+        return send(res, 200, { ok: true });
+      }
+      case 'pvote': {
+        const pid = idOf(b.post, 'p'), opt = Number(b.opt);
+        const [p] = pid ? await db`select poll from posts where id = ${pid} and poll is not null and not is_hidden` : [];
+        if (!p) return bad(res, 'So‘rovnoma topilmadi', 404);
+        const P = typeof p.poll === 'string' ? JSON.parse(p.poll) : p.poll;
+        if (!Number.isInteger(opt) || opt < 0 || opt >= P.opts.length) return bad(res, 'variant');
+        const del = await db`delete from post_votes where post_id = ${pid} and user_id = ${uid} and opt = ${opt} returning opt`;
+        if (!del.length) await db`insert into post_votes (post_id, user_id, opt) values (${pid}, ${uid}, ${opt}) on conflict (post_id, user_id) do update set opt = excluded.opt`;
+        return send(res, 200, { ok: true });
+      }
+      case 'tagfollow': {
+        const tg = String(b.tag || '').toLowerCase().replace(/^#/, '').slice(0, 30);
+        if (!/^[\p{L}0-9_]{2,30}$/u.test(tg)) return bad(res, 'Teg noto‘g‘ri');
+        const cur = (me.tags || []).map(String), has = cur.includes(tg);
+        if (!has && cur.length >= 30) return bad(res, 'Ko‘pi bilan 30 ta teg kuzatish mumkin');
+        const next = has ? cur.filter(x => x !== tg) : [...cur, tg];
+        await db`update users set tags = ${next}::text[] where id = ${uid}`;
+        return send(res, 200, { ok: true, tags: next });
+      }
+      case 'mute': {
+        const cid = idOf(b.chat, 'c'); if (!cid) return bad(res, 'chat');
+        await db`update chat_members set muted = ${!!b.on} where chat_id = ${cid} and user_id = ${uid}`;
         return send(res, 200, { ok: true });
       }
       case 'vote': {

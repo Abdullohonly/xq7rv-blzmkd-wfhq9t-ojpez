@@ -16,19 +16,20 @@ export default async function handler(req, res) {
 
     // onlayn holat: har sync'da "oxirgi marta ko'rildi" yangilanadi (10 soniyada bir martadan ko'p emas)
     const seenQ = db`update users set last_seen = now() where id = ${uid} and (last_seen is null or last_seen < now() - interval '10 seconds')`;
-    const [users, follows, posts, likes, replies, myReports, chats, members, notifs, stars, daily, dq] = await Promise.all([
+    const [users, follows, posts, likes, replies, myReports, chats, members, notifs, stars, daily, dq, pvotes] = await Promise.all([
       db`select id, username, name, bio, color, is_system, is_blocked, created_at, dm_from, rr_off, warns, lower(email) = ${OWNER_EMAIL} as is_owner, coalesce(star_until > now(), false) or lower(email) = ${OWNER_EMAIL} as is_star, star_color, cover, pinned_post, hide_online, hide_read,
            case when photo is null then null else substr(md5(photo), 1, 10) end as ph,
            coalesce(last_seen > now() - interval '45 seconds', false) as online, (extract(epoch from date_trunc('minute', last_seen)) * 1000)::bigint as ls
          from users order by id limit 2000`,
       db`select follower_id, followee_id from follows limit 20000`,
-      db`select p.id, p.user_id, p.body, p.is_lahza, p.is_hidden, p.created_at, p.edited,
+      db`select p.id, p.user_id, p.body, p.is_lahza, p.is_hidden, p.created_at, p.edited, p.poll, p.quote_id,
            case when p.img like 'https://%' then p.img when p.img is not null then '' end as img_url,
            (select count(*)::int from post_views v where v.post_id = p.id) as views,
            exists(select 1 from post_views v where v.post_id = p.id and v.user_id = ${uid}) as seen,
            (select count(*)::int from reports r where r.post_id = p.id) as reports
          from posts p
          where (${admin} or not p.is_hidden) and (not p.is_lahza or p.created_at > now() - interval '1 day')
+           and (p.created_at <= now() or p.user_id = ${uid})
          order by p.created_at desc limit 200`,
       db`select l.post_id, l.user_id from post_likes l join (select id from posts order by created_at desc limit 200) p on p.id = l.post_id`,
       db`select r.id, r.post_id, r.user_id, r.body, r.created_at, r.parent_id from replies r join (select id from posts order by created_at desc limit 200) p on p.id = r.post_id order by r.created_at`,
@@ -37,7 +38,7 @@ export default async function handler(req, res) {
          where exists(select 1 from chat_members m where m.chat_id = c.id and m.user_id = ${uid})
             or (c.kind = 'group' and c.access in ('open', 'ask'))
          order by c.id limit 500`,
-      db`select m.chat_id, m.user_id, m.status, m.last_read, coalesce(m.typing_at > now() - interval '6 seconds', false) as typing from chat_members m
+      db`select m.chat_id, m.user_id, m.status, m.last_read, m.muted, coalesce(m.typing_at > now() - interval '6 seconds', false) as typing from chat_members m
          join chats c on c.id = m.chat_id
          where exists(select 1 from chat_members x where x.chat_id = c.id and x.user_id = ${uid}) or (c.kind = 'group' and c.access in ('open', 'ask'))`,
       db`select id, body, link, is_read, created_at from notifications where user_id = ${uid} and link not like '/c/%' order by created_at desc limit 60`,
@@ -52,7 +53,8 @@ export default async function handler(req, res) {
            exists(select 1 from daily_likes l where l.answer_id = d.id and l.user_id = ${uid}) as liked
          from daily_answers d where d.day = (now() at time zone 'Asia/Tashkent')::date
          order by likes desc, d.created_at desc limit 100`,
-      db`select body from daily_q where day = (now() at time zone 'Asia/Tashkent')::date`
+      db`select body from daily_q where day = (now() at time zone 'Asia/Tashkent')::date`,
+      db`select v.post_id, v.user_id, v.opt from post_votes v join (select id from posts where poll is not null order by created_at desc limit 200) p on p.id = v.post_id`
     ]);
     await seenQ.catch(() => {});
     // 🏁 Vaqti tugagan turnirlar yakunlanadi: g'olib chatga e'lon qilinadi (faqat bir marta)
@@ -123,12 +125,14 @@ export default async function handler(req, res) {
         dmFrom: u.dm_from === 'fol' ? 'fol' : undefined, rrOff: u.rr_off || undefined, warns: admin ? u.warns : undefined
       })),
       follows: follows.map(f => [Number(f.follower_id), Number(f.followee_id)]),
-      posts: posts.map(p => ({
+      posts: posts.map(p => { const P = p.poll ? (typeof p.poll === 'string' ? JSON.parse(p.poll) : p.poll) : null; return {
         id: 'p' + p.id, uid: Number(p.user_id), text: p.body, t: ms(p.created_at), edited: p.edited || undefined, lahza: p.is_lahza || undefined, hidden: p.is_hidden || undefined,
         img: p.img_url == null ? undefined : `/api/img?p=${p.id}`,
         likes: likeMap[p.id] || [], views: p.views, seen: p.seen, replies: repMap[p.id] || [],
-        reports: admin ? p.reports : undefined, reported: reported.has(Number(p.id)) || undefined
-      })),
+        reports: admin ? p.reports : undefined, reported: reported.has(Number(p.id)) || undefined,
+        poll: P ? { q: P.q, opts: P.opts.map((t, i) => ({ t, v: pvotes.filter(v => v.post_id == p.id && v.opt === i).map(v => Number(v.user_id)) })) } : undefined,
+        quote: p.quote_id ? 'p' + p.quote_id : undefined, sched: ms(p.created_at) > Date.now() || undefined
+      }; }),
       chats: chats.map(c => {
         const ms2 = memByChat[c.id] || [], mine = ms2.find(m => Number(m.user_id) === uid);
         const isMember = !!mine && mine.status === 'member', canRead = readable.includes(Number(c.id));
@@ -147,6 +151,7 @@ export default async function handler(req, res) {
           mrecord: c.mines_score ? { score: c.mines_score, uid: Number(c.mines_user) } : null,
           grecord: c.g2048_score ? { score: c.g2048_score, uid: Number(c.g2048_user) } : null,
           typing: isMember ? ms2.filter(m => m.typing && Number(m.user_id) !== uid).map(m => Number(m.user_id)) : [],
+          muted: mine && mine.muted || undefined,
           pin: c.pin_id ? 'm' + c.pin_id : null, read, msgs: canRead ? (byChat[c.id] || []) : [], full: canRead
         };
       }),

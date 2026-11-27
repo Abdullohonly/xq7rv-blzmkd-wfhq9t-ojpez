@@ -664,3 +664,40 @@ a.q-ans{text-decoration:none;cursor:pointer}a.q-ans:hover b{text-decoration:unde
 .lz-like{min-width:72px;height:48px;border-radius:999px;border:0;background:rgba(255,255,255,.14);color:#fff;font-weight:800;font-size:16px;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1)}
 .lz-like.on{transform:scale(1.08)}
 @media (prefers-reduced-motion:reduce){#lz-view,.lz-body img,.lz-body p.big,.lz-it .lz-ring{animation:none!important}}
+
+/* v1.12.0 — so'rovnoma, iqtibos, teglar, tavsiyalar, profil havolasi */
+.ppoll{display:flex;flex-direction:column;gap:7px;background:var(--bg);border-radius:18px;padding:12px}
+.ppoll-q{font-size:15px}
+.ppoll-o{position:relative;overflow:hidden;display:flex;align-items:center;gap:8px;min-height:44px;border-radius:12px;border:1.5px solid var(--line,#E5E0D6);background:var(--card);color:var(--ink);padding:0 12px;font-weight:600;font-size:15px;text-align:left;cursor:pointer}
+.ppoll-o.on{border-color:var(--acc)}
+.ppoll-f{position:absolute;inset:0 auto 0 0;background:color-mix(in srgb,var(--acc) 18%,transparent);transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.ppoll-t{position:relative;flex:1}.ppoll-p{position:relative;font-weight:800;font-size:13px}
+.qpost{display:flex;flex-direction:column;gap:6px;border:1.5px solid var(--line,#E5E0D6);border-radius:16px;padding:10px 12px;text-decoration:none;color:inherit;font-size:14px}
+.qpost-t{line-height:1.45;overflow-wrap:anywhere}
+.qpost img{width:100%;max-height:220px;object-fit:cover;border-radius:12px}
+.sched-b{background:#FFF3D6;color:#7A5200;border-radius:12px;padding:8px 12px;font-size:13px;font-weight:600}
+[data-theme=dark] .sched-b{background:#3a2f17;color:#FFD98A}
+.cmp-poll{display:flex;flex-direction:column;gap:6px;margin:6px 0 4px}
+.cmp-poll input{height:42px;border-radius:12px;border:1.5px solid var(--line,#E5E0D6);background:var(--bg);color:var(--ink);padding:0 12px;font-size:16px}
+.cmp-quote{position:relative;margin:6px 0 4px}
+.cmp-x{position:absolute;right:6px;top:6px;z-index:1;width:28px;height:28px;border-radius:50%;border:0;background:var(--ink);color:var(--bg);cursor:pointer}
+.cd-chip.on{background:var(--ink);color:var(--bg)}
+.home-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--card);border-radius:999px;padding:4px}
+.home-tabs button{border:0;background:none;height:40px;border-radius:999px;font-weight:700;font-size:14px;color:var(--mute);cursor:pointer;transition:background .25s,color .25s}
+.home-tabs button.on{background:var(--ink);color:var(--bg)}
+.tagrow{display:flex;gap:6px;flex-wrap:wrap}
+.tagrow a{background:var(--card);border-radius:999px;padding:6px 12px;font-weight:700;font-size:13px;text-decoration:none;color:var(--acc)}
+.sug{padding:14px 0 14px 14px}
+.sug-h{font-family:var(--head);font-size:16px}
+.sug-row{display:flex;gap:10px;overflow-x:auto;padding:10px 14px 2px 0;scrollbar-width:none}
+.sug-row::-webkit-scrollbar{display:none}
+.sug-it{position:relative;flex:none;width:132px;border:1.5px solid var(--line,#E5E0D6);border-radius:18px;padding:14px 10px 10px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.sug-it a{display:flex;flex-direction:column;align-items:center;gap:4px;text-decoration:none;color:inherit;min-width:0;width:100%}
+.sug-it b{font-size:14px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sug-it span{font-size:11.5px;color:var(--mute);line-height:1.25}
+.sug-it .btn{height:34px;width:100%;border-radius:999px;font-size:13px;padding:0}
+.sug-x{position:absolute;right:6px;top:6px;width:24px;height:24px;border-radius:50%;border:0;background:var(--bg);color:var(--mute);font-size:11px;cursor:pointer}
+.plink{display:flex;flex-direction:column;align-items:center;gap:4px;padding:22px 16px;border-radius:24px;color:#fff;background:linear-gradient(140deg,var(--pc),#121212);text-align:center}
+.plink b{font-family:var(--head);font-size:20px;margin-top:6px}
+.plink span{opacity:.85}
+.plink code{margin-top:10px;background:rgba(255,255,255,.16);border-radius:999px;padding:6px 14px;font-size:14px;font-family:inherit;font-weight:700}

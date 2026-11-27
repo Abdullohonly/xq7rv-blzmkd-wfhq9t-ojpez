@@ -233,3 +233,9 @@ create table if not exists game_best (game text not null, wk date not null, user
 -- v1.10.3 xavfsizlik: sessiyani bekor qilish va admin jurnali
 alter table users add column if not exists session_ver int not null default 0;
 create table if not exists admin_log (id bigserial primary key, at timestamptz not null default now(), admin_id bigint, action text not null, target_id bigint, ip text, note text);
+
+-- v1.12.0 post so'rovnoma, iqtibos, teg kuzatish, chatni ovozsiz qilish
+alter table posts add column if not exists poll jsonb, add column if not exists quote_id bigint references posts(id) on delete set null;
+create table if not exists post_votes (post_id bigint not null references posts(id) on delete cascade, user_id bigint not null references users(id) on delete cascade, opt smallint not null, primary key (post_id, user_id));
+alter table users add column if not exists tags text[] not null default '{}';
+alter table chat_members add column if not exists muted boolean not null default false;
