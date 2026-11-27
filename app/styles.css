@@ -728,3 +728,13 @@ a.q-ans{text-decoration:none;cursor:pointer}a.q-ans:hover b{text-decoration:unde
 @keyframes skFade{from{opacity:0}}
 @keyframes skFire{0%,100%{transform:scale(1) rotate(-3deg)}50%{transform:scale(1.12) rotate(3deg)}}
 @keyframes skGrow{from{width:0}}
+/* 🛠 Texnik rejim */
+#maint{position:fixed;inset:0;z-index:300;background:var(--bg);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;animation:skFade .3s ease}
+.mt-box{max-width:380px;width:100%;display:flex;flex-direction:column;align-items:center}
+.mt-ico{width:96px;height:96px;border-radius:30px;background:#121212;display:flex;align-items:center;justify-content:center;font-size:48px;box-shadow:0 20px 40px -18px rgba(255,90,31,.7);animation:mtSwing 2.4s ease-in-out infinite}
+.mt-box h1{font-family:var(--head);font-size:26px;margin:22px 0 6px;letter-spacing:-.02em}
+.mt-msg{font-size:16px;margin:0 0 6px;white-space:pre-line}
+.mt-dots{display:flex;gap:6px;margin:14px 0}.mt-dots i{width:9px;height:9px;border-radius:50%;background:var(--acc);animation:mtDot 1.2s ease-in-out infinite}.mt-dots i:nth-child(2){animation-delay:.15s}.mt-dots i:nth-child(3){animation-delay:.3s}
+#maint-bar{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:250;background:#FF5A1F;color:#fff;font-size:12.5px;font-weight:700;padding:5px 14px;border-radius:0 0 14px 14px;text-decoration:none;white-space:nowrap}
+@keyframes mtSwing{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+@keyframes mtDot{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-5px)}}

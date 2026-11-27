@@ -41,6 +41,7 @@ export default async function handler(req, res) {
     const db = sql(), uid = Number(me.id), b = req.body || {}, t = String(b.t || '');
     const admin = isOwnerEmail(me.email) && hasAdminPass(req, me);
     if (!(await rateLimit('act:' + uid, 240, 60))) return tooMany(res);
+    if (!isOwnerEmail(me.email)) { const [mt] = await db`select value from app_flags where key = 'maint' and value is not null`; if (mt) return send(res, 503, { error: 'maint', maint: mt.value, message: '🛠 Sayt ustida ishlanmoqda. Birozdan keyin urinib ko‘ring' }); }
 
     if (t === 'stats') {
       // ⭐ Kengaytirilgan statistika: oxirgi 14 kun
@@ -557,6 +558,14 @@ export default async function handler(req, res) {
             when streak_day = (now() at time zone 'Asia/Tashkent')::date - 1 then streak + 1 else 1 end,
           streak_day = (now() at time zone 'Asia/Tashkent')::date where id = ${uid} returning streak`;
         return send(res, 200, { ok: true, streak: sk ? sk.streak : 1, up: !(o && o.today), lost: !!(o && !o.today && !o.kept && o.best0 > 1) ? o.best0 : 0 });
+      }
+      case 'maint': { // 🛠 Texnik rejim: faqat admin yoqadi/o'chiradi
+        if (!admin) return send(res, 403, { error: 'forbidden' });
+        const v = b.on ? (clean(str(b.text, 200)).trim() || 'Sayt yangilanmoqda. Tez orada qaytamiz!') : null;
+        if (v) await db`insert into app_flags (key, value) values ('maint', ${v}) on conflict (key) do update set value = excluded.value, updated_at = now()`;
+        else await db`delete from app_flags where key = 'maint'`;
+        await db`insert into admin_log (admin_id, action, note) values (${uid}, ${v ? 'maint_on' : 'maint_off'}, ${v})`.catch(() => {});
+        return send(res, 200, { ok: true, maint: v });
       }
       case 'qset': {
         if (!admin) return send(res, 403, { error: 'forbidden' });

@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.14.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.15.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -76,14 +76,34 @@ async function sync(force) {
     if (r.same) return;
     if (res.ok) { SYNC.etag = res.headers.get('ETag'); SYNC.fp = r.fp; SYNC.full = now(); }
   } catch (e) { SYNC.busy = false; SYNC.last = now(); return; }
+  if (r.status === 503 && r.error === 'maint') { MAINT_AUTH = false; setMaint(r.maint); return; }
   if (r.status === 401) { adoptSession(null); save(); render(); return; }
   if (!r.ok) return;
+  setMaint(r.maint);
   const sig = JSON.stringify([r.users, r.follows, r.posts, r.chats, r.notifs, r.stars, r.daily, r.dq]);
   if (sig === SYNC.sig && !force) return;
   SYNC.sig = sig;
   Object.assign(DB, { me: r.me, users: r.users, follows: r.follows, stars: r.stars || {}, posts: r.posts, daily: r.daily || [], dq: r.dq || null, chats: r.chats, notifs: r.notifs.map(n => ({ ...n, to: r.me })) });
   if (isOwnerSession() && ADM.checked && r.admin !== ADM.verified) ADM.verified = r.admin;
   save(); softRender();
+}
+// 🛠 Texnik rejim: admin yoqsa, egasidan boshqa hammaga "Sayt ustida ishlanmoqda" ekrani chiqadi
+let MAINT = null, MAINT_AUTH = false;
+const LANDING = 'https://lahzam-landing-my-group1.vercel.app';
+function setMaint(v) {
+  const was = MAINT; MAINT = v || null;
+  const owner = !!(SESSION && SESSION.isOwner);
+  let ov = document.getElementById('maint');
+  if (MAINT && !owner && !MAINT_AUTH) {
+    if (!ov) { ov = document.createElement('div'); ov.id = 'maint'; ov.setAttribute('role', 'alertdialog'); document.body.appendChild(ov); }
+    ov.innerHTML = `<div class="mt-box"><div class="mt-ico" aria-hidden="true">🛠</div><h1>Sayt ustida ishlanmoqda</h1><p class="mt-msg">${esc(MAINT)}</p>
+      <div class="mt-dots" aria-hidden="true"><i></i><i></i><i></i></div><p class="muted" style="margin:0 0 18px">Ma’lumotlaringiz xavfsiz. Ishlar tugashi bilan sahifa o‘zi yangilanadi.</p>
+      <a class="btn acc full" href="${LANDING}">Lahzam bilan tanishish</a>${SESSION ? '' : '<button class="link-btn" style="margin-top:12px" data-act="maintlogin">Admin kirishi</button>'}</div>`;
+  } else if (ov) ov.remove();
+  let bar = document.getElementById('maint-bar');
+  if (MAINT && owner) { if (!bar) { bar = document.createElement('a'); bar.id = 'maint-bar'; bar.href = '/musoojon'; bar.setAttribute('data-link', ''); document.body.appendChild(bar); } bar.textContent = '🛠 Texnik rejim yoqilgan: boshqalar saytni ko‘ra olmaydi'; }
+  else if (bar) bar.remove();
+  if (was && !MAINT && !owner) location.reload(); // sayt qayta ochildi: toza yuklanadi
 }
 // Foydalanuvchi yozayotganda sahifani qayta chizmaymiz, faqat chatdagi xabarlarni yangilaymiz
 // 🖼 Qayta chizishda tayyor (yuklangan) rasmlar o'sha-o'sha element bo'lib qoladi: miltillamaydi, sakramaydi
@@ -119,6 +139,7 @@ document.addEventListener('focusout', () => setTimeout(() => { if (SYNC.pending 
 // Amal serverga yuboriladi; xato bo'lsa aytiladi va haqiqiy holat qayta olinadi
 async function server(body, okMsg) {
   const r = await api('act', { method: 'POST', body });
+  if (r.status === 503 && r.error === 'maint') setMaint(r.maint);
   if (!r.ok) { toast(r.message || (r.status === 0 ? 'Internetga ulanib bo‘lmadi' : 'Bajarilmadi, qayta urinib ko‘ring'), true); if (r.status === 401 && r.error === 'auth') { adoptSession(null); go('/kirish'); return r; } }
   else if (okMsg) toast(okMsg);
   sync(true);
@@ -1421,6 +1442,10 @@ function admin() {
   return `<div class="shell wide" style="padding:20px 16px 60px">
     <div class="row" style="justify-content:space-between;margin-bottom:16px"><div class="row">${I.logo('#FF5A1F', '#121212', 34)}<div><b style="font-family:var(--head);font-size:22px">Lahzam admin</b><div class="muted">Moderator paneli va statistika</div></div></div>
       <div class="row" style="gap:8px"><button class="btn ghost" style="height:40px" data-act="admrefresh">↻ Yangilash</button><a href="/" data-link class="btn ghost" style="height:40px">Saytga qaytish</a></div></div>
+    <div class="card stack" style="margin:0 0 14px;gap:10px;${MAINT ? 'border:2px solid #FF5A1F' : ''}"><div class="row" style="justify-content:space-between"><b style="font-family:var(--head);font-size:17px">🛠 Texnik rejim</b>${MAINT ? '<span class="tag red">Yoqilgan</span>' : '<span class="tag green">Sayt ochiq</span>'}</div>
+      <p class="muted" style="margin:0">Yoqilsa, ilovada hamma uchun “Sayt ustida ishlanmoqda” ekrani chiqadi, yozish va o‘qish to‘xtaydi. Siz (egasi) saytni odatdagidek ko‘rasiz. Tanishtiruv sahifasi ishlayveradi.</p>
+      <textarea class="inp" id="mt-t" maxlength="200" style="height:70px;padding:10px 14px" placeholder="Foydalanuvchilarga xabar (ixtiyoriy): masalan, 20:00 gacha yangilanish">${esc(MAINT || '')}</textarea>
+      <div class="row" style="gap:8px;flex-wrap:wrap">${MAINT ? '<button class="btn acc" data-act="maint" data-on="1">Xabarni yangilash</button><button class="btn ghost" data-act="maint">✅ O‘chirish: saytni ochish</button>' : '<button class="btn acc" data-act="maint" data-on="1">🛠 Yoqish</button>'}</div></div>
     <p class="card" style="background:#E3F4EC;color:#0F5A43;margin:0 0 14px">✅ Hamma ma‘lumot serverda: postlar, guruhlar, chatlar va akkauntlar. Bloklash va o‘chirish hamma uchun darhol amal qiladi.</p>
     <div class="grid4">
       <div class="kpi"><span class="muted">Jami foydalanuvchi</span><b>${users.length}</b></div>
@@ -1925,6 +1950,8 @@ document.addEventListener('click', async e => {
       UPD.list = UPD.list.filter(x => x.id !== +id); toast('O‘chirildi'); render(); break;
     }
     case 'qtop': sheet(qTopSheet()); break;
+    case 'maint': { const on = !!el.dataset.on; el.disabled = true; const r = await server({ t: 'maint', on, text: ($('#mt-t') || {}).value || '' }, on ? '🛠 Texnik rejim yoqildi' : '✅ Sayt hamma uchun ochildi'); el.disabled = false; if (r.ok) { setMaint(r.maint); render(); } break; }
+    case 'maintlogin': MAINT_AUTH = true; setMaint(MAINT); go('/kirish'); break;
     case 'qall': sheet(qSheet()); break;
     case 'hometab': HOMETAB = id; render(); break;
     case 'sughide': { let h = []; try { h = JSON.parse(localStorage.getItem('lahzam_sug_hide') || '[]'); } catch (err) {} h.push(+id); try { localStorage.setItem('lahzam_sug_hide', JSON.stringify(h.slice(-200))); } catch (err) {} render(); break; }
@@ -2290,7 +2317,7 @@ loadUpdates().then(() => { if (!busy() && route()[0] !== 'chat') render(); });
 let BUILD = null, buildReload = false;
 async function checkBuild() {
   if (buildReload) return;
-  const r = await api('auth/config'); if (!r.ok || !r.build) return;
+  const r = await api('auth/config'); if (r.ok) setMaint(r.maint); if (!r.ok || !r.build) return;
   if (!BUILD) { BUILD = r.build; return; }
   if (r.build !== BUILD) buildReload = true; // jimgina: keyingi sahifa almashishida yoki ilovaga qaytganda yangilanadi
 }

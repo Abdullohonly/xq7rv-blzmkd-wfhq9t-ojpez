@@ -32,7 +32,10 @@ export default async function handler(req, res) {
       (select count(*) from daily_answers), (select count(*) from daily_likes),
       (select coalesce(max(body), '') from daily_q where day = (now() at time zone 'Asia/Tashkent')::date),
       (select count(*) || '.' || coalesce(sum(score), 0) from tourney_scores), (select count(*) || '.' || count(*) filter (where done) from tournaments),
-      (select count(*) from reports)) as f`;
+      (select count(*) from reports), (select coalesce(max(value), '') from app_flags where key = 'maint')) as f,
+      (select max(value) from app_flags where key = 'maint') as maint`;
+    // 🛠 Texnik ishlar: egasidan boshqa hamma uchun sayt yopiq
+    if (fpRow.maint && !isOwnerEmail(me.email)) { res.setHeader('Cache-Control', 'no-store'); return send(res, 503, { error: 'maint', maint: fpRow.maint }); }
     const fp = createHash('sha1').update(String(fpRow.f)).digest('base64url').slice(0, 16);
     if (req.query && req.query.fp === fp) { await seenQ.catch(() => {}); res.setHeader('Cache-Control', 'private, no-store'); return send(res, 200, { same: 1 }); }
     const [users, follows, posts, likes, replies, myReports, chats, members, notifs, stars, daily, dq, pvotes] = await Promise.all([
@@ -134,7 +137,7 @@ export default async function handler(req, res) {
     members.forEach(m => (memByChat[m.chat_id] = memByChat[m.chat_id] || []).push(m));
 
     const payload = {
-      me: Number(me.id), admin,
+      me: Number(me.id), admin, maint: fpRow.maint || undefined,
       users: users.filter(u => !u.is_blocked || admin || Number(u.id) === uid).map(u => ({
         id: Number(u.id), u: u.username, name: u.name, bio: u.bio, color: u.color, system: u.is_system || undefined,
         blocked: u.is_blocked || undefined, joined: ms(u.created_at), photo: photoUrl(u.id, u.ph),

@@ -243,3 +243,6 @@ alter table chat_members add column if not exists muted boolean not null default
 -- v1.14.0 Tug'ilgan kun (faqat kun-oy) va Kun savoli seriyasi
 alter table users add column if not exists bday text check (bday ~ '^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$'),
   add column if not exists streak int not null default 0, add column if not exists streak_day date;
+
+-- v1.15.0 Texnik rejim (sayt ustida ishlanmoqda)
+create table if not exists app_flags (key text primary key, value text, updated_at timestamptz not null default now());
