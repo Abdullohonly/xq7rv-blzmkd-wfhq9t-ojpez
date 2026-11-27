@@ -542,3 +542,15 @@ img{-webkit-user-drag:none;-webkit-touch-callout:none}
   html,body{overscroll-behavior-y:none}
 }
 .q-edit{background:#2a2a2a;border:0;border-radius:999px;width:28px;height:28px;margin-left:6px;cursor:pointer;font-size:13px;vertical-align:middle}
+
+/* v1.8.2 — sahifalar orasida animatsiya */
+@keyframes pgR{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes pgL{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+@keyframes pgU{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes navPop{0%{transform:scale(.82)}60%{transform:scale(1.06)}100%{transform:scale(1)}}
+.pg-r .shell > :not(.dock),.pg-r .desk-main{animation:pgR .32s cubic-bezier(.2,.8,.2,1) both}
+.pg-l .shell > :not(.dock),.pg-l .desk-main{animation:pgL .32s cubic-bezier(.2,.8,.2,1) both}
+.pg-u .shell > :not(.dock),.pg-u .desk-main{animation:pgU .3s cubic-bezier(.2,.8,.2,1) both}
+.pg-r .dock .on,.pg-l .dock .on,.pg-u .dock .on,.pg-r .snav.on,.pg-l .snav.on,.pg-u .snav.on{animation:navPop .38s cubic-bezier(.3,1.4,.5,1) both}
+.dock .tab,.dock .ico,.snav{transition:background-color .25s ease,color .25s ease,transform .12s ease}
+@media (prefers-reduced-motion:reduce){.pg-r *,.pg-l *,.pg-u *{animation:none!important}}
