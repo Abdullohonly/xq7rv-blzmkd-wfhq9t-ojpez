@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.12.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.12.4'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -175,7 +175,7 @@ function linkify(text) {
   while ((m = re.exec(t))) {
     out += esc(t.slice(last, m.index));
     if (m[1]) { const u = m[1]; out += `<a href="${esc(u)}" target="_blank" rel="noopener nofollow ugc">${esc(u)}</a>`; }
-    else if (m[3]) out += `${esc(m[2])}<a href="/@${m[3]}" data-link>@${m[3]}</a>`;
+    else if (m[3]) out += m[3].toLowerCase() === 'everyone' ? `${esc(m[2])}<span class="evr">📣 @everyone</span>` : `${esc(m[2])}<a href="/@${m[3]}" data-link>@${m[3]}</a>`;
     else out += `${esc(m[4])}<a href="/t/${encodeURIComponent(m[5])}" data-link>#${esc(m[5])}</a>`;
     last = re.lastIndex;
   }
@@ -2051,6 +2051,7 @@ document.addEventListener('submit', async e => {
     }
     if (!c.members.includes(u.id)) { toast('Yozish uchun guruhga qo‘shiling', true); return; }
     if (!guard('msg', text)) return save();
+    if (c.type === 'group' && /(^|[^\w])@everyone(?![\w])/i.test(text) && !(isAdmin() || c.admin === u.id)) { toast('Faqat guruh admini @everyone ishlata oladi', true); return; }
     const isXo = /@xo(?!\w)/i.test(text), game = !isXo && /@(flappy|tetris|2048|mines)(?!\w)/i.test(text), replyTo = CH.reply && !String(CH.reply).startsWith('tmp') ? CH.reply : null;
     c.msgs.push({ id: 'tmp' + uid(), tmp: true, uid: u.id, text: text.trim(), t: now(), reacts: {}, game, ...(isXo ? { xo: { x: u.id, o: null, b: '.........', t: 'x', w: null } } : {}), ...(replyTo ? { replyTo } : {}) });
     CH.reply = null; inp.value = '';

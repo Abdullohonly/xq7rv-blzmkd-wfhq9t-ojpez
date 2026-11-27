@@ -298,6 +298,12 @@ export default async function handler(req, res) {
           const ts = Number(b.at); if (!Number.isFinite(ts) || ts < Date.now() + 50e3 || ts > Date.now() + 30 * 864e5) return bad(res, 'Vaqt 1 daqiqadan 30 kungacha bo‘lsin');
           at = new Date(ts);
         }
+        // 📣 @everyone: guruhdagi hammaga bildirishnoma — faqat guruh admini, 10 daqiqada bir marta
+        const everyone = c.kind === 'group' && /(^|[^\w])@everyone(?![\w])/i.test(body);
+        if (everyone) {
+          if (!(admin || Number(c.admin_id) === uid)) return send(res, 403, { error: 'everyone', message: 'Faqat guruh admini @everyone ishlata oladi' });
+          if (!(await rateLimit('evr:' + cid, 1, 600))) return send(res, 429, { error: 'rate', message: '@everyone ni 10 daqiqada bir marta ishlatish mumkin' });
+        }
         const [m] = at ? await db`insert into messages (chat_id, user_id, body, is_game, reply_to, img, poll, fwd_user, created_at, scheduled)
           values (${cid}, ${uid}, ${body}, ${game}, ${replyTo}, ${img}, ${poll ? JSON.stringify(poll) : null}::jsonb, ${fwd}, ${at}, true) returning id`
           : await db`insert into messages (chat_id, user_id, body, is_game, reply_to, img, poll, fwd_user, xo)
@@ -312,8 +318,9 @@ export default async function handler(req, res) {
           const grp = c.kind === 'group', who = me.name || '@' + me.username;
           // shaxsiy chat: hammaga push; guruh: faqat @belgilangan odamlarga
           let to = others.filter(o => !o.muted).map(o => Number(o.user_id));
-          if (grp) { const ns = mentions(body); if (!ns.length) to = []; else { const rows = await db`select id from users where lower(username) = any(${ns}::text[])`; const ok = new Set(rows.map(r => Number(r.id))); to = to.filter(x => ok.has(x)); } }
-          if (to.length) await pushTo(db, to, { title: grp ? c.name : who, body: (grp ? who + ': ' : '') + prev.slice(0, 160), url: '/c/c' + cid, tag: 'c' + cid });
+          if (grp && everyone) { /* hamma (ovozsiz qilganlardan tashqari) */ }
+          else if (grp) { const ns = mentions(body); if (!ns.length) to = []; else { const rows = await db`select id from users where lower(username) = any(${ns}::text[])`; const ok = new Set(rows.map(r => Number(r.id))); to = to.filter(x => ok.has(x)); } }
+          if (to.length) await pushTo(db, to, { title: grp ? (everyone ? '📣 ' : '') + c.name : who, body: (grp ? who + ': ' : '') + prev.slice(0, 160), url: '/c/c' + cid, tag: 'c' + cid, always: everyone });
         }
         return send(res, 200, { ok: true, id: 'm' + m.id });
       }

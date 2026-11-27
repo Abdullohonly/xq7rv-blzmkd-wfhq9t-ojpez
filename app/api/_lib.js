@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 
 const scrypt = promisify(_scrypt);
 export const OWNER_EMAIL = 'musoxonshovkatov@gmail.com';
-export const RESERVED = ['admin', 'lahzam', 'musoojon', 'support', 'yordam', 'root', 'api', 'flappy', 'tetris', '2048', 'musoxon', 'xo', 'mines'];
+export const RESERVED = ['admin', 'lahzam', 'musoojon', 'support', 'yordam', 'root', 'api', 'flappy', 'tetris', '2048', 'musoxon', 'xo', 'mines', 'everyone', 'here', 'all', 'hamma'];
 const COOKIE = 'lz_s';
 const MONTH = 30 * 24 * 3600;
 
