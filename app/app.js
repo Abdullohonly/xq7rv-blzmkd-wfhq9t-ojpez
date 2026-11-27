@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.12.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.12.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -746,7 +746,6 @@ function home() {
         <div class="cd-foot"><span class="counter" id="post-count">0 / ${LIMIT.post}</span><button class="btn cd-go">Joylash</button></div>
       </div>
     </form>
-    ${suggestCard()}
     ${tags.length ? `<div class="home-tabs" role="tablist"><button role="tab" class="${HOMETAB === 'all' ? 'on' : ''}" data-act="hometab" data-id="all" aria-selected="${HOMETAB === 'all'}">🌍 Hammasi</button><button role="tab" class="${HOMETAB === 'tags' ? 'on' : ''}" data-act="hometab" data-id="tags" aria-selected="${HOMETAB === 'tags'}">🏷 Teglarim</button></div>${HOMETAB === 'tags' ? `<div class="tagrow">${tags.map(x => `<a href="/t/${encodeURIComponent(x)}" data-link>#${esc(x)}</a>`).join('')}</div>` : ''}` : ''}
     ${posts.map(p => postCard(p)).join('') || `<div class="card muted">${HOMETAB === 'tags' ? 'Kuzatayotgan teglaringiz bilan hali post yo‘q.' : 'Hali post yo‘q.'}</div>`}
     <p class="muted ver">Lahzam v${VERSION} · <a href="/yangiliklar" data-link>nimalar yangi?</a></p>
@@ -1174,6 +1173,7 @@ function profile(name) {
       ${!own ? `<button class="btn ink" style="flex:1" data-act="dm" data-id="${p.id}">Xabar yozish</button>` : ''}</div>
     ${isAdmin() && !own ? `<div class="row" style="gap:8px;margin:8px 16px 0"><button class="btn ghost" style="flex:1;height:42px;font-size:14px" data-act="adm-block" data-u="${p.id}">${p.blocked ? 'Blokdan chiqarish' : 'Bloklash'}</button><button class="btn ghost" style="flex:1;height:42px;font-size:14px;color:var(--danger)" data-act="adm-del" data-u="${p.id}">O‘chirish</button></div>` : ''}
     <div class="pad stack">
+      ${own ? suggestCard() : ''}
       ${pinP ? `<div class="pin-lbl">📌 Qadalgan post</div>${postCard(pinP)}` : ''}
       ${best ? `<a href="/p/${best.id}" data-link class="card" style="text-decoration:none;display:block"><div class="row" style="justify-content:space-between"><span class="muted" style="font-weight:700">Eng ko‘p yoqqan post</span><span style="color:#D61F52;font-weight:700;font-size:13px">❤ ${fmt(best.likes.length)}</span></div>
         <p class="txt" style="font-weight:600;margin-top:6px">${esc(best.text)}</p><div class="muted" style="margin-top:4px">${best.replies.length} javob · ${ago(best.t)}</div></a>` : `<div class="card muted">Hali post yo‘q.</div>`}
