@@ -1,0 +1,16 @@
+# Lahzam ilovasi — app.lahzam.uz
+User-agent: *
+Allow: /$
+Allow: /kirish
+Allow: /shartlar
+Allow: /maxfiylik
+Allow: /qoidalar
+Allow: /og.png
+Disallow: /api/
+Disallow: /c/
+Disallow: /sozlamalar
+Disallow: /admin
+Disallow: /shaxsiy
+Disallow: /bildirishnomalar
+
+Sitemap: https://app.lahzam.uz/sitemap.xml
