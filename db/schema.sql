@@ -196,6 +196,10 @@ create table if not exists tournaments (id bigserial primary key, chat_id bigint
 create index if not exists tournaments_chat on tournaments(chat_id);
 create table if not exists tourney_scores (tid bigint not null references tournaments(id) on delete cascade, user_id bigint not null references users(id) on delete cascade, score int not null, primary key (tid, user_id));
 alter table reports add column if not exists reason text;
+-- ⭐ Yulduz obunasi (Neon'da allaqachon bor, bu yerda ham yozib qo'yildi)
+alter table users add column if not exists star_until timestamptz, add column if not exists star_color text, add column if not exists cover text,
+  add column if not exists hide_online boolean not null default false, add column if not exists hide_read boolean not null default false,
+  add column if not exists pinned_post bigint, add column if not exists un_changed_at timestamptz;
 
 -- v1.8.0 Kun savoli
 create table if not exists daily_answers (
@@ -213,3 +217,12 @@ create table if not exists daily_likes (
 );
 -- v1.8.1 admin kun savolini o'zgartira oladi
 create table if not exists daily_q (day date primary key, body text not null check (char_length(body) between 1 and 200));
+
+-- v1.9.0 X/O va Mina o'yinlari
+alter table messages add column if not exists xo jsonb;
+alter table chats add column if not exists mines_score int, add column if not exists mines_user bigint references users(id) on delete set null;
+alter table tournaments drop constraint if exists tournaments_game_check;
+alter table tournaments add constraint tournaments_game_check check (game in ('flappy','tetris','2048','mines'));
+insert into users (username, name, bio, color, is_system, terms_ver) values
+  ('mines', 'Mina', 'Istalgan chat yoki guruhda @mines deb yozing. Minalarni topib, hamma kataklarni oching!', '#4C7DFF', true, 1)
+on conflict (username) do nothing;

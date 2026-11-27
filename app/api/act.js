@@ -259,10 +259,10 @@ export default async function handler(req, res) {
         const cid = idOf(b.chat, 'c'); const c = cid && await chatOf(db, cid, uid);
         if (!isMember(c)) return send(res, 403, { error: 'forbidden', message: 'Siz bu chat a‘zosi emassiz' });
         if (!(await rateLimit('msg:' + uid, 40, 60))) return send(res, 429, { error: 'rate', message: 'Shoshmang 🙂 Biroz dam olib yozing' });
-        let body = t === 'fwd' ? '' : clean(str(b.body, 2000)), img = null, poll = null, fwd = null, replyTo = null, game = false;
+        let body = t === 'fwd' ? '' : clean(str(b.body, 2000)), img = null, poll = null, fwd = null, replyTo = null, game = false, xo = null;
         if (t === 'fwd') {
           const mid = idOf(b.msg, 'm');
-          const [src] = await db`select m.* from messages m join chat_members a on a.chat_id = m.chat_id and a.user_id = ${uid} and a.status = 'member' where m.id = ${mid} and not m.is_game and not m.is_sys`;
+          const [src] = await db`select m.* from messages m join chat_members a on a.chat_id = m.chat_id and a.user_id = ${uid} and a.status = 'member' where m.id = ${mid} and not m.is_game and not m.is_sys and m.xo is null`;
           if (!src) return bad(res, 'Xabar topilmadi', 404);
           body = src.body; img = src.img; fwd = Number(src.fwd_user || src.user_id);
           if (src.poll) { const P = typeof src.poll === 'string' ? JSON.parse(src.poll) : src.poll; poll = { q: P.q, opts: P.opts }; }
@@ -273,7 +273,8 @@ export default async function handler(req, res) {
             if (!q || opts.length < 2) return bad(res, 'Savol va kamida 2 ta variant yozing'); poll = { q, opts }; body = '';
           }
           if (!body && !img && !poll) return bad(res, 'Avval biror narsa yozing');
-          game = !poll && !img && /@(flappy|tetris|2048)(?![\w])/i.test(body);
+          game = !poll && !img && /@(flappy|tetris|2048|mines)(?![\w])/i.test(body);
+          if (!poll && !img && /@xo(?![\w])/i.test(body)) { game = false; xo = { x: uid, o: null, b: '.........', t: 'x', w: null }; }
           const rt = idOf(b.replyTo, 'm');
           if (rt) { const [r] = await db`select id, user_id from messages where id = ${rt} and chat_id = ${cid}`; if (r) replyTo = Number(r.id); }
         }
@@ -286,15 +287,15 @@ export default async function handler(req, res) {
         }
         const [m] = at ? await db`insert into messages (chat_id, user_id, body, is_game, reply_to, img, poll, fwd_user, created_at, scheduled)
           values (${cid}, ${uid}, ${body}, ${game}, ${replyTo}, ${img}, ${poll ? JSON.stringify(poll) : null}::jsonb, ${fwd}, ${at}, true) returning id`
-          : await db`insert into messages (chat_id, user_id, body, is_game, reply_to, img, poll, fwd_user)
-          values (${cid}, ${uid}, ${body}, ${game}, ${replyTo}, ${img}, ${poll ? JSON.stringify(poll) : null}::jsonb, ${fwd}) returning id`;
+          : await db`insert into messages (chat_id, user_id, body, is_game, reply_to, img, poll, fwd_user, xo)
+          values (${cid}, ${uid}, ${body}, ${game}, ${replyTo}, ${img}, ${poll ? JSON.stringify(poll) : null}::jsonb, ${fwd}, ${xo ? JSON.stringify(xo) : null}::jsonb) returning id`;
         if (at) return send(res, 200, { ok: true, id: 'm' + m.id, scheduled: true });
         await db`update chat_members set last_read = now() where chat_id = ${cid} and user_id = ${uid}`;
         // chat xabarlari bildirishnomalar ro'yxatiga tushmaydi, lekin telefonga push keladi
         const others = await db`select user_id from chat_members where chat_id = ${cid} and status = 'member' and user_id <> ${uid}`;
         await db`update chat_members set typing_at = null where chat_id = ${cid} and user_id = ${uid}`;
         if (others.length) {
-          const st = /^\[s:[a-z0-9]+\]$/.test(body), pp = /^\[post:\d+\]\n?/.exec(body), prev = pp ? '📝 Post: ' + body.slice(pp[0].length) : poll ? '📊 ' + poll.q : img ? '📷 Rasm' + (body ? ': ' + body : '') : game ? '🎮 O‘yin' : st ? '🎨 Stiker' : body;
+          const st = /^\[s:[a-z0-9]+\]$/.test(body), pp = /^\[post:\d+\]\n?/.exec(body), prev = pp ? '📝 Post: ' + body.slice(pp[0].length) : poll ? '📊 ' + poll.q : img ? '📷 Rasm' + (body ? ': ' + body : '') : xo ? '❌⭕ X/O o‘yini' : game ? '🎮 O‘yin' : st ? '🎨 Stiker' : body;
           const grp = c.kind === 'group', who = me.name || '@' + me.username;
           await pushTo(db, others.map(o => o.user_id), { title: grp ? c.name : who, body: (grp ? who + ': ' : '') + prev.slice(0, 160), url: '/c/c' + cid, tag: 'c' + cid });
         }
@@ -362,6 +363,34 @@ export default async function handler(req, res) {
         if (up.length) await db`insert into messages (chat_id, user_id, body, is_sys) values (${cid}, null, ${'🔢 @' + me.username + ' 2048 rekordi: ' + score + ' ochko!'}, true)`;
         return send(res, 200, { ok: true, record: up.length > 0 });
       }
+      case 'mines': {
+        const cid = idOf(b.chat, 'c'), score = Number(b.score); const c = cid && await chatOf(db, cid, uid);
+        if (!isMember(c) || !Number.isInteger(score) || score < 1 || score > 1000) return bad(res, 'score');
+        const up = await db`update chats set mines_score = ${score}, mines_user = ${uid} where id = ${cid} and coalesce(mines_score, 0) < ${score} returning id`;
+        if (up.length) await db`insert into messages (chat_id, user_id, body, is_sys) values (${cid}, null, ${'💣 @' + me.username + ' Mina rekordi: ' + score + ' ochko!'}, true)`;
+        return send(res, 200, { ok: true, record: up.length > 0 });
+      }
+      case 'xomove': {
+        // X/O: navbat bilan yurish. Birinchi bo'lib ⭕ bilan yurgan odam raqib bo'ladi
+        const mid = idOf(b.msg, 'm'), i = Number(b.cell);
+        if (!mid || !Number.isInteger(i) || i < 0 || i > 8) return bad(res, 'cell');
+        const [m] = await db`select m.id, m.chat_id, m.xo from messages m join chat_members a on a.chat_id = m.chat_id and a.user_id = ${uid} and a.status = 'member' where m.id = ${mid} and m.xo is not null`;
+        if (!m) return bad(res, 'O‘yin topilmadi', 404);
+        const G = typeof m.xo === 'string' ? JSON.parse(m.xo) : m.xo;
+        if (G.w) return bad(res, 'O‘yin tugagan');
+        if (G.b[i] !== '.') return bad(res, 'Bu katak band');
+        if (G.t === 'x' && Number(G.x) !== uid) return bad(res, G.o == null && Number(G.x) !== uid ? 'Hozir ❌ ning navbati' : 'Hozir raqibingizning navbati');
+        if (G.t === 'o') { if (G.o == null) { if (Number(G.x) === uid) return bad(res, 'Raqib kutilmoqda: boshqa odam ⭕ bilan yursin'); G.o = uid; } else if (Number(G.o) !== uid) return bad(res, 'Hozir raqibingizning navbati'); }
+        const old = G.b; G.b = old.slice(0, i) + G.t + old.slice(i + 1);
+        const L = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+        const wl = L.find(([a, c2, d]) => G.b[a] !== '.' && G.b[a] === G.b[c2] && G.b[a] === G.b[d]);
+        G.w = wl ? G.t : G.b.includes('.') ? null : 'd'; G.t = G.t === 'x' ? 'o' : 'x';
+        const up = await db`update messages set xo = ${JSON.stringify(G)}::jsonb where id = ${mid} and xo->>'b' = ${old} returning id`;
+        if (!up.length) return bad(res, 'Raqib sizdan oldin yurdi, qayta urinib ko‘ring');
+        if (G.w) await db`insert into messages (chat_id, user_id, body, is_sys) values (${m.chat_id}, null, ${G.w === 'd' ? '🤝 X/O: durang!' : (G.w === 'x' ? '❌' : '⭕') + ' @' + me.username + ' X/O o‘yinida yutdi! 🏆'}, true)`;
+        else { const nxt = G.t === 'x' ? G.x : G.o; if (nxt) await pushTo(db, [nxt], { title: 'X/O ❌⭕', body: 'Sizning navbatingiz!', url: '/c/c' + m.chat_id, tag: 'xo' + mid }).catch(() => {}); }
+        return send(res, 200, { ok: true, xo: G });
+      }
       case 'pushsub': {
         const s = b.sub || {}, ep = str(s.endpoint, 800), k = s.keys || {};
         if (!/^https:\/\//.test(ep) || !/^[A-Za-z0-9_-]{80,100}$/.test(k.p256dh || '') || !/^[A-Za-z0-9_-]{16,32}$/.test(k.auth || '')) return bad(res, 'sub');
@@ -405,11 +434,11 @@ export default async function handler(req, res) {
         // 🏁 Guruhda o'yin turniri: belgilangan vaqt ichida eng ko'p ochko yiqqan g'olib
         const cid = idOf(b.chat, 'c'), game = String(b.game || ''), mins = Number(b.mins); const c = cid && await chatOf(db, cid, uid);
         if (!isMember(c) || c.kind !== 'group') return bad(res, 'Turnir faqat guruhlarda');
-        if (!['flappy', 'tetris', '2048'].includes(game) || ![5, 10, 30, 60].includes(mins)) return bad(res, 'O‘yin yoki vaqt noto‘g‘ri');
+        if (!['flappy', 'tetris', '2048', 'mines'].includes(game) || ![5, 10, 30, 60].includes(mins)) return bad(res, 'O‘yin yoki vaqt noto‘g‘ri');
         const [act] = await db`select id from tournaments where chat_id = ${cid} and not done and ends_at > now() limit 1`;
         if (act) return bad(res, 'Bu guruhda turnir allaqachon ketyapti');
         const [tn] = await db`insert into tournaments (chat_id, game, ends_at, created_by) values (${cid}, ${game}, now() + make_interval(mins => ${mins}), ${uid}) returning id`;
-        const gname = { flappy: 'Flappy', tetris: 'Tetris', '2048': '2048' }[game];
+        const gname = { flappy: 'Flappy', tetris: 'Tetris', '2048': '2048', mines: 'Mina' }[game];
         await db`insert into messages (chat_id, user_id, body, is_sys) values (${cid}, null, ${'🏁 @' + me.username + ' ' + gname + ' turnirini boshladi! ' + mins + ' daqiqa ichida eng ko‘p ochko yiqqan g‘olib bo‘ladi'}, true)`;
         const others = await db`select user_id from chat_members where chat_id = ${cid} and status = 'member' and user_id <> ${uid}`;
         if (others.length) await pushTo(db, others.map(o => o.user_id), { title: c.name, body: `🏁 ${gname} turniri boshlandi! ${mins} daqiqa`, url: '/c/c' + cid, tag: 't' + tn.id });

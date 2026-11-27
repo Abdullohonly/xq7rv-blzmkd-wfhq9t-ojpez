@@ -558,3 +558,29 @@ img{-webkit-user-drag:none;-webkit-touch-callout:none}
 .dock .tab,.dock .ico,.snav{transition:color .25s ease}
 .dock a:active,.dock button:active,.snav:active{transform:none;opacity:1}
 @media (prefers-reduced-motion:reduce){.nav-ind.go{transition:none}}
+
+/* v1.9.0 — Mina va X/O */
+.mn-board{position:relative;display:grid;grid-template-columns:repeat(9,1fr);gap:3px;padding:6px;background:#1d1d22;border-radius:18px;aspect-ratio:1;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.mn-c{border:0;border-radius:7px;background:#3a3a42;color:#fff;font-family:var(--head);font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;aspect-ratio:1;line-height:1;-webkit-touch-callout:none}
+.mn-c:not(.op):hover{background:#46464f}
+.mn-c.op{background:#F3EEE8;cursor:default}
+.mn-c.fl{background:#4a3a34}
+.mn-c.boom{background:#FF5A1F}
+.mn-board .mn-c:active{transform:none;opacity:1}
+.mn-mode{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;background:#2a2a2a;border-radius:999px;padding:4px}
+.mn-mode button{border:0;background:none;color:#bbb;height:38px;border-radius:999px;font-weight:700;font-size:14px;cursor:pointer}
+.mn-mode button.on{background:#fff;color:#121212}
+.xo-board{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:#1d1d22;border-radius:16px;padding:6px;width:min(220px,100%)}
+.xo-big{width:100%;gap:8px;padding:8px;border-radius:18px}
+.xo-c{aspect-ratio:1;border:0;border-radius:12px;background:#2c2c33;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+.xo-c:disabled{cursor:default}
+.xo-c:not(:disabled):hover{background:#36363e}
+.xo-c.win{background:#3d3320;box-shadow:inset 0 0 0 2px var(--gold,#FFC531)}
+.xo-c svg{animation:g48in .16s ease-out}
+.xo-card{background:#121212;color:#fff;border-radius:18px;padding:10px;min-width:220px}
+.xo-st{margin-top:8px;font-size:13px;color:#bbb;font-weight:600}
+.xo-st.me{color:var(--acc)}
+/* chatda xabarni surib javob berish */
+.m{position:relative}
+.m.sw-ok::before{content:"↩";position:absolute;right:-34px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800}
+.q-ans{display:flex;gap:6px;align-items:baseline}.q-ans b{flex:none}.q-lk{margin-left:auto;flex:none;font-size:12px;color:#ffb3a0;padding-left:8px}

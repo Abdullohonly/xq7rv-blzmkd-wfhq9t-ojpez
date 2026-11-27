@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.8.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.9.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -416,11 +416,13 @@ function header(extra = '', deskTitle = '') {
 const GAMES = [
   { k: 'flappy', name: 'Flappy', ico: s => Flappy.birdSVG(s), desc: 'Qushchani quvurlar orasidan uchiring', tag: '@flappy', act: 'sendflappy', open: o => Flappy.open(o) },
   { k: 'tetris', name: 'Tetris', ico: s => Tetris.icon(s), desc: 'Bloklarni joylab, qatorlarni to‘ldiring', tag: '@tetris', act: 'sendtetris', open: o => Tetris.open(o) },
-  { k: '2048', name: '2048', ico: s => G2048.icon(s), desc: 'Bir xil sonlarni qo‘shib, 2048 ga yeting', tag: '@2048', act: 'send2048', open: o => G2048.open(o) }
+  { k: '2048', name: '2048', ico: s => G2048.icon(s), desc: 'Bir xil sonlarni qo‘shib, 2048 ga yeting', tag: '@2048', act: 'send2048', open: o => G2048.open(o) },
+  { k: 'mines', name: 'Mina', ico: s => Mines.icon(s), desc: 'Minalarni topib, qolgan kataklarni oching', tag: '@mines', act: 'sendmines', open: o => Mines.open(o) },
+  { k: 'xo', name: 'X/O', ico: s => XO.icon(s), desc: 'Kompyuterga qarshi yoki chatda do‘stingiz bilan', tag: '@xo', act: 'sendxo', open: o => XO.open(o), duo: true }
 ];
 const gameOf = u => u && u.system && GAMES.find(g => g.k === u.u);
 function gamesPage() {
-  const best = k => { try { return +localStorage.getItem({ flappy: 'lahzam_flappy_best', tetris: 'lahzam_tetris_best', '2048': 'lahzam_2048_best' }[k]) || 0; } catch (e) { return 0; } };
+  const best = k => { try { return +localStorage.getItem({ flappy: 'lahzam_flappy_best', tetris: 'lahzam_tetris_best', '2048': 'lahzam_2048_best', mines: 'lahzam_mines_best' }[k]) || 0; } catch (e) { return 0; } };
   return `<div class="shell">${backBar('O‘yinlar 🎮')}<div class="pad stack">
     <p class="muted" style="margin:0">Yakka o‘ynang yoki do‘stlaringizga chatda yuboring: har chat va guruhning o‘z rekordi bo‘ladi 🏆</p>
     ${GAMES.map(g => `<div class="card game-tile"><div class="row" style="gap:14px">${g.ico(56)}<span style="flex:1;min-width:0"><b style="font-family:var(--head);font-size:18px;display:block">${g.name}</b><span class="muted" style="font-size:14px">${g.desc}</span>${best(g.k) ? `<span style="display:block;font-size:13px;font-weight:700;color:var(--acc-ink,var(--acc));margin-top:2px">Eng yaxshi natijangiz: ${best(g.k)}</span>` : ''}</span></div>
@@ -571,7 +573,7 @@ const qDay = () => Math.floor((Date.now() + 5 * 3600e3) / 864e5);
 const qText = () => (DB && DB.dq) || QS[qDay() % QS.length];
 function qCard() {
   const A = DB.daily || [], u = me(), mineA = A.find(a => a.uid === u.id);
-  const top = A.slice(0, 2).map(a => { const w = user(a.uid); return `<div class="q-ans"><b>${esc(w.name.split(' ')[0])}</b> ${esc(a.text)}</div>`; }).join('');
+  const top = A.slice(0, 2).map(a => { const w = user(a.uid); return `<div class="q-ans"><b>${esc(w.name.split(' ')[0])}</b> ${esc(a.text)}${a.likes ? `<span class="q-lk">❤️ ${a.likes}</span>` : ''}</div>`; }).join('');
   return `<section class="card q-card" aria-label="Kun savoli">
     <div class="q-top"><span class="q-tag">✦ KUN SAVOLI</span><span class="q-n">${A.length ? A.length + ' ta javob' : 'Birinchi bo‘lib javob bering'}${isAdmin() ? ` <button class="q-edit" data-act="qedit" aria-label="Savolni o‘zgartirish">✏️</button>` : ''}</span></div>
     <h3 class="q-q">${esc(qText())}</h3>
@@ -595,7 +597,6 @@ function home() {
   return `<div class="shell">${header('', 'Ochiq maydon 🌍')}
   <div class="pad stack">
     ${qCard()}
-    <a href="/oyinlar" data-link class="card games-strip">${GAMES.map(g => `<span class="gs-i">${g.ico(30)}</span>`).join('')}<span style="flex:1;min-width:0"><b>O‘yinlar</b><span class="muted" style="display:block;font-size:13px">Flappy, Tetris, 2048 · yakka yoki do‘stlar bilan</span></span><span class="gs-go">▶</span></a>
     <form class="card comp comp-d" data-form="post">
       <div class="cd-rail" aria-hidden="true">${avatar(u, 42)}<span class="cd-line"></span><span class="cd-dot"></span></div>
       <div class="cd-main">
@@ -801,7 +802,7 @@ function dayLabel(t) {
   const diff = Math.round((today - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / DAY);
   return diff === 0 ? 'Bugun' : diff === 1 ? 'Kecha' : uzDate(t);
 }
-const gameKind = t => /@tetris\b/i.test(t || '') ? 'tetris' : /@2048(?!\w)/.test(t || '') ? '2048' : 'flappy';
+const gameKind = t => /@tetris\b/i.test(t || '') ? 'tetris' : /@2048(?!\w)/.test(t || '') ? '2048' : /@mines\b/i.test(t || '') ? 'mines' : 'flappy';
 const stickerOf = m => m && !m.img && !m.poll && !m.game && window.Stickers && (Stickers.re.exec(m.text || '') || [])[1];
 const POSTRE = /^\[post:(\d+)\]\n?([\s\S]*)$/;
 const postOf = m => m && !m.img && !m.poll && !m.game && POSTRE.exec(m.text || '');
@@ -811,7 +812,7 @@ function chatPostCard(m) {
     ${p && p.img ? `<img src="${esc(p.img)}" alt="" loading="lazy">` : ''}<span class="pc-t">${esc(p ? p.text : snip)}</span>
     <span class="pc-f">${p ? `❤ ${p.likes.length} · 💬 ${p.replies.length} · ` : ''}Postni ochish ›</span></a>`;
 }
-const msgPreview = m => !m ? 'O‘chirilgan xabar' : postOf(m) ? '📝 Post' + (postOf(m)[2] ? ': ' + postOf(m)[2].split('\n')[0] : '') : m.img ? '📷 Rasm' + (m.text ? ': ' + m.text : '') : m.poll ? '📊 ' + m.poll.q : m.game ? ({ tetris: '🧱 Tetris o‘yini', '2048': '🔢 2048 o‘yini', flappy: '🐤 Flappy o‘yini' })[gameKind(m.text)] : stickerOf(m) ? '🎨 Stiker' : m.text;
+const msgPreview = m => !m ? 'O‘chirilgan xabar' : postOf(m) ? '📝 Post' + (postOf(m)[2] ? ': ' + postOf(m)[2].split('\n')[0] : '') : m.img ? '📷 Rasm' + (m.text ? ': ' + m.text : '') : m.poll ? '📊 ' + m.poll.q : m.xo ? '❌⭕ X/O o‘yini' : m.game ? ({ tetris: '🧱 Tetris o‘yini', '2048': '🔢 2048 o‘yini', mines: '💣 Mina o‘yini', flappy: '🐤 Flappy o‘yini' })[gameKind(m.text)] : stickerOf(m) ? '🎨 Stiker' : m.text;
 const canPin = c => c.type === 'dm' || c.admin === me().id || isAdmin();
 const canDelMsg = (c, m) => m.uid === me().id || (c.type === 'group' && (isAdmin() || c.admin === me().id));
 function pollHtml(c, m) {
@@ -819,6 +820,16 @@ function pollHtml(c, m) {
   return `<div class="poll"><b>📊 ${esc(P.q)}</b>${P.opts.map((o, i) => { const pc = total ? Math.round(o.v.length / total * 100) : 0, mine = o.v.includes(u.id);
     return `<button class="popt${mine ? ' mine' : ''}" data-act="vote" data-c="${c.id}" data-m="${m.id}" data-i="${i}"><span class="pbar" style="width:${voted ? pc : 0}%"></span><span class="ptxt">${mine ? '✓ ' : ''}${esc(o.t)}</span>${voted ? `<span class="ppc">${pc}%</span>` : ''}</button>`; }).join('')}
     <span class="pmeta">${total} ta ovoz${voted ? '' : ' · ovoz bering'}</span></div>`;
+}
+// X/O chatda: ikki kishi navbat bilan yuradi, holat serverda saqlanadi
+function xoCard(c, m) {
+  const G = m.xo, u = me(), X = user(G.x) || { u: '?' }, O = G.o != null ? user(G.o) : null;
+  const res = G.w ? XO.winner(G.b) : null, line = res ? res.line : [];
+  const myTurn = !G.w && (G.t === 'x' ? G.x === u.id : (G.o == null ? G.x !== u.id : G.o === u.id));
+  const st = G.w === 'd' ? '🤝 Durang' : G.w ? `🏆 ${G.w === 'x' ? '❌ @' + esc(X.u) : '⭕ @' + esc(O ? O.u : '?')} yutdi` : myTurn ? (G.t === 'o' && G.o == null ? 'Siz ⭕ bo‘lib o‘ynang!' : 'Sizning navbatingiz 👇') : G.t === 'o' && G.o == null ? 'Raqib kutilmoqda…' : `@${esc((G.t === 'x' ? X : O || {}).u || '?')} yurmoqda…`;
+  return `<div class="xo-card"><div class="row" style="gap:8px;margin-bottom:8px">${XO.icon(28)}<div style="flex:1;min-width:0;font-size:12px;line-height:1.3"><b style="display:block;font-size:14px">X/O</b>❌ @${esc(X.u)} · ⭕ ${O ? '@' + esc(O.u) : '<i>bo‘sh joy</i>'}</div></div>
+    <div class="xo-board">${[...G.b].map((v, i) => `<button class="xo-c${line.includes(i) ? ' win' : ''}" data-act="xomove" data-c="${c.id}" data-m="${m.id}" data-i="${i}" ${v !== '.' || !myTurn || m.tmp ? 'disabled' : ''} aria-label="${v === '.' ? 'Bo‘sh katak' : v.toUpperCase()}">${XO.mark(v, 30)}</button>`).join('')}</div>
+    <div class="xo-st${myTurn ? ' me' : ''}">${st}</div>${G.w ? `<button class="btn acc full" style="height:36px;border-radius:999px;font-size:13px;margin-top:8px" data-act="sendxo" data-id="${c.id}">↻ Yana o‘ynash</button>` : ''}</div>`;
 }
 function msgHtml(c, m) {
   const u = me();
@@ -830,9 +841,10 @@ function msgHtml(c, m) {
   const fwd = m.fwd ? `<span class="fwd">↪ Uzatildi: ${esc((user(m.fwd) || { name: 'kimdir' }).name)}</span>` : '';
   let body;
   const stk = stickerOf(m);
-  if (m.game) { const gk = gameKind(m.text), rec = gk === 'tetris' ? c.trecord : gk === '2048' ? c.grecord : c.record;
-    body = `<div class="game-card">${gk === 'tetris' ? Tetris.icon(42) : gk === '2048' ? G2048.icon(42) : Flappy.birdSVG(42)}<div style="flex:1"><b style="display:block">${gk === 'tetris' ? 'Tetris' : gk === '2048' ? '2048' : 'Flappy'}</b><span style="font-size:12px;color:#bbb">${rec ? `Rekord: ${rec.score} · @${esc(user(rec.uid).u)}` : 'Rekord yo‘q, birinchi bo‘ling!'}</span></div>
-      <button class="btn acc" style="height:38px;border-radius:999px;font-size:13px" data-act="${gk === 'tetris' ? 'playtet' : gk === '2048' ? 'play48' : 'play'}" data-id="${c.id}">O‘ynash</button></div>`; }
+  if (m.xo) body = xoCard(c, m);
+  else if (m.game) { const gk = gameKind(m.text), G = { tetris: ['Tetris', Tetris.icon, c.trecord, 'playtet'], '2048': ['2048', G2048.icon, c.grecord, 'play48'], mines: ['Mina', Mines.icon, c.mrecord, 'playmn'], flappy: ['Flappy', Flappy.birdSVG, c.record, 'play'] }[gk], rec = G[2];
+    body = `<div class="game-card">${G[1](42)}<div style="flex:1"><b style="display:block">${G[0]}</b><span style="font-size:12px;color:#bbb">${rec ? `Rekord: ${rec.score} · @${esc(user(rec.uid).u)}` : 'Rekord yo‘q, birinchi bo‘ling!'}</span></div>
+      <button class="btn acc" style="height:38px;border-radius:999px;font-size:13px" data-act="${G[3]}" data-id="${c.id}">O‘ynash</button></div>`; }
   else if (postOf(m)) body = chatPostCard(m);
   else if (stk) body = `<div class="stk" role="img" aria-label="Stiker: ${esc(Stickers.label(stk))}">${Stickers.svg(stk)}</div>`;
   else if (m.poll) body = pollHtml(c, m);
@@ -842,7 +854,7 @@ function msgHtml(c, m) {
   const hit = CH.q && m.text && m.text.toLowerCase().includes(CH.q) ? ' hit' : '';
   return `<div class="m ${mine ? 'out' : 'in'}${hit}${stk ? ' stkm' : ''}${m.sched ? ' schedm' : ''}" data-msg="${m.id}" id="m-${m.id}">${c.type === 'group' && !mine ? `<a class="who" href="/@${esc(a.u)}" data-link style="text-decoration:none">${NM(a)}</a>` : ''}${fwd}${quote}${body}
     <div class="reacts">${rx.map(([e, v]) => `<button class="rx ${v.includes(u.id) ? 'mine' : ''}" data-act="react" data-c="${c.id}" data-m="${m.id}" data-e="${e}" aria-label="${e} reaksiya, ${v.length}">${e} ${v.length}</button>`).join('')}
-      <button class="rx-add rx-btn" data-act="rxbar" data-c="${c.id}" data-m="${m.id}" aria-label="Reaksiya bildirish">😊<b>+</b></button><button class="rx-add" data-act="msgmenu" data-c="${c.id}" data-m="${m.id}" aria-label="Xabar amallari">⋯</button>${meta}</div></div>`;
+      <button class="rx-add rx-btn" data-act="rxbar" data-c="${c.id}" data-m="${m.id}" aria-label="Reaksiya bildirish">😊<b>+</b></button>${m.tmp || m.sched ? '' : `<button class="rx-add" data-act="m-reply" data-c="${c.id}" data-m="${m.id}" aria-label="Javob berish">↩</button>`}<button class="rx-add" data-act="msgmenu" data-c="${c.id}" data-m="${m.id}" aria-label="Xabar amallari">⋯</button>${meta}</div></div>`;
 }
 // Chatda qidiruv: yuklangan xabarlar + serverdagi eski xabarlar (qancha eski bo'lsa ham topiladi)
 let SRV_T = 0;
@@ -1254,6 +1266,20 @@ function sheet(html) {
 const closeSheet = () => { $('#modal-root').innerHTML = ''; };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !document.querySelector('.consent')) closeSheet(); });
 document.addEventListener('input', e => { if (e.target.id === 'pb') { const v = e.target.value, bp = bioProblem(v.trim()); $('#pb-n').textContent = v.length + '/' + (me().star ? 200 : 100); $('#pb-h').textContent = bp ? '❌ ' + bp : ''; } if (e.target.id === 'lp' || e.target.id === 'lu') { $('#lp') && $('#lp').classList.remove('inp-bad'); } });
+// Xabarni chapga sursangiz javob berish (Telegram'dagidek)
+(() => {
+  let el = null, sx = 0, sy = 0, dx = 0, lock = null;
+  document.addEventListener('touchstart', e => { const m = e.target.closest('.m[data-msg]'); if (!m || !CH.cid || e.touches.length > 1 || String(m.dataset.msg).startsWith('tmp') || e.target.closest('.xo-board,.mimg')) return; el = m; sx = e.touches[0].clientX; sy = e.touches[0].clientY; dx = 0; lock = null; }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!el) return; const x = e.touches[0].clientX - sx, y = e.touches[0].clientY - sy;
+    if (lock == null && Math.abs(x) + Math.abs(y) > 10) lock = Math.abs(x) > Math.abs(y) * 1.3 && x < 0 ? 'x' : 'y';
+    if (lock !== 'x') return; dx = Math.max(-80, Math.min(0, x)); el.style.transform = `translateX(${dx}px)`; el.classList.toggle('sw-ok', dx < -55);
+  }, { passive: true });
+  document.addEventListener('touchend', () => {
+    if (!el) return; const m = el, ok = dx < -55; el = null; m.style.transition = 'transform .2s ease'; m.style.transform = ''; setTimeout(() => { m.style.transition = ''; m.classList.remove('sw-ok'); }, 220);
+    if (ok) { navigator.vibrate && navigator.vibrate(10); CH.reply = m.dataset.msg; CH.edit = null; render(); }
+  });
+})();
 // Xabarni ikki marta bossangiz ❤️ reaksiya qo'yiladi (Telegram'dagidek)
 document.addEventListener('dblclick', e => {
   const mEl = e.target.closest('.m[data-msg]'); if (!mEl || e.target.closest('button,a,input') || !CH.cid || String(mEl.dataset.msg).startsWith('tmp')) return;
@@ -1413,6 +1439,17 @@ document.addEventListener('click', async e => {
       } });
       break;
     }
+    case 'playmn': {
+      const c = DB.chats.find(x => x.id === id); if (!c) break;
+      Mines.open({ record: c.mrecord && c.mrecord.score, recordBy: c.mrecord && user(c.mrecord.uid).u, onEnd: score => {
+        if (score > 0 && (!c.mrecord || score > c.mrecord.score) && c.members.includes(u.id)) {
+          c.mrecord = { score, uid: u.id }; server({ t: 'mines', chat: c.id, score }); toast(`Yangi Mina rekordi: ${score} 🏆`);
+          return { record: score, recordBy: u.u };
+        }
+        return null;
+      } });
+      break;
+    }
     case 'play48': {
       const c = DB.chats.find(x => x.id === id); if (!c) break;
       G2048.open({ record: c.grecord && c.grecord.score, recordBy: c.grecord && user(c.grecord.uid).u, onEnd: score => {
@@ -1463,7 +1500,7 @@ document.addEventListener('click', async e => {
     }
     case 'gamesendto': {
       const g = GAMES.find(x => x.k === id), c = DB.chats.find(x => x.id === el.dataset.c); if (!g || !c || !guard('msg', g.tag)) break;
-      closeSheet(); c.msgs.push({ id: 'tmp' + uid(), tmp: true, uid: u.id, text: g.tag, t: now(), reacts: {}, game: true });
+      closeSheet(); c.msgs.push({ id: 'tmp' + uid(), tmp: true, uid: u.id, text: g.tag, t: now(), reacts: {}, ...(g.k === 'xo' ? { xo: { x: u.id, o: null, b: '.........', t: 'x', w: null } } : { game: true }) });
       await server({ t: 'msg', chat: c.id, body: g.tag }, `${g.name} yuborildi 🎮`); go('/c/' + c.id); break;
     }
     case 'delme': sheet(`<h2>Akkauntni o‘chirish 🗑</h2>
@@ -1503,7 +1540,7 @@ document.addEventListener('click', async e => {
     case 'script': { DB.script = DB.script === 'cyr' ? 'lat' : DB.script === 'lat' ? '' : 'cyr'; save(); closeSheet(); const y = scrollY; render(); scrollTo(0, y); toast(DB.script === 'cyr' ? 'Матнлар кириллда' : DB.script === 'lat' ? 'Matnlar lotinda' : 'Matnlar asl holida'); break; }
     case 'setscript': { DB.script = el.dataset.v || ''; save(); const y = scrollY; render(); scrollTo(0, y); break; }
     case 'tnew': sheet(`<h2>🏁 Turnir boshlash</h2><p class="muted" style="margin:-4px 0 10px">Belgilangan vaqt ichida eng ko‘p ochko yiqqan a’zo g‘olib bo‘ladi. Natija chatga e’lon qilinadi.</p>
-      <form class="stack" data-form="tnew" data-id="${id}"><div class="field"><span style="font-size:14px;font-weight:700">O‘yin</span><div class="seg" style="grid-template-columns:repeat(3,minmax(0,1fr))">${GAMES.map((g, i) => `<label class="tn-opt"><input type="radio" name="tg" value="${g.k}" ${i ? '' : 'checked'}><span>${g.name}</span></label>`).join('')}</div></div>
+      <form class="stack" data-form="tnew" data-id="${id}"><div class="field"><span style="font-size:14px;font-weight:700">O‘yin</span><div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr))">${GAMES.filter(g => !g.duo).map((g, i) => `<label class="tn-opt"><input type="radio" name="tg" value="${g.k}" ${i ? '' : 'checked'}><span>${g.name}</span></label>`).join('')}</div></div>
       <div class="field"><span style="font-size:14px;font-weight:700">Davomiyligi</span><div class="seg" style="grid-template-columns:repeat(4,minmax(0,1fr))">${[5, 10, 30, 60].map((n, i) => `<label class="tn-opt"><input type="radio" name="tm" value="${n}" ${i === 1 ? 'checked' : ''}><span>${n} daq</span></label>`).join('')}</div></div>
       <button class="btn acc full">Boshlash 🏁</button></form>`); break;
     case 'tplay': {
@@ -1599,9 +1636,23 @@ document.addEventListener('click', async e => {
         <button class="btn ghost full" style="justify-content:flex-start" data-act="sendflappy" data-id="${id}">🐤 Flappy o‘yini</button>
         <button class="btn ghost full" style="justify-content:flex-start" data-act="sendtetris" data-id="${id}">🧱 Tetris</button>
         <button class="btn ghost full" style="justify-content:flex-start" data-act="send2048" data-id="${id}">🔢 2048</button>
+        <button class="btn ghost full" style="justify-content:flex-start" data-act="sendmines" data-id="${id}">💣 Mina</button>
+        <button class="btn ghost full" style="justify-content:flex-start" data-act="sendxo" data-id="${id}">❌⭕ X/O (do‘stingiz bilan)</button>
         <button class="btn ghost full" style="justify-content:flex-start" data-act="stickers" data-id="${id}">🎨 Stikerlar</button>
         ${(DB.chats.find(x => x.id === id) || {}).type === 'group' ? `<button class="btn ghost full" style="justify-content:flex-start" data-act="tnew" data-id="${id}">🏁 Turnir boshlash</button>` : ''}
         <button class="btn ghost full" style="justify-content:flex-start" data-act="schedmsg" data-id="${id}">⏰ Keyinroq yuborish ${u.star ? '' : '<span class="tag" style="margin-left:auto">⭐ Yulduz</span>'}</button></div>`); break;
+    case 'sendmines': { closeSheet(); const i = $('#msg-in'); i.value = '@mines'; i.form.requestSubmit(); break; }
+    case 'sendxo': { closeSheet(); const i = $('#msg-in'); if (!i) break; i.value = '@xo'; i.form.requestSubmit(); break; }
+    case 'xomove': {
+      const c = DB.chats.find(x => x.id === el.dataset.c), m = c && c.msgs.find(x => x.id === el.dataset.m), i = +el.dataset.i; if (!m || !m.xo || m.xo.w) break;
+      const G = m.xo, prev = JSON.stringify(G);
+      if (G.t === 'o' && G.o == null) G.o = u.id;
+      G.b = G.b.slice(0, i) + G.t + G.b.slice(i + 1); const r0 = XO.winner(G.b); G.w = r0 ? r0.w : null; G.t = G.t === 'x' ? 'o' : 'x';
+      navigator.vibrate && navigator.vibrate(12); softRender();
+      const r = await api('act', { method: 'POST', body: { t: 'xomove', msg: m.id, cell: i } });
+      if (!r.ok) { m.xo = JSON.parse(prev); toast(r.message || 'Bo‘lmadi', true); softRender(); }
+      sync(true); break;
+    }
     case 'send2048': { closeSheet(); const i = $('#msg-in'); i.value = '@2048'; i.form.requestSubmit(); break; }
     case 'stickers': sheet(`<h2>Lahzam stikerlari 🎨</h2><div class="stk-grid">${Stickers.list.map(k => `<button class="stk-pick" data-act="sendstk" data-id="${id}" data-k="${k}" aria-label="${esc(Stickers.label(k))}">${Stickers.svg(k)}</button>`).join('')}</div>`); break;
     case 'sendstk': {
@@ -1646,7 +1697,7 @@ document.addEventListener('click', async e => {
     }
     case 'qall': sheet(qSheet()); break;
     case 'qedit': sheet(`<h2>Kun savolini o‘zgartirish ✏️</h2><form class="stack" data-form="qset"><textarea class="inp" id="qs-t" maxlength="160" style="height:110px;padding:12px 16px" placeholder="Bugungi savol…">${esc(qText())}</textarea><p class="muted" style="margin:0;font-size:13px">Faqat bugungi savol o‘zgaradi. Bo‘sh qoldirsangiz, avtomatik savol qaytadi.</p><button class="btn full">Saqlash</button></form>`); break;
-    case 'qlike': { const a = (DB.daily || []).find(x => x.id === el.dataset.id); if (a) { a.liked = !a.liked; a.likes = (a.likes || 0) + (a.liked ? 1 : -1); if ($('#modal-root .sheet')) sheet(qSheet()); } api('/api/act', { method: 'POST', body: { t: 'qlike', id: el.dataset.id } }).then(() => sync(true)); break; }
+    case 'qlike': { const a = (DB.daily || []).find(x => x.id === el.dataset.id); if (a) { a.liked = !a.liked; a.likes = (a.likes || 0) + (a.liked ? 1 : -1); if ($('#modal-root .sheet')) sheet(qSheet()); } api('act', { method: 'POST', body: { t: 'qlike', id: el.dataset.id } }).then(() => sync(true)); break; }
     case 'qdel': { DB.daily = (DB.daily || []).filter(x => x.id !== el.dataset.id); closeSheet(); render(); server({ t: 'qdel', id: el.dataset.id }); break; }
     case 'cd-ins': { const ta = $('#post-text'); if (!ta) break; const v = el.dataset.v, pre = ta.value && !/\s$/.test(ta.value) ? ' ' : ''; ta.value += pre + v; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); ta.dispatchEvent(new Event('input', { bubbles: true })); break; }
     case 'postimg-x': POSTIMG = null; $('#post-prev').innerHTML = ''; break;
@@ -1785,8 +1836,8 @@ document.addEventListener('submit', async e => {
     }
     if (!c.members.includes(u.id)) { toast('Yozish uchun guruhga qo‘shiling', true); return; }
     if (!guard('msg', text)) return save();
-    const game = /@(flappy|tetris|2048)(?!\w)/i.test(text), replyTo = CH.reply && !String(CH.reply).startsWith('tmp') ? CH.reply : null;
-    c.msgs.push({ id: 'tmp' + uid(), tmp: true, uid: u.id, text: text.trim(), t: now(), reacts: {}, game, ...(replyTo ? { replyTo } : {}) });
+    const isXo = /@xo(?!\w)/i.test(text), game = !isXo && /@(flappy|tetris|2048|mines)(?!\w)/i.test(text), replyTo = CH.reply && !String(CH.reply).startsWith('tmp') ? CH.reply : null;
+    c.msgs.push({ id: 'tmp' + uid(), tmp: true, uid: u.id, text: text.trim(), t: now(), reacts: {}, game, ...(isXo ? { xo: { x: u.id, o: null, b: '.........', t: 'x', w: null } } : {}), ...(replyTo ? { replyTo } : {}) });
     CH.reply = null; inp.value = '';
     render(); setTimeout(() => $('#msg-in') && $('#msg-in').focus(), 0);
     server({ t: 'msg', chat: c.id, body: text.trim(), replyTo }); return;

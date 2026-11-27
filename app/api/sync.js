@@ -59,7 +59,7 @@ export default async function handler(req, res) {
     const ended = await db`update tournaments set done = true where not done and ends_at <= now() returning id, chat_id, game`;
     for (const tn of ended) {
       const top = await db`select u.username, s.score from tourney_scores s join users u on u.id = s.user_id where s.tid = ${tn.id} order by s.score desc limit 3`;
-      const g = { flappy: 'Flappy', tetris: 'Tetris', '2048': '2048' }[tn.game];
+      const g = { flappy: 'Flappy', tetris: 'Tetris', '2048': '2048', mines: 'Mina' }[tn.game];
       const body = top.length ? `🏆 ${g} turniri tugadi! G‘olib: @${top[0].username} (${top[0].score} ochko)` + (top[1] ? ` · 🥈 @${top[1].username} (${top[1].score})` : '') + (top[2] ? ` · 🥉 @${top[2].username} (${top[2].score})` : '') : `🏁 ${g} turniri tugadi: hech kim o‘ynamadi`;
       await db`insert into messages (chat_id, user_id, body, is_sys) values (${tn.chat_id}, null, ${body}, true)`;
     }
@@ -73,7 +73,7 @@ export default async function handler(req, res) {
     const readable = [...new Set([...mem, ...peek])];
     let msgs = [], reacts = [], votes = [];
     if (readable.length) {
-      msgs = await db`select * from (select id, chat_id, user_id, body, is_game, is_sys, reply_to, edited, case when img like 'https://%' then img when img is not null then '' end as img_url, poll, fwd_user, created_at,
+      msgs = await db`select * from (select id, chat_id, user_id, body, is_game, is_sys, reply_to, edited, case when img like 'https://%' then img when img is not null then '' end as img_url, poll, fwd_user, xo, created_at,
           row_number() over (partition by chat_id order by created_at desc) rn from messages where chat_id = any(${readable}::bigint[]) and (created_at <= now() or user_id = ${uid})) x where rn <= 300 order by created_at`;
       if (msgs.length) {
         const mids = msgs.map(m => Number(m.id));
@@ -99,6 +99,7 @@ export default async function handler(req, res) {
       const out = { id: 'm' + m.id, uid: m.user_id == null ? null : Number(m.user_id), text: m.body, t: ms(m.created_at), reacts: rxMap[m.id] || {} };
       if (m.is_sys) out.sys = true;
       if (m.is_game) out.game = true;
+      if (m.xo) { const X = typeof m.xo === 'string' ? JSON.parse(m.xo) : m.xo; out.xo = { x: Number(X.x), o: X.o == null ? null : Number(X.o), b: X.b, t: X.t, w: X.w }; }
       if (new Date(m.created_at) > new Date()) out.sched = true;
       if (m.reply_to) out.replyTo = 'm' + m.reply_to;
       if (m.edited) out.edited = true;
@@ -143,6 +144,7 @@ export default async function handler(req, res) {
           record: c.flappy_score ? { score: c.flappy_score, uid: Number(c.flappy_user) } : null,
           trecord: c.tetris_score ? { score: c.tetris_score, uid: Number(c.tetris_user) } : null,
           tour: isMember ? tourBy[Number(c.id)] || null : null,
+          mrecord: c.mines_score ? { score: c.mines_score, uid: Number(c.mines_user) } : null,
           grecord: c.g2048_score ? { score: c.g2048_score, uid: Number(c.g2048_user) } : null,
           typing: isMember ? ms2.filter(m => m.typing && Number(m.user_id) !== uid).map(m => Number(m.user_id)) : [],
           pin: c.pin_id ? 'm' + c.pin_id : null, read, msgs: canRead ? (byChat[c.id] || []) : [], full: canRead
