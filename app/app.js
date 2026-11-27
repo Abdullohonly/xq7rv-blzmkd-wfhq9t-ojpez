@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.14.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.14.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -413,6 +413,8 @@ function deskShell(name, html) {
     <aside class="rail">
       <div class="card"><div class="row" style="justify-content:space-between"><b style="font-family:var(--head)">🏆 Haftaning foydalilari</b><a href="/reyting" data-link class="more" style="font-size:13px">Hammasi</a></div>
         ${top.map((r, i) => `<a href="/@${esc(r.x.u)}" data-link class="li" style="padding:9px 0">${['🥇', '🥈', '🥉'][i] || `<b class="rank" style="width:22px;text-align:center">${i + 1}</b>`}${avatar(r.x, 34)}<span style="flex:1;min-width:0"><b style="font-size:14px">${esc(r.x.name)}</b></span><b style="font-size:13px">⭐ ${r.n}</b></a>`).join('') || '<p class="muted">Bu hafta hali ⭐ yo‘q. Guruhlarda foydali javob yozing!</p>'}</div>
+      <div class="card"><div class="row" style="justify-content:space-between"><b style="font-family:var(--head)">🔥 Faol obunachilar</b><button class="more" style="font-size:13px;background:none;border:0;cursor:pointer;padding:0" data-act="qtop">Hammasi</button></div>
+        ${(() => { const sk = realUsers().filter(x => !x.blocked && x.sk > 1).sort((a, b) => b.sk - a.sk || a.id - b.id).slice(0, 5); return sk.map((x, i) => `<a href="/@${esc(x.u)}" data-link class="li" style="padding:9px 0">${['🥇', '🥈', '🥉'][i] || `<b class="rank" style="width:22px;text-align:center">${i + 1}</b>`}${avatar(x, 34)}<span style="flex:1;min-width:0"><b style="font-size:14px">${esc(x.name)}</b></span><b style="font-size:13px">🔥 ${x.sk}</b></a>`).join('') || '<p class="muted">Hali seriya yo‘q. Kun savoliga har kuni javob bering!</p>'; })()}</div>
       ${upd ? `<a href="/yangiliklar" data-link class="card" style="display:block;text-decoration:none;background:#121212;color:#fff"><span class="muted" style="color:#aaa">✨ So‘nggi yangilanish</span><b style="display:block;font-family:var(--head);margin-top:4px">${esc(upd.title)}</b></a>` : ''}
       ${sug.length ? `<div class="card"><b style="font-family:var(--head)">Kimni kuzatish</b>${sug.map(x => `<div class="li" style="padding:9px 0"><a href="/@${esc(x.u)}" data-link class="row" style="flex:1;text-decoration:none;gap:10px;min-width:0">${avatar(x, 34)}<span style="min-width:0"><b style="font-size:14px">${esc(x.name)}</b><span class="muted" style="display:block">@${esc(x.u)}</span></span></a><button class="pill" data-act="follow" data-id="${x.id}">Kuzatish</button></div>`).join('')}</div>` : ''}
       <p class="muted" style="text-align:center">Lahzam v${VERSION} · Har lahza yoningizda!</p>
