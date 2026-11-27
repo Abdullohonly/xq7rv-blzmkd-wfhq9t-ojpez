@@ -1,8 +1,8 @@
-/* Lahzam v1.6.2 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.6.3 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.6.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.6.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -378,13 +378,11 @@ function header(extra = '', deskTitle = '') {
   const u = me(), n = unreadNotifs();
   return `<header class="top"><div class="top-row">
     <a href="/" data-link class="brand" aria-label="Lahzam bosh sahifa">${I.logo()}<b>lahzam</b></a>${deskTitle ? `<b class="desk-title">${deskTitle}</b>` : ''}
-    <div class="row" style="gap:6px">
-      <button class="ibtn script-btn" data-act="script" aria-label="Yozuvni almashtirish: lotin yoki kirill" title="Lotin / Кирилл">${DB.script === 'cyr' ? 'Ўз' : DB.script === 'lat' ? 'Oʻz' : 'A/Я'}</button>
-      <button class="ibtn" data-act="theme" aria-label="${DB.theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}">${THEME_ICO()}</button>
-      <a href="/reyting" data-link class="ibtn" aria-label="Foydali reytingi">${NI('trophy', false, 20)}</a>
+    <div class="top-act">
       <a href="/qidiruv" data-link class="ibtn" aria-label="Qidirish">${NI('search', false, 20)}</a>
       <a href="/bildirishnomalar" data-link class="ibtn" aria-label="Bildirishnomalar${n ? ', ' + n + ' ta yangi' : ''}">${NI('bell', false, 20)}${n ? `<span class="badge">${n > 99 ? '99+' : n}</span>` : ''}</a>
-      ${u ? `<a href="/@${esc(u.u)}" data-link aria-label="Profilim" style="border-radius:50%;border:2px solid #fff;display:inline-flex">${avatar(u, 40)}</a>` : `<a href="/kirish" data-link class="btn" style="height:40px;background:#fff;color:#111;border-radius:999px">Kirish</a>`}
+      <button class="ibtn" data-act="topmenu" aria-label="Ko‘proq: tungi rejim, yozuv, reyting, o‘yinlar"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="19" cy="12" r="2.2"/></svg></button>
+      ${u ? `<a href="/@${esc(u.u)}" data-link class="top-av" aria-label="Profilim">${avatar(u, 38)}</a>` : `<a href="/kirish" data-link class="btn" style="height:40px;background:#fff;color:#111;border-radius:999px">Kirish</a>`}
     </div></div>${extra}</header>`;
 }
 // Mini o'yinlar: Flappy, Tetris, 2048
@@ -558,7 +556,7 @@ function home() {
       <div id="post-prev"></div>
       <div class="row" style="justify-content:space-between;margin-top:6px">
         <div class="row" style="gap:8px"><label class="pill" style="cursor:pointer" aria-label="Rasm qo‘shish">📷<input type="file" accept="image/*" id="post-img" class="sr"></label>
-        <label class="check"><input type="checkbox" id="post-lahza"> Lahza · 24 soat</label></div>
+        <label class="check" title="24 soatdan keyin yo‘qoladi"><input type="checkbox" id="post-lahza"> ⏳ Lahza</label></div>
         <div class="row" style="gap:10px"><span class="counter" id="post-count">0 / ${LIMIT.post}</span>
         <button class="btn acc" style="height:40px;border-radius:999px">Joylash</button></div>
       </div>
@@ -1300,7 +1298,7 @@ document.addEventListener('click', async e => {
       sheet(`<h2>Mening QR kodim</h2><p class="muted" style="margin-top:-6px">Buni faqat siz ko‘rasiz. Do‘stingiz skanerlasa, profilingiz ochiladi.</p><div class="card" style="display:flex;justify-content:center" id="qr-box">Yuklanmoqda…</div><p style="text-align:center;font-weight:700">${esc(location.host)}/@${esc(u.u)}</p><button class="btn ghost full" data-act="copy" data-text="${esc(url)}">Havolani nusxalash</button>`);
       loadQR(url); break;
     }
-    case 'theme': { DB.theme = DB.theme === 'dark' ? 'light' : 'dark'; save(); const y = scrollY; render(); scrollTo(0, y); break; }
+    case 'theme': { DB.theme = DB.theme === 'dark' ? 'light' : 'dark'; save(); closeSheet(); const y = scrollY; render(); scrollTo(0, y); break; }
     case 'logout': $('#modal-root').innerHTML = ''; el.disabled = true; try { localStorage.setItem('lahzam_noauto', '1'); window.google && google.accounts && google.accounts.id.disableAutoSelect(); } catch (e) {} await api('auth/me', { method: 'DELETE' }); ADM = { checked: false, configured: false, verified: false }; adoptSession(null); AUTH = { step: 'start' }; save(); $('#modal-root').innerHTML = ''; go('/kirish'); toast('Akkauntdan chiqdingiz 👋'); break;
     case 'reset': { const keep = DB; DB = Object.assign(fresh(keep), { me: keep.me, sess: keep.sess, users: keep.users.filter(x => x.id === keep.me) }); SYNC.sig = ''; save(); toast('Yangilanmoqda…'); await sync(true); render(); break; }
     case 'newgroup': sheet(`<h2>Yangi guruh</h2><form class="stack" data-form="group">
@@ -1451,7 +1449,7 @@ document.addEventListener('click', async e => {
         <button class="btn acc full" data-act="close-sheet-btn">Tushunarli</button></div>`); break;
     }
     case 'restats': STATS = null; render(); break;
-    case 'script': { DB.script = DB.script === 'cyr' ? 'lat' : DB.script === 'lat' ? '' : 'cyr'; save(); const y = scrollY; render(); scrollTo(0, y); toast(DB.script === 'cyr' ? 'Матнлар кириллда' : DB.script === 'lat' ? 'Matnlar lotinda' : 'Matnlar asl holida'); break; }
+    case 'script': { DB.script = DB.script === 'cyr' ? 'lat' : DB.script === 'lat' ? '' : 'cyr'; save(); closeSheet(); const y = scrollY; render(); scrollTo(0, y); toast(DB.script === 'cyr' ? 'Матнлар кириллда' : DB.script === 'lat' ? 'Matnlar lotinda' : 'Matnlar asl holida'); break; }
     case 'setscript': { DB.script = el.dataset.v || ''; save(); const y = scrollY; render(); scrollTo(0, y); break; }
     case 'tnew': sheet(`<h2>🏁 Turnir boshlash</h2><p class="muted" style="margin:-4px 0 10px">Belgilangan vaqt ichida eng ko‘p ochko yiqqan a’zo g‘olib bo‘ladi. Natija chatga e’lon qilinadi.</p>
       <form class="stack" data-form="tnew" data-id="${id}"><div class="field"><span style="font-size:14px;font-weight:700">O‘yin</span><div class="seg" style="grid-template-columns:repeat(3,minmax(0,1fr))">${GAMES.map((g, i) => `<label class="tn-opt"><input type="radio" name="tg" value="${g.k}" ${i ? '' : 'checked'}><span>${g.name}</span></label>`).join('')}</div></div>
@@ -1465,6 +1463,13 @@ document.addEventListener('click', async e => {
         return lead && score > lead.s ? { record: score, recordBy: u.u } : null;
       } });
       break;
+    }
+    case 'topmenu': {
+      const li = (href, ico, t, sub = '') => `<a href="${href}" data-link class="li"><span class="perk-i">${ico}</span><span style="flex:1"><b>${t}</b>${sub ? `<span class="muted" style="display:block;font-size:13px">${sub}</span>` : ''}</span>›</a>`;
+      sheet(`<h2>Menyu</h2><div class="card" style="padding:4px 16px;margin-bottom:10px">
+        <button class="li" style="width:100%;text-align:left" data-act="theme"><span class="perk-i">${DB.theme === 'dark' ? '☀️' : '🌙'}</span><span style="flex:1"><b>${DB.theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}</b></span></button>
+        <button class="li" style="width:100%;text-align:left" data-act="script"><span class="perk-i" style="font-weight:800;font-size:14px">A/Я</span><span style="flex:1"><b>Yozuv: ${DB.script === 'cyr' ? 'Кирилл' : DB.script === 'lat' ? 'Lotin' : 'Asl holida'}</b><span class="muted" style="display:block;font-size:13px">Bosib almashtiring: Кирилл → Lotin → Asl</span></span></button></div>
+        <div class="card" style="padding:4px 16px">${li('/reyting', '🏆', 'Foydali reytingi')}${li('/oyinlar', '🎮', 'O‘yinlar', 'Flappy, Tetris, 2048')}${li('/yulduz', '⭐', 'Yulduz')}${li('/yangiliklar', '✨', 'Lahzam Updates')}${li('/sozlamalar', '⚙️', 'Sozlamalar')}</div>`); break;
     }
     case 'install': if (DEFER) doInstall(); else showInstall(true); break;
     case 'pushon': { const r = await pushEnable(true); toast(r === 'ok' ? 'Bildirishnomalar yoqildi 🔔' : r === 'ios' ? 'iPhone’da avval Lahzam’ni ekranga o‘rnating 📲' : r === 'denied' ? 'Brauzer sozlamalarida Lahzam’ga ruxsat bering' : 'Bu brauzer push’ni qo‘llamaydi', r !== 'ok'); closeSheet(); render(); break; }
