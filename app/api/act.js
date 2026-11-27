@@ -370,6 +370,13 @@ export default async function handler(req, res) {
         if (up.length) await db`insert into messages (chat_id, user_id, body, is_sys) values (${cid}, null, ${'💣 @' + me.username + ' Mina rekordi: ' + score + ' ochko!'}, true)`;
         return send(res, 200, { ok: true, record: up.length > 0 });
       }
+      case 'xoget': {
+        // X/O holatini tez olish (faqat shu o'yinlar, butun sync emas)
+        const ids = (Array.isArray(b.msgs) ? b.msgs : []).slice(0, 10).map(x => idOf(x, 'm')).filter(Boolean);
+        if (!ids.length) return send(res, 200, { ok: true, xo: {} });
+        const rows = await db`select m.id, m.xo from messages m join chat_members a on a.chat_id = m.chat_id and a.user_id = ${uid} and a.status = 'member' where m.id = any(${ids}::bigint[]) and m.xo is not null`;
+        return send(res, 200, { ok: true, xo: Object.fromEntries(rows.map(r => { const X = typeof r.xo === 'string' ? JSON.parse(r.xo) : r.xo; return ['m' + r.id, { x: Number(X.x), o: X.o == null ? null : Number(X.o), b: X.b, t: X.t, w: X.w }]; })) });
+      }
       case 'xomove': {
         // X/O: navbat bilan yurish. Birinchi bo'lib ⭕ bilan yurgan odam raqib bo'ladi
         const mid = idOf(b.msg, 'm'), i = Number(b.cell);
@@ -387,9 +394,13 @@ export default async function handler(req, res) {
         G.w = wl ? G.t : G.b.includes('.') ? null : 'd'; G.t = G.t === 'x' ? 'o' : 'x';
         const up = await db`update messages set xo = ${JSON.stringify(G)}::jsonb where id = ${mid} and xo->>'b' = ${old} returning id`;
         if (!up.length) return bad(res, 'Raqib sizdan oldin yurdi, qayta urinib ko‘ring');
-        if (G.w) await db`insert into messages (chat_id, user_id, body, is_sys) values (${m.chat_id}, null, ${G.w === 'd' ? '🤝 X/O: durang!' : (G.w === 'x' ? '❌' : '⭕') + ' @' + me.username + ' X/O o‘yinida yutdi! 🏆'}, true)`;
-        else { const nxt = G.t === 'x' ? G.x : G.o; if (nxt) await pushTo(db, [nxt], { title: 'X/O ❌⭕', body: 'Sizning navbatingiz!', url: '/c/c' + m.chat_id, tag: 'xo' + mid }).catch(() => {}); }
-        return send(res, 200, { ok: true, xo: G });
+        // javob darhol qaytadi, e'lon va push keyin
+        send(res, 200, { ok: true, xo: G });
+        try {
+          if (G.w) await db`insert into messages (chat_id, user_id, body, is_sys) values (${m.chat_id}, null, ${G.w === 'd' ? '🤝 X/O: durang!' : (G.w === 'x' ? '❌' : '⭕') + ' @' + me.username + ' X/O o‘yinida yutdi! 🏆'}, true)`;
+          else { const nxt = G.t === 'x' ? G.x : G.o; if (nxt) await pushTo(db, [nxt], { title: 'X/O ❌⭕', body: 'Sizning navbatingiz!', url: '/c/c' + m.chat_id, tag: 'xo' + mid }); }
+        } catch (e) {}
+        return;
       }
       case 'pushsub': {
         const s = b.sub || {}, ep = str(s.endpoint, 800), k = s.keys || {};
@@ -478,7 +489,15 @@ export default async function handler(req, res) {
       case 'qlike': {
         const id = idOf(b.id, 'q'); if (!id) return bad(res, 'id');
         const del = await db`delete from daily_likes where answer_id = ${id} and user_id = ${uid} returning answer_id`;
-        if (!del.length) await db`insert into daily_likes (answer_id, user_id) select ${id}, ${uid} where exists(select 1 from daily_answers where id = ${id}) on conflict do nothing`;
+        if (!del.length) {
+          const ins = await db`insert into daily_likes (answer_id, user_id) select ${id}, ${uid} where exists(select 1 from daily_answers where id = ${id}) on conflict do nothing returning answer_id`;
+          if (ins.length) {
+            send(res, 200, { ok: true });
+            const [a] = await db`select user_id, body from daily_answers where id = ${id}`;
+            if (a) await notify(db, Number(a.user_id), `❤️ ${me.name || '@' + me.username} Kun savolidagi javobingizni yoqtirdi: “${String(a.body).slice(0, 60)}”`, '/', uid).catch(() => {});
+            return;
+          }
+        }
         return send(res, 200, { ok: true });
       }
       default: return bad(res, 'Noma’lum amal');

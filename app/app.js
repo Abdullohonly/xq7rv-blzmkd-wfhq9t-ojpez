@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.9.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.9.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -87,7 +87,7 @@ function softRender() {
   const name = route()[0];
   if (name === 'chat') {
     const box = $('#msgs'), c = DB.chats.find(x => x.id === CH.cid);
-    if (box && c) { const near = innerHeight + scrollY >= document.body.scrollHeight - 160; box.innerHTML = msgList(c); const sb = $('#chat-sub'), u0 = me(); if (sb && u0) sb.innerHTML = typingText(c) ? `<span class="typing">${typingText(c)}</span>` : c.type === 'group' ? `${c.members.length} a‘zo` : isSaved(c) ? 'Faqat siz ko‘rasiz' : seenText(peer(c, u0)); if (near) scrollTo(0, document.body.scrollHeight); markRead(c); return; }
+    if (box && c) { const near = innerHeight + scrollY >= document.body.scrollHeight - 160; box.innerHTML = msgList(c); const sb = $('#chat-sub'), u0 = me(); if (sb && u0) sb.innerHTML = typingText(c) ? `<span class="typing">${typingText(c)}</span>` : c.type === 'group' ? `${c.members.length} a‘zo` : isSaved(c) ? 'Faqat siz ko‘rasiz' : seenText(peer(c, u0)); if (near) scrollTo(0, document.body.scrollHeight); markRead(c); if (!XOQ.t || XOQ.idle > 0) xoPoll(); return; }
   }
   // Admin panel fonda o'zi qayta chizilmaydi (sakramasin); ↻ tugmasi bilan yangilanadi
   if (name === 'admin') return;
@@ -832,6 +832,26 @@ function xoCard(c, m) {
     <div class="xo-board">${[...G.b].map((v, i) => `<button class="xo-c${line.includes(i) ? ' win' : ''}" data-act="xomove" data-c="${c.id}" data-m="${m.id}" data-i="${i}" ${v !== '.' || !myTurn || m.tmp ? 'disabled' : ''} aria-label="${v === '.' ? 'Bo‘sh katak' : v.toUpperCase()}">${XO.mark(v, 30)}</button>`).join('')}</div>
     <div class="xo-st${myTurn ? ' me' : ''}">${st}</div>${G.w ? `<button class="btn acc full" style="height:36px;border-radius:999px;font-size:13px;margin-top:8px" data-act="sendxo" data-id="${c.id}">↻ Yana o‘ynash</button>` : ''}</div>`;
 }
+// X/O tezkor yangilanish: faqat o'yin kartasi qayta chiziladi, raqib kutilayotganda har 0.8 soniyada tekshiriladi
+const XOQ = { t: 0, busy: false, idle: 0 };
+function xoPatch(c, m) { const el = document.querySelector(`#m-${m.id} .xo-card`); if (el) el.outerHTML = xoCard(c, m); }
+function xoPoll() {
+  clearTimeout(XOQ.t);
+  const c = CH.cid && DB.chats.find(x => x.id === CH.cid); if (!c || route()[0] !== 'chat') return;
+  const u = me(), live = c.msgs.filter(m => m.xo && !m.xo.w && !m.tmp && (m.xo.x === u.id || m.xo.o === u.id || m.xo.o == null)).slice(-5);
+  if (!live.length) return;
+  const waiting = live.some(m => { const G = m.xo; return G.t === 'x' ? G.x !== u.id : G.o == null ? G.x === u.id : G.o !== u.id; });
+  XOQ.t = setTimeout(async () => {
+    if (document.visibilityState !== 'visible' || XOQ.busy) return xoPoll();
+    const r = await api('act', { method: 'POST', body: { t: 'xoget', msgs: live.map(m => m.id) } }).catch(() => null);
+    let changed = false, ended = false;
+    if (r && r.ok) live.forEach(m => { const n = r.xo[m.id]; if (n && n.b !== m.xo.b || n && n.o !== m.xo.o) { m.xo = n; changed = true; if (n.w) ended = true; xoPatch(c, m); } });
+    XOQ.idle = changed ? 0 : XOQ.idle + 1;
+    if (changed) navigator.vibrate && navigator.vibrate(20);
+    if (ended) sync(true);
+    if (XOQ.idle < 400) xoPoll();
+  }, waiting ? 800 : 2500);
+}
 function msgHtml(c, m) {
   const u = me();
   if (m.sys) return `<div class="sys">${linkify(m.text)}</div>`;
@@ -929,6 +949,7 @@ after.chat = () => {
   if (mi && cc && !isSaved(cc)) mi.addEventListener('input', () => { if (mi.value.trim() && now() - (CH.typedAt || 0) > 3500) { CH.typedAt = now(); api('act', { method: 'POST', body: { t: 'typing', chat: cc.id } }); } });
   window.scrollTo(0, document.body.scrollHeight);
   if (CH.reply || CH.edit) { const i = $('#msg-in'); i && i.focus(); }
+  XOQ.idle = 0; xoPoll();
 };
 function compressImage(file, max = 1080) {
   return new Promise((res, rej) => {
@@ -1562,9 +1583,10 @@ document.addEventListener('click', async e => {
     }
     case 'admrefresh': { ADM.st = null; await sync(true); render(); toast('Yangilandi ✅'); break; }
     case 'install': if (DEFER) doInstall(); else showInstall(true); break;
-    case 'pushon': { const r = await pushEnable(true); toast(r === 'ok' ? 'Bildirishnomalar yoqildi 🔔' : r === 'ios' ? 'iPhone’da avval Lahzam’ni ekranga o‘rnating 📲' : r === 'denied' ? 'Brauzer sozlamalarida Lahzam’ga ruxsat bering' : 'Bu brauzer push’ni qo‘llamaydi', r !== 'ok'); closeSheet(); render(); break; }
+    case 'pushon': { try { localStorage.setItem('lahzam_push_asked', '1'); } catch (err) {} const r = await pushEnable(true); toast(r === 'ok' ? 'Bildirishnomalar yoqildi 🔔' : r === 'ios' ? 'iPhone’da avval Lahzam’ni ekranga o‘rnating 📲' : r === 'denied' ? 'Brauzer sozlamalarida Lahzam’ga ruxsat bering' : 'Bu brauzer push’ni qo‘llamaydi', r !== 'ok'); closeSheet(); render(); break; }
     case 'pushoff': { await pushDisable(); toast('Push o‘chirildi'); render(); break; }
     case 'pushlater': closeSheet(); break;
+    case 'pushnever': try { localStorage.setItem('lahzam_push_asked', '1'); } catch (err) {} closeSheet(); break;
     case 'inst-go': doInstall(); break;
     case 'inst-fab-x': FAB_OFF = true; instFab(); break;
     case 'inst-copy': { try { await navigator.clipboard.writeText(location.origin); toast('Havola nusxalandi'); } catch (err) { toast(location.origin); } break; }
@@ -1645,14 +1667,14 @@ document.addEventListener('click', async e => {
     case 'sendmines': { closeSheet(); const i = $('#msg-in'); i.value = '@mines'; i.form.requestSubmit(); break; }
     case 'sendxo': { closeSheet(); const i = $('#msg-in'); if (!i) break; i.value = '@xo'; i.form.requestSubmit(); break; }
     case 'xomove': {
-      const c = DB.chats.find(x => x.id === el.dataset.c), m = c && c.msgs.find(x => x.id === el.dataset.m), i = +el.dataset.i; if (!m || !m.xo || m.xo.w) break;
+      const c = DB.chats.find(x => x.id === el.dataset.c), m = c && c.msgs.find(x => x.id === el.dataset.m), i = +el.dataset.i; if (!m || !m.xo || m.xo.w || XOQ.busy) break;
       const G = m.xo, prev = JSON.stringify(G);
       if (G.t === 'o' && G.o == null) G.o = u.id;
       G.b = G.b.slice(0, i) + G.t + G.b.slice(i + 1); const r0 = XO.winner(G.b); G.w = r0 ? r0.w : null; G.t = G.t === 'x' ? 'o' : 'x';
-      navigator.vibrate && navigator.vibrate(12); softRender();
-      const r = await api('act', { method: 'POST', body: { t: 'xomove', msg: m.id, cell: i } });
-      if (!r.ok) { m.xo = JSON.parse(prev); toast(r.message || 'Bo‘lmadi', true); softRender(); }
-      sync(true); break;
+      navigator.vibrate && navigator.vibrate(12); xoPatch(c, m); XOQ.busy = true;
+      const r = await api('act', { method: 'POST', body: { t: 'xomove', msg: m.id, cell: i } }); XOQ.busy = false;
+      if (r.ok && r.xo) m.xo = r.xo; else { m.xo = JSON.parse(prev); toast(r.message || 'Bo‘lmadi', true); }
+      xoPatch(c, m); xoPoll(); if (m.xo.w) setTimeout(() => sync(true), 400); break;
     }
     case 'send2048': { closeSheet(); const i = $('#msg-in'); i.value = '@2048'; i.form.requestSubmit(); break; }
     case 'stickers': sheet(`<h2>Lahzam stikerlari 🎨</h2><div class="stk-grid">${Stickers.list.map(k => `<button class="stk-pick" data-act="sendstk" data-id="${id}" data-k="${k}" aria-label="${esc(Stickers.label(k))}">${Stickers.svg(k)}</button>`).join('')}</div>`); break;
@@ -1916,7 +1938,7 @@ addEventListener('beforeinstallprompt', e => {
   e.preventDefault(); DEFER = e; instFab();
   if (document.querySelector('.inst-sheet')) showInstall(true); else if (!instSeen()) showInstall(false);
 });
-addEventListener('appinstalled', () => { instDone(); DEFER = null; instFab(); if (document.querySelector('.inst-sheet')) closeSheet(); toast('Lahzam o‘rnatildi 🎉'); });
+addEventListener('appinstalled', () => { instDone(); DEFER = null; instFab(); if (document.querySelector('.inst-sheet')) closeSheet(); toast('Lahzam o‘rnatildi 🎉'); setTimeout(maybeAskPush, 1500); });
 let FAB_OFF = false;
 function instFab() {
   let b = document.getElementById('inst-fab');
@@ -1984,9 +2006,9 @@ function maybeAskPush() {
   let asked = null, off = null; try { asked = localStorage.getItem('lahzam_push_asked'); off = localStorage.getItem('lahzam_push') === '0'; } catch (e) {}
   if (Notification.permission === 'granted') { if (!off) pushEnable(false); return; } // obunani jimgina yangilab turamiz
   if (Notification.permission !== 'default' || asked) return;
-  try { localStorage.setItem('lahzam_push_asked', '1'); } catch (e) {}
+  // "Qayta ko'rsatilmasin" bosilmaguncha har safar ochilganda so'raladi
   sheet(`<div class="inst-sheet"><div class="inst-hero"><span style="font-size:44px">🔔</span><div><b>Xabarlarni o‘tkazib yubormang</b><span>Kimdir yozsa yoki postingizga javob qilsa, telefoningizga darhol bildirishnoma keladi</span></div></div>
-    <button class="btn acc full inst-big" data-act="pushon">🔔 Bildirishnomalarni yoqish</button><button class="btn ghost full" style="margin-top:10px" data-act="pushlater">Keyinroq</button></div>`);
+    <button class="btn acc full inst-big" data-act="pushon">🔔 Ruxsat berish</button><button class="btn ghost full" style="margin-top:10px" data-act="pushnever">Qayta ko‘rsatilmasin</button></div>`);
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.go) { closeSheet(); go(e.data.go); } });
 const WAIT_BIP = ANDROID && !INAPP && !FIREFOX; // bu brauzerlarda haqiqiy "O'rnatish" tugmasi bo'ladi
