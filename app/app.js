@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.9.5'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.9.6'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -276,7 +276,7 @@ function guard(kind, text) {
 
 /* ---------------- router ---------------- */
 const app = $('#app');
-function go(path, replace) { if (typeof quietUpdate === 'function' && !replace && quietUpdate(path)) return; if (replace) history.replaceState({}, '', path); else history.pushState({}, '', path); render(); window.scrollTo(0, 0); }
+function go(path, replace) { if (typeof quietUpdate === 'function' && !replace && quietUpdate(path)) return; if (replace) history.replaceState({}, '', path); else history.pushState({}, '', path); render(); if (route()[0] === 'chat') chatBottom(); else window.scrollTo(0, 0); }
 window.addEventListener('popstate', render);
 function route() {
   const p = decodeURI(location.pathname).replace(/\/+$/, '') || '/';
@@ -941,13 +941,19 @@ function chat(id) {
       <button class="round" aria-label="${editing ? 'Saqlash' : 'Yuborish'}">${editing ? '✓' : I.send.replace('<svg', '<svg width="18" height="18"')}</button></div>
       <input type="file" id="img-file" accept="image/*" class="sr" tabindex="-1"></form></div>`;
 }
+// Chatga kirganda eng oxirgi xabar ko'rinadi (rasmlar yuklangach ham pastda qoladi)
+function chatBottom() {
+  const go2 = () => window.scrollTo(0, document.body.scrollHeight);
+  go2(); requestAnimationFrame(go2); setTimeout(go2, 120); setTimeout(go2, 400);
+  const box = $('#msgs'); if (box) box.querySelectorAll('img').forEach(im => { if (!im.complete) im.addEventListener('load', () => { if (innerHeight + scrollY >= document.body.scrollHeight - im.clientHeight - 200) go2(); }, { once: true }); });
+}
 after.chat = () => {
   markRead(DB.chats.find(x => x.id === CH.cid));
   const q = $('#cq');
   if (q) { q.addEventListener('input', () => { CH.q = q.value.trim().toLowerCase(); const c = DB.chats.find(x => x.id === CH.cid); $('#msgs').innerHTML = msgList(c); srvSearch(c); }); if (!CH.q) q.focus(); return; }
   const mi = $('#msg-in'), cc = DB.chats.find(x => x.id === CH.cid);
   if (mi && cc && !isSaved(cc)) mi.addEventListener('input', () => { if (mi.value.trim() && now() - (CH.typedAt || 0) > 3500) { CH.typedAt = now(); api('act', { method: 'POST', body: { t: 'typing', chat: cc.id } }); } });
-  window.scrollTo(0, document.body.scrollHeight);
+  chatBottom();
   if (CH.reply || CH.edit) { const i = $('#msg-in'); i && i.focus(); }
   XOQ.idle = 0; xoPoll();
 };
