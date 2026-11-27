@@ -2225,13 +2225,9 @@ api('auth/me').then(async r => {
   if (SESSION) { applyIcon(); setTimeout(() => { if (standalone() || instSeen()) maybeAskPush(); }, 3000); }
 });
 // Jonli yangilanish: chat ochiq bo'lsa har 3 soniyada, boshqa sahifalarda har 8 soniyada yangi narsalar o'zi keladi
-let ACT_T = now();
-['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => addEventListener(ev, () => { const was = now() - ACT_T > 60e3; ACT_T = now(); if (was && SESSION) sync(); }, { passive: true }));
 setInterval(() => {
   if (!SESSION || document.visibilityState !== 'visible') return;
-  // foydalanuvchi tinch tursa (1 daqiqa hech narsa bosmasa) tekshiruv sekinlashadi
-  const idle = now() - ACT_T > 60e3, inChat = route()[0] === 'chat';
-  const gap = inChat ? (idle ? 10000 : 3000) : (idle ? 30000 : 8000);
+  const gap = route()[0] === 'chat' ? 3000 : 8000;
   if (now() - SYNC.last >= gap - 200) sync();
 }, 1000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && SESSION) sync(); });
