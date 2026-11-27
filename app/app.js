@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.10.5'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.11.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -326,6 +326,13 @@ function slideNav() {
     put(from); void ind.offsetWidth; ind.classList.add('go'); put(to);
   });
 }
+// ✍️ Qoralama: yozilayotgan matn telefonga saqlanadi — sahifa yangilansa yoki chiqib ketsangiz ham yo'qolmaydi
+const draftKey = el => !el ? null : el.id === 'msg-in' ? (CH.edit ? null : 'lz_d:m:' + CH.cid) : el.id === 'post-text' ? 'lz_d:p' : el.id === 'reply-text' ? 'lz_d:r:' + ((el.form && el.form.dataset.id) || '') : null;
+function draftRestore() {
+  ['#msg-in', '#post-text', '#reply-text'].forEach(sel => { const el = $(sel), k = draftKey(el); if (!k || el.value) return; let v = null; try { v = localStorage.getItem(k); } catch (e) {} if (v) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); } });
+}
+document.addEventListener('input', e => { const k = draftKey(e.target); if (!k) return; try { e.target.value.trim() ? localStorage.setItem(k, e.target.value.slice(0, 2000)) : localStorage.removeItem(k); } catch (err) {} });
+document.addEventListener('submit', e => { const el = e.target.querySelector('#msg-in,#post-text,#reply-text'), k = draftKey(el); if (k) try { localStorage.removeItem(k); } catch (err) {} }, true);
 function render() {
   document.documentElement.dataset.theme = DB.theme;
   document.documentElement.dataset.fs = DB.fs || 'md';
@@ -338,6 +345,7 @@ function render() {
   const desk = DESK.matches && me() && !['auth', 'admin'].includes(name);
   document.body.classList.toggle('is-desk', !!desk);
   app.innerHTML = desk ? deskShell(name, html) : html;
+  draftRestore();
   // sahifa almashganda animatsiya: dock bo'yicha o'ngga/chapga, boshqa sahifalar pastdan
   if (PG.last !== name) {
     const a = NAV_ORDER.indexOf(PG.last), b = NAV_ORDER.indexOf(name);
@@ -614,6 +622,42 @@ function postCard(p, full) {
   </article>`;
 }
 
+/* ---------------- ⏳ Lahzalar halqasi (24 soatlik "Lahza" postlar hikoya ko'rinishida) ---------------- */
+const LZ = { seen: (() => { try { return new Set(JSON.parse(localStorage.getItem('lahzam_lz_seen') || '[]')); } catch (e) { return new Set(); } })(), q: [], ui: 0, pi: 0, t: 0 };
+const lzSave = () => { try { localStorage.setItem('lahzam_lz_seen', JSON.stringify([...LZ.seen].slice(-400))); } catch (e) {} };
+function lzGroups() {
+  const u = me(), live = DB.posts.filter(p => p.lahza && alive(p) && !String(p.id).startsWith('tmp')).sort((a, b) => a.t - b.t), by = new Map();
+  live.forEach(p => { if (!by.has(p.uid)) by.set(p.uid, []); by.get(p.uid).push(p); });
+  return [...by.entries()].map(([uid, ps]) => ({ uid, ps, last: ps[ps.length - 1].t, unseen: ps.some(p => !LZ.seen.has(p.id)) }))
+    .sort((a, b) => (b.uid === u.id) - (a.uid === u.id) || b.unseen - a.unseen || b.last - a.last);
+}
+function lzRing() {
+  const u = me(), G = lzGroups(), mine = G.find(g => g.uid === u.id);
+  const item = g => { const w = user(g.uid); return `<button class="lz-it${g.unseen ? '' : ' seen'}" data-act="lzopen" data-id="${g.uid}" aria-label="@${esc(w.u)} lahzalari"><span class="lz-ring">${avatar(w, 58)}</span><span class="lz-nm">${g.uid === u.id ? 'Siz' : esc(w.name.split(' ')[0])}</span></button>`; };
+  return `<div class="lz-bar" role="list" aria-label="Lahzalar">
+    ${mine ? '' : `<button class="lz-it lz-add" data-act="lzadd" aria-label="Lahza qo‘shish"><span class="lz-ring">${avatar(u, 58)}<i>+</i></span><span class="lz-nm">Lahza</span></button>`}
+    ${G.map(item).join('')}
+    ${G.length ? '' : '<div class="lz-empty muted">⏳ Hali hech kim Lahza joylamadi. 24 soatda yo‘qoladigan birinchi lahzani siz joylang!</div>'}</div>`;
+}
+function lzShow() {
+  clearTimeout(LZ.t); const g = LZ.q[LZ.ui]; if (!g) return lzClose();
+  const p = g.ps[LZ.pi], w = user(g.uid), u = me(); if (!p) { LZ.ui++; LZ.pi = 0; return lzShow(); }
+  LZ.seen.add(p.id); lzSave();
+  const liked = p.likes.includes(u.id), dur = p.img ? 6000 : Math.min(9000, 4000 + p.text.length * 40);
+  let o = $('#lz-view'); if (!o) { o = document.createElement('div'); o.id = 'lz-view'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-label', 'Lahza'); document.body.appendChild(o); document.body.style.overflow = 'hidden'; }
+  o.style.setProperty('--lzc', w.color || '#FF5A1F');
+  o.innerHTML = `<div class="lz-bars">${g.ps.map((x, i) => `<i><em style="${i < LZ.pi ? 'width:100%' : i === LZ.pi ? `animation:lzBar ${dur}ms linear forwards` : ''}"></em></i>`).join('')}</div>
+    <div class="lz-head"><button class="lz-av" data-act="lzgo" data-href="/@${esc(w.u)}" aria-label="@${esc(w.u)} profili">${avatar(w, 36)}</button><div style="flex:1;min-width:0"><b>${NM(w)}</b><span>${ago(p.t)} · ⏳ ${Math.max(1, Math.ceil((DAY - (now() - p.t)) / 3600e3))} soat qoldi</span></div><button class="lz-x" data-act="lzclose" aria-label="Yopish">✕</button></div>
+    <div class="lz-body${p.img ? ' has-img' : ''}">${p.img ? `<img src="${esc(p.img)}" alt="">` : ''}${p.text ? `<p class="${p.img ? 'cap' : 'big'}">${linkify(p.text)}</p>` : ''}</div>
+    <button class="lz-nav l" data-act="lzprev" aria-label="Oldingi"></button><button class="lz-nav r" data-act="lznext" aria-label="Keyingi"></button>
+    <div class="lz-foot"><button class="lz-reply" data-act="lzgo" data-href="/p/${p.id}">💬 Javob yozish</button><button class="lz-like${liked ? ' on' : ''}" data-act="lzlike" data-id="${p.id}" aria-label="Yoqtirish">${liked ? '❤️' : '🤍'} ${p.likes.length || ''}</button></div>`;
+  LZ.t = setTimeout(() => lzNext(), dur);
+}
+function lzNext() { const g = LZ.q[LZ.ui]; if (!g) return lzClose(); if (LZ.pi < g.ps.length - 1) LZ.pi++; else { LZ.ui++; LZ.pi = 0; } lzShow(); }
+function lzPrev() { if (LZ.pi > 0) LZ.pi--; else if (LZ.ui > 0) { LZ.ui--; LZ.pi = LZ.q[LZ.ui].ps.length - 1; } lzShow(); }
+function lzClose() { clearTimeout(LZ.t); const o = $('#lz-view'); if (o) { o.classList.add('out'); setTimeout(() => o.remove(), 200); } document.body.style.overflow = ''; if (route()[0] === 'home') softRender(); }
+document.addEventListener('keydown', e => { if (!$('#lz-view')) return; if (e.key === 'Escape') lzClose(); else if (e.key === 'ArrowRight') lzNext(); else if (e.key === 'ArrowLeft') lzPrev(); });
+
 /* ---------------- Kun savoli ---------------- */
 const QS = ['Bugun sizni nima xursand qildi?','Eng sevimli taomingiz qaysi va nega?','Agar bir kunlik dam olish bo‘lsa, nima qilardingiz?','O‘zbekistonda eng chiroyli joy qayer deb o‘ylaysiz?','Bolalikdagi eng shirin xotirangiz?','Hozir qaysi kitobni o‘qiyapsiz yoki o‘qimoqchisiz?','Hayotdagi eng yaxshi maslahat qaysi bo‘lgan?','5 yildan keyin o‘zingizni qayerda ko‘rasiz?','Qaysi kasbni eng qiziq deb bilasiz?','Eng yaxshi ko‘rgan fasl qaysi?','Bugun nimani o‘rgandingiz?','Agar bir tilni bir kunda o‘rgana olsangiz, qaysi biri bo‘lardi?','Sizni nima ilhomlantiradi?','Eng yoqtirgan sport turingiz?','Qaysi ilovasiz yashay olmaysiz?','Choy yoki qahva? ☕','Qaysi shahar yoki davlatga borishni orzu qilasiz?','Do‘stlaringiz sizni qanday so‘z bilan ta’riflashadi?','Eng ko‘p kulgan voqeangiz?','Hozirgi kundagi eng katta maqsadingiz?','Qaysi odatni tashlamoqchisiz?','Qaysi yangi odatni boshlamoqchisiz?','Eng yaxshi ko‘rgan o‘zbek taomi?','Ota-onangizdan o‘rgangan eng muhim narsa?','Bo‘sh vaqtingizda nima qilasiz?','Telefoningizdagi eng ko‘p ishlatiladigan ilova?','Kelajakda qanday ixtiro bo‘lishini xohlardingiz?','Sizga qaysi fan eng qiyin bo‘lgan?','Eng yaxshi sovg‘a qaysi bo‘lgan?','Ertalab turib birinchi nima qilasiz?','Qaysi mahoratni o‘rganmoqchisiz?','Hayotingizni o‘zgartirgan bitta qaror?','Yoshlarga qanday maslahat berardingiz?','Qaysi sayohatingiz esda qolarli bo‘lgan?','Sizni nima tinchlantiradi?','Agar mashhur bo‘lsangiz, nima bilan mashhur bo‘lardingiz?','Bugun kimga rahmat aytmoqchisiz? 🤍','Eng yaxshi ko‘rgan so‘zingiz?','Qaysi multfilm yoki film bolaligingizni eslatadi?','Bir million so‘m topsangiz, nimaga sarflardingiz?'];
 const qDay = () => Math.floor((Date.now() + 5 * 3600e3) / 864e5);
@@ -643,6 +687,7 @@ function home() {
   const posts = DB.posts.filter(alive).sort((a, b) => b.t - a.t);
   return `<div class="shell">${header('', 'Ochiq maydon 🌍')}
   <div class="pad stack">
+    ${lzRing()}
     ${qCard()}
     <form class="card comp comp-d" data-form="post">
       <div class="cd-rail" aria-hidden="true">${avatar(u, 42)}<span class="cd-line"></span><span class="cd-dot"></span></div>
@@ -1780,6 +1825,13 @@ document.addEventListener('click', async e => {
       UPD.list = UPD.list.filter(x => x.id !== +id); toast('O‘chirildi'); render(); break;
     }
     case 'qall': sheet(qSheet()); break;
+    case 'lzopen': { LZ.q = lzGroups(); LZ.ui = Math.max(0, LZ.q.findIndex(g => g.uid === +id || String(g.uid) === id)); const g = LZ.q[LZ.ui]; LZ.pi = Math.max(0, g ? g.ps.findIndex(p => !LZ.seen.has(p.id)) : 0); lzShow(); break; }
+    case 'lznext': lzNext(); break;
+    case 'lzprev': lzPrev(); break;
+    case 'lzclose': lzClose(); break;
+    case 'lzgo': lzClose(); go(el.dataset.href); break;
+    case 'lzlike': { const p = DB.posts.find(x => x.id === id); if (!p) break; const i = p.likes.indexOf(u.id); if (i >= 0) p.likes.splice(i, 1); else { p.likes.push(u.id); navigator.vibrate && navigator.vibrate(15); } el.className = 'lz-like' + (i < 0 ? ' on' : ''); el.textContent = `${i < 0 ? '❤️' : '🤍'} ${p.likes.length || ''}`; server({ t: 'like', post: id }); break; }
+    case 'lzadd': { const lz = $('#post-lahza'), ta = $('#post-text'); if (lz && !lz.checked) { lz.checked = true; lz.dispatchEvent(new Event('change', { bubbles: true })); } if (ta) { ta.scrollIntoView({ block: 'center', behavior: 'smooth' }); ta.focus(); ta.placeholder = '⏳ 24 soatlik lahzangizni yozing yoki rasm qo‘shing…'; } break; }
     case 'glbtab': GLB.tab = id; render(); break;
     case 'glbgame': GLB.g = id; render(); break;
     case 'qedit': sheet(`<h2>Kun savolini o‘zgartirish ✏️</h2><form class="stack" data-form="qset"><textarea class="inp" id="qs-t" maxlength="160" style="height:110px;padding:12px 16px" placeholder="Bugungi savol…">${esc(qText())}</textarea><p class="muted" style="margin:0;font-size:13px">Faqat bugungi savol o‘zgaradi. Bo‘sh qoldirsangiz, avtomatik savol qaytadi.</p><button class="btn full">Saqlash</button></form>`); break;
