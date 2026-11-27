@@ -8,6 +8,30 @@
   document.querySelectorAll('.rv').forEach(el => io.observe(el));
   addEventListener('scroll', () => { const h = document.documentElement; document.getElementById('bar').style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight) * 100) + '%'; }, { passive: true });
 
+  // 🌙 Tungi rejim: tanlov eslab qolinadi
+  const tb = document.getElementById('themeBtn'), root = document.documentElement;
+  const setIcon = () => { const d = root.getAttribute('data-theme') === 'dark'; tb.textContent = d ? '☀️' : '🌙'; tb.setAttribute('aria-label', d ? 'Kunduzgi rejim' : 'Tungi rejim'); document.querySelector('meta[name=theme-color]').content = d ? '#0C0C0E' : '#FF5A1F'; };
+  setIcon();
+  tb.addEventListener('click', () => { const d = root.getAttribute('data-theme') !== 'dark'; root.setAttribute('data-theme', d ? 'dark' : 'light'); try { localStorage.setItem('lz_land_theme', d ? 'dark' : 'light'); } catch (e) {} setIcon(); });
+
+  // 🧊 shaffof navigatsiya scroll'da paydo bo'ladi
+  const nav = document.getElementById('nav');
+  const onScroll = () => nav.classList.toggle('scrolled', scrollY > 40);
+  onScroll(); addEventListener('scroll', onScroll, { passive: true });
+
+  // ✨ kartalarda sichqoncha ortidan yorug'lik
+  document.querySelectorAll('.card').forEach(c => c.addEventListener('pointermove', e => { const r = c.getBoundingClientRect(); c.style.setProperty('--mx', (e.clientX - r.left) + 'px'); c.style.setProperty('--my', (e.clientY - r.top) + 'px'); }));
+
+  // 🧲 "magnit" tugmalar (faqat sichqoncha bilan)
+  if (!reduce && matchMedia('(pointer:fine)').matches) document.querySelectorAll('.mag').forEach(b => {
+    b.addEventListener('pointermove', e => { const r = b.getBoundingClientRect(); b.style.transform = `translate(${(e.clientX - r.left - r.width / 2) * .18}px,${(e.clientY - r.top - r.height / 2) * .28}px)`; });
+    b.addEventListener('pointerleave', () => { b.style.transform = ''; });
+  });
+
+  // 🔢 raqamlar sanaladi
+  function countUp() { document.querySelectorAll('[data-count]').forEach(el => { const to = +el.dataset.count, suf = el.dataset.suf || '', st = performance.now();
+    const f = t => { const k = Math.min(1, (t - st) / 1200), v = Math.round(to * (1 - Math.pow(1 - k, 3))); el.textContent = v + suf; if (k < 1) requestAnimationFrame(f); }; requestAnimationFrame(f); }); }
+
   // aylanuvchi so'zlar
   const rs = [...document.querySelectorAll('#rot span')]; let ri = 0;
   setInterval(() => { rs[ri].classList.remove('on'); ri = (ri + 1) % rs.length; rs[ri].classList.add('on'); }, 2200);
@@ -16,7 +40,9 @@
   // ⏳ yuklanish ekrani: shriftlar va sahifa tayyor bo'lgach yo'qoladi
   const ld = document.getElementById('loader'), lb = document.getElementById('ldbar'); let lp = 8;
   const tick = setInterval(() => { lp = Math.min(90, lp + (90 - lp) * .18); if (lb) lb.style.width = lp + '%'; }, 120);
-  const t0 = Date.now(), hideLd = () => { clearInterval(tick); if (lb) lb.style.width = '100%'; setTimeout(() => ld && ld.classList.add('done'), Math.max(250, 900 - (Date.now() - t0))); };
+  let hidden = false;
+  const t0 = Date.now(), hideLd = () => { if (hidden) return; hidden = true; clearInterval(tick); if (lb) lb.style.width = '100%';
+    setTimeout(() => { ld && ld.classList.add('done'); document.body.classList.add('ready'); countUp(); }, Math.max(250, 900 - (Date.now() - t0))); };
   if (document.readyState === 'complete') hideLd(); else addEventListener('load', () => (document.fonts ? document.fonts.ready : Promise.resolve()).then(hideLd));
   setTimeout(hideLd, 3500);
 
