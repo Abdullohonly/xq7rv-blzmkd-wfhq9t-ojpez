@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.7.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.8.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -75,10 +75,10 @@ async function sync(force) {
   } catch (e) { SYNC.busy = false; SYNC.last = now(); return; }
   if (r.status === 401) { adoptSession(null); save(); render(); return; }
   if (!r.ok) return;
-  const sig = JSON.stringify([r.users, r.follows, r.posts, r.chats, r.notifs, r.stars]);
+  const sig = JSON.stringify([r.users, r.follows, r.posts, r.chats, r.notifs, r.stars, r.daily]);
   if (sig === SYNC.sig && !force) return;
   SYNC.sig = sig;
-  Object.assign(DB, { me: r.me, users: r.users, follows: r.follows, stars: r.stars || {}, posts: r.posts, chats: r.chats, notifs: r.notifs.map(n => ({ ...n, to: r.me })) });
+  Object.assign(DB, { me: r.me, users: r.users, follows: r.follows, stars: r.stars || {}, posts: r.posts, daily: r.daily || [], chats: r.chats, notifs: r.notifs.map(n => ({ ...n, to: r.me })) });
   if (isOwnerSession() && ADM.checked && r.admin !== ADM.verified) ADM.verified = r.admin;
   save(); softRender();
 }
@@ -541,17 +541,36 @@ function postCard(p, full) {
   </article>`;
 }
 
+/* ---------------- Kun savoli ---------------- */
+const QS = ['Bugun sizni nima xursand qildi?','Eng sevimli taomingiz qaysi va nega?','Agar bir kunlik dam olish bo‘lsa, nima qilardingiz?','O‘zbekistonda eng chiroyli joy qayer deb o‘ylaysiz?','Bolalikdagi eng shirin xotirangiz?','Hozir qaysi kitobni o‘qiyapsiz yoki o‘qimoqchisiz?','Hayotdagi eng yaxshi maslahat qaysi bo‘lgan?','5 yildan keyin o‘zingizni qayerda ko‘rasiz?','Qaysi kasbni eng qiziq deb bilasiz?','Eng yaxshi ko‘rgan fasl qaysi?','Bugun nimani o‘rgandingiz?','Agar bir tilni bir kunda o‘rgana olsangiz, qaysi biri bo‘lardi?','Sizni nima ilhomlantiradi?','Eng yoqtirgan sport turingiz?','Qaysi ilovasiz yashay olmaysiz?','Choy yoki qahva? ☕','Qaysi shahar yoki davlatga borishni orzu qilasiz?','Do‘stlaringiz sizni qanday so‘z bilan ta’riflashadi?','Eng ko‘p kulgan voqeangiz?','Hozirgi kundagi eng katta maqsadingiz?','Qaysi odatni tashlamoqchisiz?','Qaysi yangi odatni boshlamoqchisiz?','Eng yaxshi ko‘rgan o‘zbek taomi?','Ota-onangizdan o‘rgangan eng muhim narsa?','Bo‘sh vaqtingizda nima qilasiz?','Telefoningizdagi eng ko‘p ishlatiladigan ilova?','Kelajakda qanday ixtiro bo‘lishini xohlardingiz?','Sizga qaysi fan eng qiyin bo‘lgan?','Eng yaxshi sovg‘a qaysi bo‘lgan?','Ertalab turib birinchi nima qilasiz?','Qaysi mahoratni o‘rganmoqchisiz?','Hayotingizni o‘zgartirgan bitta qaror?','Yoshlarga qanday maslahat berardingiz?','Qaysi sayohatingiz esda qolarli bo‘lgan?','Sizni nima tinchlantiradi?','Agar mashhur bo‘lsangiz, nima bilan mashhur bo‘lardingiz?','Bugun kimga rahmat aytmoqchisiz? 🤍','Eng yaxshi ko‘rgan so‘zingiz?','Qaysi multfilm yoki film bolaligingizni eslatadi?','Bir million so‘m topsangiz, nimaga sarflardingiz?'];
+const qDay = () => Math.floor((Date.now() + 5 * 3600e3) / 864e5);
+const qText = () => QS[qDay() % QS.length];
+function qCard() {
+  const A = DB.daily || [], u = me(), mineA = A.find(a => a.uid === u.id);
+  const top = A.slice(0, 2).map(a => { const w = user(a.uid); return `<div class="q-ans"><b>${esc(w.name.split(' ')[0])}</b> ${esc(a.text)}</div>`; }).join('');
+  return `<section class="card q-card" aria-label="Kun savoli">
+    <div class="q-top"><span class="q-tag">✦ KUN SAVOLI</span><span class="q-n">${A.length ? A.length + ' ta javob' : 'Birinchi bo‘lib javob bering'}</span></div>
+    <h3 class="q-q">${esc(qText())}</h3>
+    ${mineA ? `<div class="q-mine"><span class="muted">Sizning javobingiz:</span> ${esc(mineA.text)}</div>` : `<form class="q-form" data-form="qans"><label class="sr" for="q-in">Javobingiz</label><input id="q-in" maxlength="200" placeholder="Javobingizni yozing…" autocomplete="off"><button class="q-send" aria-label="Yuborish">➤</button></form>`}
+    ${top}
+    ${A.length ? `<button class="q-all" data-act="qall">Barcha javoblar (${A.length}) →</button>` : ''}
+  </section>`;
+}
+function qSheet() {
+  const A = DB.daily || [], u = me();
+  return `<h2>✦ Kun savoli</h2><p style="margin:-4px 0 12px;font-weight:700">${esc(qText())}</p>
+  <div class="stack" style="gap:8px">${A.map(a => { const w = user(a.uid); return `<div class="q-row">${avatar(w, 34)}<div style="flex:1;min-width:0"><div class="row" style="gap:6px">${NM(w)}<span class="muted" style="font-size:12px">${ago(a.t)}</span></div><div>${esc(a.text)}</div></div>
+    <button class="pill ${a.liked ? 'on' : ''}" data-act="qlike" data-id="${a.id}" aria-label="Yoqtirish">${I.heart(a.liked)}${a.likes || ''}</button>
+    ${a.uid === u.id ? `<button class="pill" data-act="qdel" data-id="${a.id}" aria-label="O‘chirish">✕</button>` : ''}</div>`; }).join('') || '<p class="muted">Hali javob yo‘q.</p>'}</div>`;
+}
+
 /* ---------------- views ---------------- */
 function home() {
   const u = me();
   const posts = DB.posts.filter(alive).sort((a, b) => b.t - a.t);
-  const mine = DB.posts.some(p => p.uid === u.id);
   return `<div class="shell">${header('', 'Ochiq maydon 🌍')}
   <div class="pad stack">
-    ${!mine ? `<div class="card" style="background:#121212;color:#fff">
-      <b style="font-family:var(--head);font-size:16px">Birinchi postingiz 👋</b>
-      <p style="margin:6px 0 10px;color:#ddd;font-size:14px">Nima yozishni bilmayapsizmi? O‘zingizni tanishtiring: kim siz va Lahzamga nima uchun keldingiz?</p>
-      <button class="btn acc" style="height:42px" data-act="intro">Tanishtiruv yozish</button></div>` : ''}
+    ${qCard()}
     <a href="/oyinlar" data-link class="card games-strip">${GAMES.map(g => `<span class="gs-i">${g.ico(30)}</span>`).join('')}<span style="flex:1;min-width:0"><b>O‘yinlar</b><span class="muted" style="display:block;font-size:13px">Flappy, Tetris, 2048 · yakka yoki do‘stlar bilan</span></span><span class="gs-go">▶</span></a>
     <form class="card comp comp-d" data-form="post">
       <div class="cd-rail" aria-hidden="true">${avatar(u, 42)}<span class="cd-line"></span><span class="cd-dot"></span></div>
@@ -1601,6 +1620,9 @@ document.addEventListener('click', async e => {
       if (!r.ok) { toast('O‘chirib bo‘lmadi', true); break; }
       UPD.list = UPD.list.filter(x => x.id !== +id); toast('O‘chirildi'); render(); break;
     }
+    case 'qall': sheet(qSheet()); break;
+    case 'qlike': { const a = (DB.daily || []).find(x => x.id === el.dataset.id); if (a) { a.liked = !a.liked; a.likes = (a.likes || 0) + (a.liked ? 1 : -1); if ($('#modal-root .sheet')) sheet(qSheet()); } api('/api/act', { method: 'POST', body: { t: 'qlike', id: el.dataset.id } }).then(() => sync(true)); break; }
+    case 'qdel': { DB.daily = (DB.daily || []).filter(x => x.id !== el.dataset.id); closeSheet(); render(); server({ t: 'qdel', id: el.dataset.id }); break; }
     case 'cd-ins': { const ta = $('#post-text'); if (!ta) break; const v = el.dataset.v, pre = ta.value && !/\s$/.test(ta.value) ? ' ' : ''; ta.value += pre + v; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); ta.dispatchEvent(new Event('input', { bubbles: true })); break; }
     case 'postimg-x': POSTIMG = null; $('#post-prev').innerHTML = ''; break;
     case 'viewpimg': { const p = P(); if (p && p.img) sheet(`<img src="${esc(p.img)}" alt="Post rasmi" style="width:100%;border-radius:16px;display:block"><button class="btn ghost full" style="margin-top:10px" data-act="close-sheet-btn">Yopish</button>`); break; }
@@ -1670,6 +1692,11 @@ document.addEventListener('submit', async e => {
   if (kind === 'tnew') {
     const game = (f.querySelector('input[name=tg]:checked') || {}).value, mins = +(f.querySelector('input[name=tm]:checked') || {}).value;
     const r = await server({ t: 'tstart', chat: f.dataset.id, game, mins }, 'Turnir boshlandi! 🏁'); if (r.ok) { closeSheet(); await sync(true); render(); } return;
+  }
+  if (kind === 'qans') {
+    const v = $('#q-in').value.trim(); if (v.length < 2) return toast('Javob juda qisqa');
+    DB.daily = [{ id: 'qtmp', uid: u.id, text: v, t: now(), likes: 0 }, ...(DB.daily || [])]; render();
+    server({ t: 'qans', text: v }, 'Javobingiz qo‘shildi ✨'); return;
   }
   if (kind === 'sched') {
     const c = DB.chats.find(x => x.id === f.dataset.id), text = $('#sc-t').value.trim(), ts = new Date($('#sc-d').value).getTime(), h = $('#sc-h');

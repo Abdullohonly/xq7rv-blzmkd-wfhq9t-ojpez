@@ -511,3 +511,33 @@ button.seen{background:none;padding:0;cursor:pointer}
 .cd-chip:focus-within{outline:2px solid var(--acc);outline-offset:2px}
 .cd-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .cd-go{height:42px;padding:0 22px;border-radius:999px;background:var(--ink);color:var(--bg);font-weight:800;font-size:14px}
+
+/* v1.8.0 — Kun savoli */
+.q-card{background:#121212;color:#fff;padding:16px;position:relative;overflow:hidden}
+.q-card::after{content:"";position:absolute;right:-40px;top:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,var(--acc) 0,transparent 70%);opacity:.35;pointer-events:none}
+.q-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.q-tag{font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--acc)}
+.q-n{font-size:12px;color:#aaa}
+.q-q{margin:8px 0 12px;font-family:var(--head);font-size:20px;line-height:1.25;letter-spacing:-.01em}
+.q-form{display:flex;gap:8px;position:relative;z-index:1}
+.q-form input{flex:1;height:44px;border-radius:999px;border:0;background:#262626;color:#fff;padding:0 16px;font-size:16px;outline:none}
+.q-form input::placeholder{color:#8a8a8a}
+.q-send{width:44px;height:44px;border-radius:50%;border:0;background:var(--acc);color:#fff;font-size:16px;cursor:pointer}
+.q-mine{background:#232323;border-radius:14px;padding:10px 12px;font-size:14px}
+.q-mine .muted{color:#9a9a9a}
+.q-ans{margin-top:8px;font-size:14px;color:#ddd;border-left:2px solid var(--acc);padding-left:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q-ans b{color:#fff}
+.q-all{margin-top:12px;background:none;border:0;color:var(--acc);font-weight:800;font-size:14px;padding:4px 0;cursor:pointer;position:relative;z-index:1}
+.q-row{display:flex;gap:10px;align-items:flex-start;background:var(--bg);border-radius:16px;padding:10px}
+
+/* v1.8.0 — telefonda silliq: bosganda to'rtburchak chiqmasin */
+html{-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+a,button,label,input,textarea,select,summary,[data-act],[data-link]{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+:focus:not(:focus-visible){outline:none}
+button,[data-act],.pill,.btn,.dock a,.nav a{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+button,.pill,.btn,.cd-chip,.dock a,[data-act]{transition:transform .12s ease,opacity .12s ease}
+button:active,.pill:active,.btn:active,.cd-chip:active,.dock a:active,a.card:active{transform:scale(.96);opacity:.85}
+img{-webkit-user-drag:none;-webkit-touch-callout:none}
+@media (display-mode:standalone){
+  html,body{overscroll-behavior-y:none}
+}

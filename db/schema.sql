@@ -196,3 +196,18 @@ create table if not exists tournaments (id bigserial primary key, chat_id bigint
 create index if not exists tournaments_chat on tournaments(chat_id);
 create table if not exists tourney_scores (tid bigint not null references tournaments(id) on delete cascade, user_id bigint not null references users(id) on delete cascade, score int not null, primary key (tid, user_id));
 alter table reports add column if not exists reason text;
+
+-- v1.8.0 Kun savoli
+create table if not exists daily_answers (
+  id bigserial primary key,
+  day date not null default (now() at time zone 'Asia/Tashkent')::date,
+  user_id bigint not null references users(id) on delete cascade,
+  body text not null check (char_length(body) between 1 and 200),
+  created_at timestamptz not null default now(),
+  unique (day, user_id)
+);
+create table if not exists daily_likes (
+  answer_id bigint not null references daily_answers(id) on delete cascade,
+  user_id bigint not null references users(id) on delete cascade,
+  primary key (answer_id, user_id)
+);

@@ -429,6 +429,21 @@ export default async function handler(req, res) {
         if (up.length) await db`insert into messages (chat_id, user_id, body, is_sys) values (${cid}, null, ${'🧱 @' + me.username + ' Tetris rekordi: ' + score + ' ochko!'}, true)`;
         return send(res, 200, { ok: true, record: up.length > 0 });
       }
+      /* ---------- Kun savoli ---------- */
+      case 'qans': {
+        const body = clean(str(b.text, 200)).trim();
+        if (body.length < 2) return bad(res, 'Javob juda qisqa');
+        await db`insert into daily_answers (user_id, body) values (${uid}, ${body})
+                 on conflict (day, user_id) do update set body = excluded.body, created_at = now()`;
+        return send(res, 200, { ok: true });
+      }
+      case 'qdel': { await db`delete from daily_answers where id = ${idOf(b.id, 'q')} and user_id = ${uid}`; return send(res, 200, { ok: true }); }
+      case 'qlike': {
+        const id = idOf(b.id, 'q'); if (!id) return bad(res, 'id');
+        const del = await db`delete from daily_likes where answer_id = ${id} and user_id = ${uid} returning answer_id`;
+        if (!del.length) await db`insert into daily_likes (answer_id, user_id) select ${id}, ${uid} where exists(select 1 from daily_answers where id = ${id}) on conflict do nothing`;
+        return send(res, 200, { ok: true });
+      }
       default: return bad(res, 'Noma’lum amal');
     }
   } catch (e) { send(res, 500, { error: 'server', message: 'Serverda xato, qayta urinib ko‘ring' }); }
