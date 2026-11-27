@@ -1,8 +1,8 @@
-/* Lahzam v1.6.5 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.6.6 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.6.5'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.6.6'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -89,6 +89,8 @@ function softRender() {
     const box = $('#msgs'), c = DB.chats.find(x => x.id === CH.cid);
     if (box && c) { const near = innerHeight + scrollY >= document.body.scrollHeight - 160; box.innerHTML = msgList(c); const sb = $('#chat-sub'), u0 = me(); if (sb && u0) sb.innerHTML = typingText(c) ? `<span class="typing">${typingText(c)}</span>` : c.type === 'group' ? `${c.members.length} a‘zo` : isSaved(c) ? 'Faqat siz ko‘rasiz' : seenText(peer(c, u0)); if (near) scrollTo(0, document.body.scrollHeight); markRead(c); return; }
   }
+  // Admin panel fonda o'zi qayta chizilmaydi (sakramasin); ↻ tugmasi bilan yangilanadi
+  if (name === 'admin') return;
   if (busy()) { SYNC.pending = true; return; }
   const y = scrollY; render(true); if (name !== 'chat') scrollTo(0, y);
 }
@@ -1130,7 +1132,7 @@ function admin() {
   const topGroups = DB.chats.filter(c => c.type === 'group' && (c.access !== 'closed' || c.members.includes(me().id))).map(c => ({ c, n: c.msgs.filter(m => t - m.t < 7 * DAY).length })).sort((a, b) => b.n - a.n);
   return `<div class="shell wide" style="padding:20px 16px 60px">
     <div class="row" style="justify-content:space-between;margin-bottom:16px"><div class="row">${I.logo('#FF5A1F', '#121212', 34)}<div><b style="font-family:var(--head);font-size:22px">Lahzam admin</b><div class="muted">Moderator paneli va statistika</div></div></div>
-      <a href="/" data-link class="btn ghost" style="height:40px">Saytga qaytish</a></div>
+      <div class="row" style="gap:8px"><button class="btn ghost" style="height:40px" data-act="admrefresh">↻ Yangilash</button><a href="/" data-link class="btn ghost" style="height:40px">Saytga qaytish</a></div></div>
     <p class="card" style="background:#E3F4EC;color:#0F5A43;margin:0 0 14px">✅ Hamma ma‘lumot serverda: postlar, guruhlar, chatlar va akkauntlar. Bloklash va o‘chirish hamma uchun darhol amal qiladi.</p>
     <div class="grid4">
       <div class="kpi"><span class="muted">Jami foydalanuvchi</span><b>${users.length}</b></div>
@@ -1169,7 +1171,8 @@ after.admin = async () => {
   if (isOwnerSession() && !ADM.checked) { await refreshAdm(); if (route()[0] === 'admin') render(); return; }
   const aq = $('#adm-q'); if (aq) aq.addEventListener('input', admFilter);
   const stT = setTimeout(() => { const el = $('#srv-stats'); if (el && /Yuklanmoqda/.test(el.textContent)) el.innerHTML = '<div class="kpi"><span class="muted">Statistika kechikyapti… sahifani yangilang</span></div>'; }, 12000);
-  api('admin/users?stats=1').then(st => { clearTimeout(stT);
+  const statsP = ADM.st && Date.now() - ADM.stAt < 60000 ? Promise.resolve(ADM.st) : api('admin/users?stats=1').then(st => { if (st.ok) { ADM.st = st; ADM.stAt = Date.now(); } return st; });
+  statsP.then(st => { clearTimeout(stT);
     const el = $('#srv-stats'); if (!el || !st.ok) { if (el) el.innerHTML = '<div class="kpi"><span class="muted">Statistika yuklanmadi</span></div>'; return; }
     const bar = (title, used, limit, extra = '') => { const pct = Math.min(100, used / limit * 100), col = pct > 85 ? 'var(--danger)' : pct > 60 ? '#D97706' : 'var(--ok)';
       return `<div class="kpi" style="grid-column:1/-1"><span class="muted">${title}</span><b>${fmtBytes(used)} <span class="muted" style="font-size:15px;font-family:var(--font)">/ ${fmtBytes(limit)} · ${pct.toFixed(pct < 1 ? 2 : 1)}%</span></b>
@@ -1472,6 +1475,7 @@ document.addEventListener('click', async e => {
         <button class="li" style="width:100%;text-align:left" data-act="script"><span class="perk-i" style="font-weight:800;font-size:14px">A/Я</span><span style="flex:1"><b>Yozuv: ${DB.script === 'cyr' ? 'Кирилл' : DB.script === 'lat' ? 'Lotin' : 'Asl holida'}</b><span class="muted" style="display:block;font-size:13px">Bosib almashtiring: Кирилл → Lotin → Asl</span></span></button></div>
         <div class="card" style="padding:4px 16px">${li('/reyting', '🏆', 'Foydali reytingi')}${li('/oyinlar', '🎮', 'O‘yinlar', 'Flappy, Tetris, 2048')}${li('/yulduz', '⭐', 'Yulduz')}${li('/yangiliklar', '✨', 'Lahzam Updates')}${li('/sozlamalar', '⚙️', 'Sozlamalar')}</div>`); break;
     }
+    case 'admrefresh': { ADM.st = null; await sync(true); render(); toast('Yangilandi ✅'); break; }
     case 'install': if (DEFER) doInstall(); else showInstall(true); break;
     case 'pushon': { const r = await pushEnable(true); toast(r === 'ok' ? 'Bildirishnomalar yoqildi 🔔' : r === 'ios' ? 'iPhone’da avval Lahzam’ni ekranga o‘rnating 📲' : r === 'denied' ? 'Brauzer sozlamalarida Lahzam’ga ruxsat bering' : 'Bu brauzer push’ni qo‘llamaydi', r !== 'ok'); closeSheet(); render(); break; }
     case 'pushoff': { await pushDisable(); toast('Push o‘chirildi'); render(); break; }
