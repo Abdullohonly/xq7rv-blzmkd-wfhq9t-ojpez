@@ -1,9 +1,9 @@
 /* Lahzam mini o'yini: "Flappy" — klassik piksel uslubi. Barcha sprite'lar Lahzam uchun o'zimiz chizgan. */
 (function () {
   const W = 144, H = 256, GROUND = 56, FLOOR = H - GROUND;   // o'yin piksel o'lchamda
-  // Fizika: foydalanuvchi bergan kod asosida (360x540 maydon, har kadrda: tortishish 0.45, sakrash -7.5, oraliq 130, tezlik 2.5, har 95 kadrda quvur).
+  // Fizika: foydalanuvchi bergan kod asosida (360x540 maydon, har kadrda: tortishish 0.45, sakrash -7.5, oraliq 130 (bizda kengroq: 175), tezlik 2.5, har 95 kadrda quvur).
   // Bizning maydon kichikroq: balandlik 540 → 200 (k=0.37), kenglik 360 → 144 (0.4).
-  const K = FLOOR / 540, PW = 26, CAP = 12, GAP = Math.round(130 * K), SPACING = 95, SPEED = 1, GRAV = 0.45 * K, FLAP = -7.5 * K, MAXV = 4, R = 14 * K;
+  const K = FLOOR / 540, PW = 26, CAP = 12, GAP = Math.round(175 * K), SPACING = 95, SPEED = 1, GRAV = 0.45 * K, FLAP = -7.5 * K, MAXV = 4, R = 14 * K;
   const BEST_KEY = 'lahzam_flappy_best', SOUND_KEY = 'lahzam_flappy_sound';
 
   function birdSVG(size) {
