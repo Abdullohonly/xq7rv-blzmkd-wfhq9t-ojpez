@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.14.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.14.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -712,6 +712,24 @@ function qCard() {
   </section>`;
 }
 // 🔥 Faol obunachilar: Kun savoliga eng uzoq ketma-ket javob berayotgan top 10 (ma'lumot sync'da bor, bazaga qo'shimcha so'rov yo'q)
+// 🔥 Har kuni seriya oshganda: katta "+1" oynasi
+const SK_GOALS = [3, 7, 14, 30, 50, 100, 365];
+function streakPop(n, lost) {
+  const goal = SK_GOALS.find(g => g > n), rows = realUsers().filter(x => !x.blocked && x.sk > 1 && x.id !== me().id);
+  const rank = n > 1 ? rows.filter(x => x.sk > n).length + 1 : 0;
+  const msg = n === 1 ? (lost ? `${lost} kunlik seriya uzilgan edi, lekin bugundan yangisi boshlandi 💪` : 'Birinchi olov yondi! Ertaga ham javob bersangiz, seriya o‘sadi.')
+    : SK_GOALS.includes(n) ? `Zo‘r! ${n} kunlik marraga yetdingiz 🏅` : 'Ajoyib, olovni o‘chirmang!';
+  $('#modal-root').innerHTML = `<div class="scrim sk-scrim" data-act="close-sheet"><div class="sk-pop" role="dialog" aria-modal="true" aria-label="Seriya">
+    <div class="sk-fire" aria-hidden="true">🔥</div><div class="sk-plus">+1 seriya</div>
+    <div class="sk-total">Jami: <b>${n}</b> kun</div>
+    <p class="sk-msg">${msg}</p>
+    <div class="sk-stats">${goal ? `<div><b>${goal - n}</b><span>kun qoldi · ${goal} kunlik marragacha</span></div>` : ''}${rank ? `<div><b>${rank}-o‘rin</b><span>🔥 Faol obunachilar</span></div>` : ''}</div>
+    ${goal ? `<div class="sk-bar" aria-hidden="true"><i style="width:${Math.round(n / goal * 100)}%"></i></div>` : ''}
+    <p class="sk-hint">Ertaga yana Kun savoliga javob bering ✨</p>
+    <button class="btn acc full" data-act="close-sheet-btn">OK</button></div></div>`;
+  const b = $('#modal-root .sk-pop .btn'); b && b.focus();
+  try { navigator.vibrate && navigator.vibrate([30, 40, 60]); } catch (e) {}
+}
 function qTopSheet() {
   const u = me(), rows = realUsers().filter(x => !x.blocked && x.sk > 1).sort((a, b) => b.sk - a.sk || a.id - b.id);
   const top = rows.slice(0, 10), mine = rows.findIndex(x => x.id === u.id), medal = i => ['🥇', '🥈', '🥉'][i] || `<b class="rank">${i + 1}</b>`;
@@ -2012,7 +2030,7 @@ document.addEventListener('submit', async e => {
   if (kind === 'qans') {
     const v = $('#q-in').value.trim(); if (v.length < 2) return toast('Javob juda qisqa');
     DB.daily = [{ id: 'qtmp', uid: u.id, text: v, t: now(), likes: 0 }, ...(DB.daily || [])]; render();
-    server({ t: 'qans', text: v }).then(r => { if (r && r.ok) toast(r.streak > 1 ? `🔥 ${r.streak} kunlik seriya! Ertaga ham qaytib keling` : 'Javobingiz qo‘shildi ✨ Ertaga ham javob bersangiz, 🔥 seriya boshlanadi'); }); return;
+    server({ t: 'qans', text: v }).then(r => { if (!r || !r.ok) return; if (r.up) streakPop(r.streak, r.lost); else toast('Javobingiz yangilandi ✨'); }); return;
   }
   if (kind === 'qset') {
     const v = $('#qs-t').value.trim(); if (v && v.length < 5) return toast('Savol juda qisqa');

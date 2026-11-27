@@ -712,3 +712,19 @@ a.q-ans{text-decoration:none;cursor:pointer}a.q-ans:hover b{text-decoration:unde
 @keyframes bdPop{from{transform:scale(.6);opacity:0}}
 .q-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .q-fire{color:#FFB547}
+/* 🔥 seriya oynasi */
+.sk-scrim{align-items:center;padding:20px;animation:skFade .25s ease}
+.sk-pop{width:100%;max-width:340px;background:#121212;color:#fff;border-radius:28px;padding:26px 22px 20px;text-align:center;position:relative;overflow:hidden;animation:skIn .5s cubic-bezier(.3,1.4,.5,1)}
+.sk-pop::before{content:"";position:absolute;width:260px;height:260px;left:50%;top:-120px;margin-left:-130px;border-radius:50%;background:radial-gradient(circle,rgba(255,90,31,.55),transparent 70%);pointer-events:none}
+.sk-fire{font-size:76px;line-height:1;position:relative;animation:skFire 1.2s ease-in-out infinite}
+.sk-plus{font-family:var(--head);font-weight:800;font-size:30px;margin-top:8px;color:#FFB547;position:relative;animation:skIn .6s .15s cubic-bezier(.3,1.4,.5,1) both}
+.sk-total{font-size:17px;margin-top:4px;opacity:.9}.sk-total b{font-size:22px;color:#fff}
+.sk-msg{margin:12px 0 0;font-size:14.5px;line-height:1.45;color:#ddd}
+.sk-stats{display:flex;gap:8px;margin-top:14px}.sk-stats:empty{display:none}
+.sk-stats div{flex:1;background:#1f1f22;border-radius:16px;padding:10px 8px}.sk-stats b{display:block;font-size:18px;color:#FFB547}.sk-stats span{display:block;font-size:11.5px;line-height:1.3;color:#aaa;margin-top:2px}
+.sk-bar{height:8px;background:#2a2a2e;border-radius:99px;margin-top:12px;overflow:hidden}.sk-bar i{display:block;height:100%;background:linear-gradient(90deg,#FF5A1F,#FFC531);border-radius:99px;animation:skGrow 1s .3s cubic-bezier(.3,1,.4,1) both}
+.sk-hint{font-size:12.5px;color:#999;margin:12px 0 14px}
+@keyframes skIn{from{transform:scale(.6);opacity:0}}
+@keyframes skFade{from{opacity:0}}
+@keyframes skFire{0%,100%{transform:scale(1) rotate(-3deg)}50%{transform:scale(1.12) rotate(3deg)}}
+@keyframes skGrow{from{width:0}}

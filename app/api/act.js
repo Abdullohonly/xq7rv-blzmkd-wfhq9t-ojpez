@@ -552,10 +552,11 @@ export default async function handler(req, res) {
         await db`insert into daily_answers (user_id, body) values (${uid}, ${body})
                  on conflict (day, user_id) do update set body = excluded.body, created_at = now()`;
         // 🔥 seriya: kecha ham javob bergan bo'lsa +1, bugun allaqachon bo'lsa o'zgarmaydi, aks holda 1 dan
+        const [o] = await db`select streak_day = (now() at time zone 'Asia/Tashkent')::date as today, coalesce(streak_day = (now() at time zone 'Asia/Tashkent')::date - 1, false) as kept, streak as best0 from users where id = ${uid}`;
         const [sk] = await db`update users set streak = case when streak_day = (now() at time zone 'Asia/Tashkent')::date then streak
             when streak_day = (now() at time zone 'Asia/Tashkent')::date - 1 then streak + 1 else 1 end,
           streak_day = (now() at time zone 'Asia/Tashkent')::date where id = ${uid} returning streak`;
-        return send(res, 200, { ok: true, streak: sk ? sk.streak : 1 });
+        return send(res, 200, { ok: true, streak: sk ? sk.streak : 1, up: !(o && o.today), lost: !!(o && !o.today && !o.kept && o.best0 > 1) ? o.best0 : 0 });
       }
       case 'qset': {
         if (!admin) return send(res, 403, { error: 'forbidden' });
