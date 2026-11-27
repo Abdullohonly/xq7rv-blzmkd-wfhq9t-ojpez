@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.9.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.9.4'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -2044,8 +2044,25 @@ async function checkBuild() {
 // Yangi versiya tayyor bo'lsa: chatda emas, yozmayotgan paytda, sezdirmasdan yuklaymiz
 function quietUpdate(path) {
   if (!buildReload || busy() || (route()[0] === 'chat' && !path)) return false;
-  buildReload = false; if (path) location.href = path; else location.reload(); return true;
+  buildReload = false; updScreen(path); return true;
 }
+// Yangilanish ekrani: "vX.Y.Z yuklanmoqda…" (yangi versiya raqami app.js'dan olinadi)
+async function updScreen(path) {
+  let v = '';
+  showUpd('');
+  try { const t = await (await fetch('/app.js?u=' + Date.now(), { cache: 'no-store' })).text(); v = (/VERSION = '([\d.]+)'/.exec(t) || [])[1] || ''; } catch (e) {}
+  try { sessionStorage.setItem('lahzam_upd', v || '1'); } catch (e) {}
+  showUpd(v);
+  setTimeout(() => { if (path) location.href = path; else location.reload(); }, 700);
+}
+function showUpd(v) {
+  let o = document.getElementById('upd-ov');
+  if (!o) { o = document.createElement('div'); o.id = 'upd-ov'; document.body.appendChild(o); }
+  o.innerHTML = `<div class="upd-box"><div class="upd-logo">${I.logo('#fff', '#121212', 54)}</div><b>${v ? 'v' + v + ' yuklanmoqda' : 'Yangi versiya yuklanmoqda'}</b><span>Bu bir necha soniya vaqt oladi</span><i class="upd-bar"><em></em></i></div>`;
+}
+// yangilangandan keyin: ekran sekin yo'qoladi
+setTimeout(() => { const o = document.getElementById('upd-ov'); let v = null; try { v = sessionStorage.getItem('lahzam_upd'); sessionStorage.removeItem('lahzam_upd'); } catch (e) {}
+  if (o) { o.classList.add('done'); setTimeout(() => o.remove(), 500); if (v && v.length > 1) toast(`Lahzam v${v} ga yangilandi ✨`); } }, 600);
 checkBuild(); setInterval(() => document.visibilityState === 'visible' && checkBuild(), 60e3);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') quietUpdate(); else checkBuild(); });
 // Avtomatik yangilanish: yangi versiya chiqsa, telefon o'zi aniqlaydi va sahifani yangilaydi
