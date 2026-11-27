@@ -13,8 +13,28 @@
   setInterval(() => { rs[ri].classList.remove('on'); ri = (ri + 1) % rs.length; rs[ri].classList.add('on'); }, 2200);
 
   // telefon sichqonchaga ergashadi
-  const ph = document.getElementById('phone');
-  if (!reduce && matchMedia('(pointer:fine)').matches) addEventListener('mousemove', e => { const x = e.clientX / innerWidth - .5, y = e.clientY / innerHeight - .5; ph.style.transform = `rotateY(${-14 + x * 18}deg) rotateX(${6 - y * 12}deg) rotate(2deg)`; });
+  // ⏳ yuklanish ekrani: shriftlar va sahifa tayyor bo'lgach yo'qoladi
+  const ld = document.getElementById('loader'), lb = document.getElementById('ldbar'); let lp = 8;
+  const tick = setInterval(() => { lp = Math.min(90, lp + (90 - lp) * .18); if (lb) lb.style.width = lp + '%'; }, 120);
+  const t0 = Date.now(), hideLd = () => { clearInterval(tick); if (lb) lb.style.width = '100%'; setTimeout(() => ld && ld.classList.add('done'), Math.max(250, 900 - (Date.now() - t0))); };
+  if (document.readyState === 'complete') hideLd(); else addEventListener('load', () => (document.fonts ? document.fonts.ready : Promise.resolve()).then(hideLd));
+  setTimeout(hideLd, 3500);
+
+  // 🎛 3D sahna: kompyuterda sichqonchaga, telefonda giroskop va scroll'ga qarab buriladi
+  const ph = document.getElementById('phone'), stage = document.getElementById('stage'), glare = document.getElementById('glare');
+  const base = () => innerWidth < 900 ? { y: -8, x: 6 } : { y: -18, x: 8 };
+  let tx = 0, ty = 0, cx = 0, cy = 0;
+  const loop3d = () => { cx += (tx - cx) * .08; cy += (ty - cy) * .08; const b = base();
+    stage.style.transform = `rotateY(${b.y + cx * 26}deg) rotateX(${b.x - cy * 18}deg)`; glare.style.setProperty('--gx', (60 - cx * 60) + '%');
+    requestAnimationFrame(loop3d); };
+  if (!reduce) {
+    requestAnimationFrame(loop3d);
+    if (matchMedia('(pointer:fine)').matches) addEventListener('mousemove', e => { tx = e.clientX / innerWidth - .5; ty = e.clientY / innerHeight - .5; });
+    else {
+      addEventListener('deviceorientation', e => { if (e.gamma == null) return; tx = Math.max(-.5, Math.min(.5, e.gamma / 50)); ty = Math.max(-.5, Math.min(.5, (e.beta - 45) / 60)); });
+      addEventListener('scroll', () => { const r = stage.getBoundingClientRect(); ty = Math.max(-.5, Math.min(.5, (r.top + r.height / 2) / innerHeight - .5)); }, { passive: true });
+    }
+  }
 
   // telefondagi lenta: postlar birin-ketin tushadi
   const POSTS = [
@@ -22,13 +42,15 @@
     ['Aziza', '40 daq', 'Kitob tavsiya qiling: qishda o‘qish uchun issiq roman 📚 <b style="color:#C2410C">#kitob</b>', 96, 22],
     ['Bekzod', '1 soat', 'Do‘konimga birinchi onlayn buyurtma keldi. Alhamdulillah 🤲', 301, 40],
     ['Madina', '2 soat', 'IELTS 7.5 oldim!!! 🎉 Hammaga rahmat', 512, 63],
+    ['POLL'],
     ['Sardor', '3 soat', 'Guruhda Tetris turniri boshlandi, kim qo‘shiladi? 🧱', 77, 12]
   ];
   const feed = document.getElementById('feed'); let pi = 0;
-  const card = p => `<div class="s-card"><b>${p[0]}</b> <span style="color:#777">· ${p[1]}</span><div>${p[2]}</div><div class="s-row"><span class="s-pill h">♥ ${p[3]}</span><span class="s-pill">${p[4]} javob</span></div></div>`;
+  const card = p => p[0] === 'POLL' ? `<div class="s-card"><b>Nilufar</b> <span style="color:#777">· hozir</span><div>📊 Choy yoki qahva? ☕</div><div class="s-poll"><span style="--w:68%"><b>🍵 Choy</b><b>68%</b></span><span style="--w:32%"><b>☕ Qahva</b><b>32%</b></span></div></div>`
+    : `<div class="s-card"><b>${p[0]}</b> <span style="color:#777">· ${p[1]}</span><div>${p[2]}</div><div class="s-row"><span class="s-pill h">♥ ${p[3]}</span><span class="s-pill">${p[4]} javob</span></div></div>`;
   function nextPost() {
     feed.insertAdjacentHTML('afterbegin', card(POSTS[pi % POSTS.length])); pi++;
-    while (feed.children.length > 3) feed.lastElementChild.remove();
+    while (feed.children.length > 2) feed.lastElementChild.remove();
     if (!reduce) { const h = document.createElement('span'); h.className = 'heart-pop'; h.textContent = '❤️'; h.style.left = (30 + Math.random() * 50) + '%'; h.style.top = '45%'; ph.querySelector('.screen').appendChild(h); setTimeout(() => h.remove(), 1300); }
   }
   nextPost(); nextPost(); setInterval(nextPost, 2800);
