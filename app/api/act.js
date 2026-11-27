@@ -373,6 +373,24 @@ export default async function handler(req, res) {
         if (up.length) await db`insert into messages (chat_id, user_id, body, is_sys) values (${cid}, null, ${'💣 @' + me.username + ' Mina rekordi: ' + score + ' ochko!'}, true)`;
         return send(res, 200, { ok: true, record: up.length > 0 });
       }
+      /* ---------- O'yinlar reytingi (har o'yinchiga o'yin boshiga ko'pi bilan 3 qator: umrbod, bu hafta, o'tgan hafta) ---------- */
+      case 'gscore': {
+        const MAX = { flappy: 999, tetris: 999999, '2048': 300000, mines: 1000 }, g = String(b.game || ''), sc = Number(b.score);
+        if (!MAX[g] || !Number.isInteger(sc) || sc < 1 || sc > MAX[g]) return bad(res, 'score');
+        await db`insert into game_best (game, wk, user_id, score) values
+          (${g}, '2000-01-01', ${uid}, ${sc}), (${g}, date_trunc('week', now() at time zone 'Asia/Tashkent')::date, ${uid}, ${sc})
+          on conflict (game, wk, user_id) do update set score = greatest(game_best.score, excluded.score)`;
+        return send(res, 200, { ok: true });
+      }
+      case 'lboard': {
+        if (Math.random() < 0.03) await db`delete from game_best where wk <> '2000-01-01' and wk < date_trunc('week', now() at time zone 'Asia/Tashkent')::date - 7`;
+        const rows = await db`with w as (select date_trunc('week', now() at time zone 'Asia/Tashkent')::date as wk),
+          r as (select g.game, g.wk, g.user_id, g.score, row_number() over (partition by g.game, g.wk order by g.score desc, g.user_id) as rn
+                from game_best g, w where g.wk in ('2000-01-01', w.wk, w.wk - 7))
+          select r.game, case when r.wk = '2000-01-01' then 'all' when r.wk = w.wk then 'week' else 'last' end as k, r.user_id, r.score, r.rn
+          from r, w where r.rn <= 3 or r.user_id = ${uid}`;
+        return send(res, 200, { ok: true, rows: rows.map(r => ({ g: r.game, k: r.k, u: Number(r.user_id), s: Number(r.score), n: Number(r.rn) })) });
+      }
       case 'xoget': {
         // X/O holatini tez olish (faqat shu o'yinlar, butun sync emas)
         const ids = (Array.isArray(b.msgs) ? b.msgs : []).slice(0, 10).map(x => idOf(x, 'm')).filter(Boolean);
@@ -398,6 +416,9 @@ export default async function handler(req, res) {
         const up = await db`update messages set xo = ${JSON.stringify(G)}::jsonb where id = ${mid} and xo->>'b' = ${old} returning id`;
         if (!up.length) return bad(res, 'Raqib sizdan oldin yurdi, qayta urinib ko‘ring');
         try {
+          if (G.w && G.w !== 'd') await db`insert into game_best (game, wk, user_id, score) values
+            ('xo', '2000-01-01', ${uid}, 1), ('xo', date_trunc('week', now() at time zone 'Asia/Tashkent')::date, ${uid}, 1)
+            on conflict (game, wk, user_id) do update set score = game_best.score + 1`;
           if (G.w) await db`insert into messages (chat_id, user_id, body, is_sys) values (${m.chat_id}, null, ${G.w === 'd' ? '🤝 X/O: durang!' : (G.w === 'x' ? '❌' : '⭕') + ' @' + me.username + ' X/O o‘yinida yutdi! 🏆'}, true)`;
           else { const nxt = G.t === 'x' ? G.x : G.o; if (nxt) await pushTo(db, [nxt], { title: 'X/O ❌⭕', body: 'Sizning navbatingiz!', url: '/c/c' + m.chat_id, tag: 'xo' + mid }); }
         } catch (e) {}

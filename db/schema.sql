@@ -226,3 +226,6 @@ alter table tournaments add constraint tournaments_game_check check (game in ('f
 insert into users (username, name, bio, color, is_system, terms_ver) values
   ('mines', 'Mina', 'Istalgan chat yoki guruhda @mines deb yozing. Minalarni topib, hamma kataklarni oching!', '#4C7DFF', true, 1)
 on conflict (username) do nothing;
+
+-- v1.10.0 O'yinlar reytingi: har o'yinchi/o'yin uchun faqat eng yaxshi natija (umrbod + haftalik), eski haftalar o'chiriladi
+create table if not exists game_best (game text not null, wk date not null, user_id bigint not null references users(id) on delete cascade, score int not null, primary key (game, wk, user_id));

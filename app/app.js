@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.9.7'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.10.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -421,9 +421,42 @@ const GAMES = [
   { k: 'xo', name: 'X/O', ico: s => XO.icon(s), desc: 'Kompyuterga qarshi yoki chatda do‘stingiz bilan', tag: '@xo', act: 'sendxo', open: o => XO.open(o), duo: true }
 ];
 const gameOf = u => u && u.system && GAMES.find(g => g.k === u.u);
+// O'yinlar reytingi: natija serverga faqat shu haftadagi shaxsiy rekordingizdan oshsa yuboriladi (baza tejaladi)
+const LBG = [['flappy', 'Flappy', '🐤'], ['tetris', 'Tetris', '🧱'], ['2048', '2048', '🔢'], ['mines', 'Mina', '💣'], ['xo', 'X/O', '❌⭕']];
+const GLB = { rows: null, at: 0, tab: 'week', g: 'flappy', loading: false };
+const wkKey = () => { const d = new Date(Date.now() + 5 * 3600e3); d.setUTCHours(0, 0, 0, 0); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7); return d.toISOString().slice(0, 10); };
+function gsend(g, s) {
+  if (!SESSION || !(s > 0)) return; const k = 'lahzam_wk_' + g, wk = wkKey(); let o = {};
+  try { o = JSON.parse(localStorage.getItem(k)) || {}; } catch (e) {}
+  if (o.wk === wk && o.s >= s) return;
+  try { localStorage.setItem(k, JSON.stringify({ wk, s })); } catch (e) {}
+  api('act', { method: 'POST', body: { t: 'gscore', game: g, score: Math.floor(s) } }).then(() => { GLB.at = 0; });
+}
+[['flappy', 'Flappy'], ['tetris', 'Tetris'], ['2048', 'G2048'], ['mines', 'Mines']].forEach(([k, n]) => { const M = window[n]; if (!M || M.__lb) return; const o = M.open; M.__lb = true; M.open = opts => o({ ...(opts || {}), onEnd: sc => { gsend(k, sc); return opts && opts.onEnd ? opts.onEnd(sc) : null; } }); });
+async function loadGLB(force) {
+  if (GLB.loading || (!force && GLB.rows && now() - GLB.at < 60e3)) return;
+  GLB.loading = true; const r = await api('act', { method: 'POST', body: { t: 'lboard' } }).catch(() => null); GLB.loading = false;
+  if (r && r.ok) { GLB.rows = r.rows; GLB.at = now(); const n = route()[0]; if (n === 'games' || n === 'profile') { const y = scrollY; render(); scrollTo(0, y); } }
+}
+const medalsOf = id => (GLB.rows || []).filter(r => r.k === 'last' && r.u === id && r.n <= 3).map(r => ({ m: ['🥇', '🥈', '🥉'][r.n - 1], g: (LBG.find(x => x[0] === r.g) || [])[1] }));
+function lbCard() {
+  const u = me(), R = GLB.rows; if (!R) return `<div class="card lb"><b class="lb-h">🏆 Reyting</b><p class="muted" style="margin:8px 0 0">Yuklanmoqda…</p></div>`;
+  const top = R.filter(r => r.g === GLB.g && r.k === GLB.tab && r.n <= 3).sort((a, b) => a.n - b.n), mine = R.find(r => r.g === GLB.g && r.k === GLB.tab && r.u === u.id);
+  const unit = GLB.g === 'xo' ? ' g‘alaba' : '';
+  const order = [top[1], top[0], top[2]];
+  return `<div class="card lb"><div class="row" style="justify-content:space-between;gap:8px"><b class="lb-h">🏆 Reyting</b>
+    <div class="lb-tabs"><button class="${GLB.tab === 'week' ? 'on' : ''}" data-act="lbtab" data-id="week">Bu hafta</button><button class="${GLB.tab === 'all' ? 'on' : ''}" data-act="lbtab" data-id="all">Umrbod</button></div></div>
+    <div class="lb-games">${LBG.map(([k, n, e]) => `<button class="${GLB.g === k ? 'on' : ''}" data-act="lbgame" data-id="${k}">${e} ${n}</button>`).join('')}</div>
+    ${top.length ? `<div class="podium">${order.map((r, i) => { const pl = [2, 1, 3][i]; if (!r) return `<div class="pd p${pl} empty"><span class="pd-m">${['🥈', '🥇', '🥉'][i]}</span><div class="pd-b">—</div></div>`; const w = user(r.u) || { u: '?', name: '?' };
+      return `<a href="/@${esc(w.u)}" data-link class="pd p${pl}${r.u === u.id ? ' me' : ''}">${avatar(w, pl === 1 ? 56 : 46)}<span class="pd-m">${['🥈', '🥇', '🥉'][i]}</span><b>${esc(w.name.split(' ')[0])}</b><span class="pd-s">${r.s}${unit}</span><div class="pd-b"></div></a>`; }).join('')}</div>`
+      : `<p class="muted" style="text-align:center;margin:18px 0 6px">${GLB.tab === 'week' ? 'Bu hafta hali hech kim o‘ynamadi. Birinchi bo‘ling! 🚀' : 'Hali natija yo‘q.'}</p>`}
+    <div class="lb-me">${mine ? `Siz: <b>${mine.n}-o‘rin</b> · ${mine.s}${unit}` : GLB.g === 'xo' ? 'Chatda do‘stingiz bilan @xo o‘ynab, g‘alaba qozoning' : 'Hali natijangiz yo‘q: o‘ynang va reytingga chiqing!'}</div>
+    <p class="muted" style="margin:8px 0 0;font-size:12px;text-align:center">Har dushanba haftalik reyting yangilanadi · haftaning eng yaxshi 3 talig‘i profilda medal bilan turadi</p></div>`;
+}
 function gamesPage() {
   const best = k => { try { return +localStorage.getItem({ flappy: 'lahzam_flappy_best', tetris: 'lahzam_tetris_best', '2048': 'lahzam_2048_best', mines: 'lahzam_mines_best' }[k]) || 0; } catch (e) { return 0; } };
   return `<div class="shell">${backBar('O‘yinlar 🎮')}<div class="pad stack">
+    ${me() ? lbCard() : ''}
     <p class="muted" style="margin:0">Yakka o‘ynang yoki do‘stlaringizga chatda yuboring: har chat va guruhning o‘z rekordi bo‘ladi 🏆</p>
     ${GAMES.map(g => `<div class="card game-tile"><div class="row" style="gap:14px">${g.ico(56)}<span style="flex:1;min-width:0"><b style="font-family:var(--head);font-size:18px;display:block">${g.name}</b><span class="muted" style="font-size:14px">${g.desc}</span>${best(g.k) ? `<span style="display:block;font-size:13px;font-weight:700;color:var(--acc-ink,var(--acc));margin-top:2px">Eng yaxshi natijangiz: ${best(g.k)}</span>` : ''}</span></div>
       <div class="row" style="gap:8px;margin-top:12px"><button class="btn acc" style="flex:1;height:46px;border-radius:999px" data-act="solo" data-id="${g.k}">▶ O‘ynash</button><button class="btn ghost" style="flex:1;height:46px;border-radius:999px" data-act="gamesend" data-id="${g.k}">↗ Yuborish</button></div></div>`).join('')}
@@ -617,6 +650,8 @@ function home() {
   </div>${dock('home')}</div>`;
 }
 after.home = () => bindCounter('#post-text', '#post-count', LIMIT.post);
+after.games = () => loadGLB();
+after.profile = () => { if (SESSION && !GLB.rows) loadGLB(); };
 function bindCounter(ta, ct, max) {
   const t = $(ta), c = $(ct); if (!t || !c) return;
   const up = () => { const n = t.value.length; c.textContent = `${n} / ${max}`; c.className = 'counter' + (n > max ? ' over' : n > max - 50 ? ' warn' : ''); const b = t.form && t.form.querySelector('button.btn'); if (b) b.disabled = n > max; };
@@ -1016,6 +1051,7 @@ function profile(name) {
     <div class="pmain">${own ? `<button class="av-edit" data-act="editprofile" aria-label="Profil rasmini almashtirish">${avatar(p, 112)}<span class="cam" aria-hidden="true">📷</span></button>` : avatar(p, 112)}
       <div style="font-family:var(--head);font-weight:700;font-size:22px;margin-top:10px">${NM(p, true)}</div>
       <div class="row" style="justify-content:center;gap:8px;margin-top:2px"><span class="muted" style="font-size:14px">@${esc(p.u)}</span>${p.owner ? OWNER_PILL : isFounder(p) ? '<span class="founder">Asoschi</span>' : ''}${p.star && !p.owner ? '<a href="/yulduz" data-link class="founder star-pill">⭐ Yulduz</a>' : ''}</div>
+      ${medalsOf(p.id).length ? `<a href="/oyinlar" data-link class="medals">${medalsOf(p.id).map(x => `<span>${x.m} ${esc(x.g)}</span>`).join('')}</a>` : ''}
       ${p.bio ? `<p style="margin:10px 0 0;max-width:320px">${linkify(p.bio)}</p>` : ''}
       ${own && (!p.bio || !p.photo) ? `<button class="link-btn" style="margin-top:8px" data-act="editprofile">+ ${!p.photo ? 'Rasm' : ''}${!p.photo && !p.bio ? ' va ' : ''}${!p.bio ? 'bio' : ''} qo‘shish</button>` : ''}
       ${p.blocked ? '<span class="tag red" style="margin-top:8px">Bloklangan</span>' : ''}</div>
@@ -1725,6 +1761,8 @@ document.addEventListener('click', async e => {
       UPD.list = UPD.list.filter(x => x.id !== +id); toast('O‘chirildi'); render(); break;
     }
     case 'qall': sheet(qSheet()); break;
+    case 'lbtab': GLB.tab = id; render(); break;
+    case 'lbgame': GLB.g = id; render(); break;
     case 'qedit': sheet(`<h2>Kun savolini o‘zgartirish ✏️</h2><form class="stack" data-form="qset"><textarea class="inp" id="qs-t" maxlength="160" style="height:110px;padding:12px 16px" placeholder="Bugungi savol…">${esc(qText())}</textarea><p class="muted" style="margin:0;font-size:13px">Faqat bugungi savol o‘zgaradi. Bo‘sh qoldirsangiz, avtomatik savol qaytadi.</p><button class="btn full">Saqlash</button></form>`); break;
     case 'qlike': { const a = (DB.daily || []).find(x => x.id === el.dataset.id); if (a) { a.liked = !a.liked; a.likes = (a.likes || 0) + (a.liked ? 1 : -1); if ($('#modal-root .sheet')) sheet(qSheet()); } api('act', { method: 'POST', body: { t: 'qlike', id: el.dataset.id } }).then(() => sync(true)); break; }
     case 'qdel': { DB.daily = (DB.daily || []).filter(x => x.id !== el.dataset.id); closeSheet(); render(); server({ t: 'qdel', id: el.dataset.id }); break; }
