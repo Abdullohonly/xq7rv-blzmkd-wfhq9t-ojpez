@@ -541,3 +541,4 @@ img{-webkit-user-drag:none;-webkit-touch-callout:none}
 @media (display-mode:standalone){
   html,body{overscroll-behavior-y:none}
 }
+.q-edit{background:#2a2a2a;border:0;border-radius:999px;width:28px;height:28px;margin-left:6px;cursor:pointer;font-size:13px;vertical-align:middle}

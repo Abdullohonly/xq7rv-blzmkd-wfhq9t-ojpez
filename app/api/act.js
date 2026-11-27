@@ -437,6 +437,14 @@ export default async function handler(req, res) {
                  on conflict (day, user_id) do update set body = excluded.body, created_at = now()`;
         return send(res, 200, { ok: true });
       }
+      case 'qset': {
+        if (!admin) return send(res, 403, { error: 'forbidden' });
+        const q = clean(str(b.text, 160)).trim();
+        if (!q) { await db`delete from daily_q where day = (now() at time zone 'Asia/Tashkent')::date`; return send(res, 200, { ok: true }); }
+        if (q.length < 5) return bad(res, 'Savol juda qisqa');
+        await db`insert into daily_q (day, body) values ((now() at time zone 'Asia/Tashkent')::date, ${q}) on conflict (day) do update set body = excluded.body`;
+        return send(res, 200, { ok: true });
+      }
       case 'qdel': { await db`delete from daily_answers where id = ${idOf(b.id, 'q')} and user_id = ${uid}`; return send(res, 200, { ok: true }); }
       case 'qlike': {
         const id = idOf(b.id, 'q'); if (!id) return bad(res, 'id');

@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.8.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.8.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -75,10 +75,10 @@ async function sync(force) {
   } catch (e) { SYNC.busy = false; SYNC.last = now(); return; }
   if (r.status === 401) { adoptSession(null); save(); render(); return; }
   if (!r.ok) return;
-  const sig = JSON.stringify([r.users, r.follows, r.posts, r.chats, r.notifs, r.stars, r.daily]);
+  const sig = JSON.stringify([r.users, r.follows, r.posts, r.chats, r.notifs, r.stars, r.daily, r.dq]);
   if (sig === SYNC.sig && !force) return;
   SYNC.sig = sig;
-  Object.assign(DB, { me: r.me, users: r.users, follows: r.follows, stars: r.stars || {}, posts: r.posts, daily: r.daily || [], chats: r.chats, notifs: r.notifs.map(n => ({ ...n, to: r.me })) });
+  Object.assign(DB, { me: r.me, users: r.users, follows: r.follows, stars: r.stars || {}, posts: r.posts, daily: r.daily || [], dq: r.dq || null, chats: r.chats, notifs: r.notifs.map(n => ({ ...n, to: r.me })) });
   if (isOwnerSession() && ADM.checked && r.admin !== ADM.verified) ADM.verified = r.admin;
   save(); softRender();
 }
@@ -544,12 +544,12 @@ function postCard(p, full) {
 /* ---------------- Kun savoli ---------------- */
 const QS = ['Bugun sizni nima xursand qildi?','Eng sevimli taomingiz qaysi va nega?','Agar bir kunlik dam olish bo‘lsa, nima qilardingiz?','O‘zbekistonda eng chiroyli joy qayer deb o‘ylaysiz?','Bolalikdagi eng shirin xotirangiz?','Hozir qaysi kitobni o‘qiyapsiz yoki o‘qimoqchisiz?','Hayotdagi eng yaxshi maslahat qaysi bo‘lgan?','5 yildan keyin o‘zingizni qayerda ko‘rasiz?','Qaysi kasbni eng qiziq deb bilasiz?','Eng yaxshi ko‘rgan fasl qaysi?','Bugun nimani o‘rgandingiz?','Agar bir tilni bir kunda o‘rgana olsangiz, qaysi biri bo‘lardi?','Sizni nima ilhomlantiradi?','Eng yoqtirgan sport turingiz?','Qaysi ilovasiz yashay olmaysiz?','Choy yoki qahva? ☕','Qaysi shahar yoki davlatga borishni orzu qilasiz?','Do‘stlaringiz sizni qanday so‘z bilan ta’riflashadi?','Eng ko‘p kulgan voqeangiz?','Hozirgi kundagi eng katta maqsadingiz?','Qaysi odatni tashlamoqchisiz?','Qaysi yangi odatni boshlamoqchisiz?','Eng yaxshi ko‘rgan o‘zbek taomi?','Ota-onangizdan o‘rgangan eng muhim narsa?','Bo‘sh vaqtingizda nima qilasiz?','Telefoningizdagi eng ko‘p ishlatiladigan ilova?','Kelajakda qanday ixtiro bo‘lishini xohlardingiz?','Sizga qaysi fan eng qiyin bo‘lgan?','Eng yaxshi sovg‘a qaysi bo‘lgan?','Ertalab turib birinchi nima qilasiz?','Qaysi mahoratni o‘rganmoqchisiz?','Hayotingizni o‘zgartirgan bitta qaror?','Yoshlarga qanday maslahat berardingiz?','Qaysi sayohatingiz esda qolarli bo‘lgan?','Sizni nima tinchlantiradi?','Agar mashhur bo‘lsangiz, nima bilan mashhur bo‘lardingiz?','Bugun kimga rahmat aytmoqchisiz? 🤍','Eng yaxshi ko‘rgan so‘zingiz?','Qaysi multfilm yoki film bolaligingizni eslatadi?','Bir million so‘m topsangiz, nimaga sarflardingiz?'];
 const qDay = () => Math.floor((Date.now() + 5 * 3600e3) / 864e5);
-const qText = () => QS[qDay() % QS.length];
+const qText = () => (DB && DB.dq) || QS[qDay() % QS.length];
 function qCard() {
   const A = DB.daily || [], u = me(), mineA = A.find(a => a.uid === u.id);
   const top = A.slice(0, 2).map(a => { const w = user(a.uid); return `<div class="q-ans"><b>${esc(w.name.split(' ')[0])}</b> ${esc(a.text)}</div>`; }).join('');
   return `<section class="card q-card" aria-label="Kun savoli">
-    <div class="q-top"><span class="q-tag">✦ KUN SAVOLI</span><span class="q-n">${A.length ? A.length + ' ta javob' : 'Birinchi bo‘lib javob bering'}</span></div>
+    <div class="q-top"><span class="q-tag">✦ KUN SAVOLI</span><span class="q-n">${A.length ? A.length + ' ta javob' : 'Birinchi bo‘lib javob bering'}${isAdmin() ? ` <button class="q-edit" data-act="qedit" aria-label="Savolni o‘zgartirish">✏️</button>` : ''}</span></div>
     <h3 class="q-q">${esc(qText())}</h3>
     ${mineA ? `<div class="q-mine"><span class="muted">Sizning javobingiz:</span> ${esc(mineA.text)}</div>` : `<form class="q-form" data-form="qans"><label class="sr" for="q-in">Javobingiz</label><input id="q-in" maxlength="200" placeholder="Javobingizni yozing…" autocomplete="off"><button class="q-send" aria-label="Yuborish">➤</button></form>`}
     ${top}
@@ -1621,6 +1621,7 @@ document.addEventListener('click', async e => {
       UPD.list = UPD.list.filter(x => x.id !== +id); toast('O‘chirildi'); render(); break;
     }
     case 'qall': sheet(qSheet()); break;
+    case 'qedit': sheet(`<h2>Kun savolini o‘zgartirish ✏️</h2><form class="stack" data-form="qset"><textarea class="inp" id="qs-t" maxlength="160" style="height:110px;padding:12px 16px" placeholder="Bugungi savol…">${esc(qText())}</textarea><p class="muted" style="margin:0;font-size:13px">Faqat bugungi savol o‘zgaradi. Bo‘sh qoldirsangiz, avtomatik savol qaytadi.</p><button class="btn full">Saqlash</button></form>`); break;
     case 'qlike': { const a = (DB.daily || []).find(x => x.id === el.dataset.id); if (a) { a.liked = !a.liked; a.likes = (a.likes || 0) + (a.liked ? 1 : -1); if ($('#modal-root .sheet')) sheet(qSheet()); } api('/api/act', { method: 'POST', body: { t: 'qlike', id: el.dataset.id } }).then(() => sync(true)); break; }
     case 'qdel': { DB.daily = (DB.daily || []).filter(x => x.id !== el.dataset.id); closeSheet(); render(); server({ t: 'qdel', id: el.dataset.id }); break; }
     case 'cd-ins': { const ta = $('#post-text'); if (!ta) break; const v = el.dataset.v, pre = ta.value && !/\s$/.test(ta.value) ? ' ' : ''; ta.value += pre + v; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); ta.dispatchEvent(new Event('input', { bubbles: true })); break; }
@@ -1697,6 +1698,10 @@ document.addEventListener('submit', async e => {
     const v = $('#q-in').value.trim(); if (v.length < 2) return toast('Javob juda qisqa');
     DB.daily = [{ id: 'qtmp', uid: u.id, text: v, t: now(), likes: 0 }, ...(DB.daily || [])]; render();
     server({ t: 'qans', text: v }, 'Javobingiz qo‘shildi ✨'); return;
+  }
+  if (kind === 'qset') {
+    const v = $('#qs-t').value.trim(); if (v && v.length < 5) return toast('Savol juda qisqa');
+    DB.dq = v || null; closeSheet(); render(); server({ t: 'qset', text: v }, 'Kun savoli yangilandi ✨'); return;
   }
   if (kind === 'sched') {
     const c = DB.chats.find(x => x.id === f.dataset.id), text = $('#sc-t').value.trim(), ts = new Date($('#sc-d').value).getTime(), h = $('#sc-h');

@@ -211,3 +211,5 @@ create table if not exists daily_likes (
   user_id bigint not null references users(id) on delete cascade,
   primary key (answer_id, user_id)
 );
+-- v1.8.1 admin kun savolini o'zgartira oladi
+create table if not exists daily_q (day date primary key, body text not null check (char_length(body) between 1 and 200));

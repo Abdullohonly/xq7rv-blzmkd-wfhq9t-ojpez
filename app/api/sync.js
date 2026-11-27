@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
     // onlayn holat: har sync'da "oxirgi marta ko'rildi" yangilanadi (10 soniyada bir martadan ko'p emas)
     const seenQ = db`update users set last_seen = now() where id = ${uid} and (last_seen is null or last_seen < now() - interval '10 seconds')`;
-    const [users, follows, posts, likes, replies, myReports, chats, members, notifs, stars, daily] = await Promise.all([
+    const [users, follows, posts, likes, replies, myReports, chats, members, notifs, stars, daily, dq] = await Promise.all([
       db`select id, username, name, bio, color, is_system, is_blocked, created_at, dm_from, rr_off, warns, lower(email) = ${OWNER_EMAIL} as is_owner, coalesce(star_until > now(), false) or lower(email) = ${OWNER_EMAIL} as is_star, star_color, cover, pinned_post, hide_online, hide_read,
            case when photo is null then null else substr(md5(photo), 1, 10) end as ph,
            coalesce(last_seen > now() - interval '45 seconds', false) as online, (extract(epoch from date_trunc('minute', last_seen)) * 1000)::bigint as ls
@@ -51,7 +51,8 @@ export default async function handler(req, res) {
            (select count(*)::int from daily_likes l where l.answer_id = d.id) as likes,
            exists(select 1 from daily_likes l where l.answer_id = d.id and l.user_id = ${uid}) as liked
          from daily_answers d where d.day = (now() at time zone 'Asia/Tashkent')::date
-         order by likes desc, d.created_at desc limit 100`
+         order by likes desc, d.created_at desc limit 100`,
+      db`select body from daily_q where day = (now() at time zone 'Asia/Tashkent')::date`
     ]);
     await seenQ.catch(() => {});
     // 🏁 Vaqti tugagan turnirlar yakunlanadi: g'olib chatga e'lon qilinadi (faqat bir marta)
@@ -147,6 +148,7 @@ export default async function handler(req, res) {
           pin: c.pin_id ? 'm' + c.pin_id : null, read, msgs: canRead ? (byChat[c.id] || []) : [], full: canRead
         };
       }),
+      dq: dq[0] ? dq[0].body : null,
       daily: daily.map(d => ({ id: 'q' + d.id, uid: Number(d.user_id), text: d.body, t: ms(d.created_at), likes: d.likes, liked: d.liked || undefined })),
       notifs: notifs.map(n => ({ id: 'n' + n.id, text: n.body, link: n.link, read: n.is_read, t: ms(n.created_at) })),
       stars: Object.fromEntries(stars.map(s => [Number(s.receiver), { all: s.total, week: s.week }]))
