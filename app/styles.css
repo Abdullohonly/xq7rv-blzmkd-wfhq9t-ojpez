@@ -710,3 +710,5 @@ a.q-ans{text-decoration:none;cursor:pointer}a.q-ans:hover b{text-decoration:unde
 .pchip{display:inline-flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 11px;font-size:13px;font-weight:700}
 .pchip.bd-on{background:linear-gradient(90deg,#FFC531,#FF5A1F);color:#fff;border-color:transparent;animation:bdPop .6s cubic-bezier(.3,1.4,.5,1)}
 @keyframes bdPop{from{transform:scale(.6);opacity:0}}
+.q-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.q-fire{color:#FFB547}

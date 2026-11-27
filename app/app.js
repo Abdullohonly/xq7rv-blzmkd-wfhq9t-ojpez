@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.14.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.14.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -708,8 +708,16 @@ function qCard() {
     <h3 class="q-q">${esc(qText())}</h3>
     ${mineA ? `<div class="q-mine"><span class="muted">Sizning javobingiz:</span> ${esc(mineA.text)}</div>` : `<form class="q-form" data-form="qans"><label class="sr" for="q-in">Javobingiz</label><input id="q-in" maxlength="200" placeholder="Javobingizni yozing…" autocomplete="off"><button class="q-send" aria-label="Yuborish">➤</button></form>`}
     ${top}
-    ${A.length ? `<button class="q-all" data-act="qall">Barcha javoblar (${A.length}) →</button>` : ''}
+    <div class="q-foot">${A.length ? `<button class="q-all" data-act="qall">Barcha javoblar (${A.length}) →</button>` : '<span></span>'}<button class="q-all q-fire" data-act="qtop">🔥 Faol obunachilar</button></div>
   </section>`;
+}
+// 🔥 Faol obunachilar: Kun savoliga eng uzoq ketma-ket javob berayotgan top 10 (ma'lumot sync'da bor, bazaga qo'shimcha so'rov yo'q)
+function qTopSheet() {
+  const u = me(), rows = realUsers().filter(x => !x.blocked && x.sk > 1).sort((a, b) => b.sk - a.sk || a.id - b.id);
+  const top = rows.slice(0, 10), mine = rows.findIndex(x => x.id === u.id), medal = i => ['🥇', '🥈', '🥉'][i] || `<b class="rank">${i + 1}</b>`;
+  return `<h2>🔥 Faol obunachilar</h2><p class="muted" style="margin:-4px 0 12px">Kun savoliga eng ko‘p kun ketma-ket javob berayotganlar. Bir kun o‘tkazib yuborilsa, seriya qaytadan boshlanadi.</p>
+  <div class="card" style="padding:4px 16px">${top.map((x, i) => `<a href="/@${esc(x.u)}" data-link class="li${x.id === u.id ? ' me-row' : ''}"><span style="width:30px;text-align:center;font-size:20px">${medal(i)}</span>${avatar(x, 40)}<span style="flex:1;min-width:0"><b>${NM(x)}</b><span class="muted" style="display:block">@${esc(x.u)}</span></span><b style="font-size:16px">🔥 ${x.sk}</b></a>`).join('') || '<p class="muted">Hali hech kimda seriya yo‘q. Bugun va ertaga javob bering, birinchi bo‘lasiz! 🔥</p>'}</div>
+  <div class="card" style="background:#121212;color:#fff;margin-top:10px"><b>${mine >= 0 ? `Siz ${mine + 1}-o‘rindasiz · 🔥 ${rows[mine].sk} kun` : (u.sk || 0) > 1 ? `🔥 ${u.sk} kun` : 'Sizda hali seriya yo‘q'}</b>${mine < 0 || mine >= 10 ? '<p style="margin:6px 0 0;color:#ccc;font-size:14px">Har kuni Kun savoliga javob yozing va top 10 ga chiqing.</p>' : ''}</div>`;
 }
 function qSheet() {
   const A = DB.daily || [], u = me();
@@ -1896,6 +1904,7 @@ document.addEventListener('click', async e => {
       if (!r.ok) { toast('O‘chirib bo‘lmadi', true); break; }
       UPD.list = UPD.list.filter(x => x.id !== +id); toast('O‘chirildi'); render(); break;
     }
+    case 'qtop': sheet(qTopSheet()); break;
     case 'qall': sheet(qSheet()); break;
     case 'hometab': HOMETAB = id; render(); break;
     case 'sughide': { let h = []; try { h = JSON.parse(localStorage.getItem('lahzam_sug_hide') || '[]'); } catch (err) {} h.push(+id); try { localStorage.setItem('lahzam_sug_hide', JSON.stringify(h.slice(-200))); } catch (err) {} render(); break; }
