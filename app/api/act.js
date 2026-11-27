@@ -551,7 +551,11 @@ export default async function handler(req, res) {
         if (body.length < 2) return bad(res, 'Javob juda qisqa');
         await db`insert into daily_answers (user_id, body) values (${uid}, ${body})
                  on conflict (day, user_id) do update set body = excluded.body, created_at = now()`;
-        return send(res, 200, { ok: true });
+        // 🔥 seriya: kecha ham javob bergan bo'lsa +1, bugun allaqachon bo'lsa o'zgarmaydi, aks holda 1 dan
+        const [sk] = await db`update users set streak = case when streak_day = (now() at time zone 'Asia/Tashkent')::date then streak
+            when streak_day = (now() at time zone 'Asia/Tashkent')::date - 1 then streak + 1 else 1 end,
+          streak_day = (now() at time zone 'Asia/Tashkent')::date where id = ${uid} returning streak`;
+        return send(res, 200, { ok: true, streak: sk ? sk.streak : 1 });
       }
       case 'qset': {
         if (!admin) return send(res, 403, { error: 'forbidden' });

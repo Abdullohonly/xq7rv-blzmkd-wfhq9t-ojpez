@@ -133,7 +133,7 @@ export const publicUser = u => u && ({
   email: u.email, isOwner: isOwnerEmail(u.email), hasPassword: !!u.password_hash, createdAt: u.created_at,
   dmFrom: u.dm_from || 'all', notifOff: !!u.notif_off, rrOff: !!u.rr_off, termsOk: Number(u.terms_ver || 0) >= TERMS_VER,
   star: isStar(u), starUntil: u.star_until || null, starColor: u.star_color || 'tilla', cover: u.cover || null, hideOnline: !!u.hide_online, hideRead: !!u.hide_read, tags: u.tags || [],
-  pinned: u.pinned_post ? 'p' + u.pinned_post : null, unChangedAt: u.un_changed_at || null, appIcon: u.app_icon || null
+  pinned: u.pinned_post ? 'p' + u.pinned_post : null, unChangedAt: u.un_changed_at || null, appIcon: u.app_icon || null, bday: u.bday || null
 });
 
 export function checkUsername(v, email, star) {

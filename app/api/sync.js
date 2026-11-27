@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       (select count(*) || '.' || coalesce(sum(hashtext(concat_ws('|', status, last_read, muted))), 0) || '.' || count(*) filter (where typing_at > now() - interval '6 seconds') from chat_members),
       (select count(*) || '.' || count(*) filter (where is_read) from notifications where user_id = ${uid}),
       (select count(*) from follows),
-      (select count(*) || '.' || coalesce(sum(hashtext(concat_ws('|', username, name, bio, color, star_color, cover, star_until, is_blocked, pinned_post, hide_online, hide_read, length(photo), right(photo, 24), warns, dm_from, rr_off))), 0) from users),
+      (select count(*) || '.' || coalesce(sum(hashtext(concat_ws('|', username, name, bio, color, star_color, cover, star_until, is_blocked, pinned_post, hide_online, hide_read, length(photo), right(photo, 24), warns, dm_from, rr_off, bday, streak, streak_day))), 0) from users),
       (select count(*) || '.' || coalesce(sum(hashtext(concat_ws('|', name, description, access, color, pin_id, flappy_score, tetris_score, g2048_score, mines_score, admin_id))), 0) from chats),
       (select count(*) from daily_answers), (select count(*) from daily_likes),
       (select coalesce(max(body), '') from daily_q where day = (now() at time zone 'Asia/Tashkent')::date),
@@ -36,7 +36,8 @@ export default async function handler(req, res) {
     const fp = createHash('sha1').update(String(fpRow.f)).digest('base64url').slice(0, 16);
     if (req.query && req.query.fp === fp) { await seenQ.catch(() => {}); res.setHeader('Cache-Control', 'private, no-store'); return send(res, 200, { same: 1 }); }
     const [users, follows, posts, likes, replies, myReports, chats, members, notifs, stars, daily, dq, pvotes] = await Promise.all([
-      db`select id, username, name, bio, color, is_system, is_blocked, created_at, dm_from, rr_off, warns, lower(email) = ${OWNER_EMAIL} as is_owner, coalesce(star_until > now(), false) or lower(email) = ${OWNER_EMAIL} as is_star, star_color, cover, pinned_post, hide_online, hide_read,
+      db`select id, username, name, bio, color, is_system, is_blocked, created_at, dm_from, rr_off, warns, lower(email) = ${OWNER_EMAIL} as is_owner, coalesce(star_until > now(), false) or lower(email) = ${OWNER_EMAIL} as is_star, star_color, cover, pinned_post, hide_online, hide_read, bday,
+           case when streak_day >= (now() at time zone 'Asia/Tashkent')::date - 1 then streak else 0 end as sk,
            case when photo is null then null else substr(md5(photo), 1, 10) end as ph,
            coalesce(last_seen > now() - interval '45 seconds', false) as online, (extract(epoch from date_trunc('minute', last_seen)) * 1000)::bigint as ls
          from users order by id limit 2000`,
@@ -141,6 +142,7 @@ export default async function handler(req, res) {
         star: u.is_star || undefined, starColor: u.is_star ? (u.star_color || 'tilla') : undefined, cover: u.is_star && u.cover ? u.cover : undefined, pin: u.is_star && u.pinned_post ? 'p' + u.pinned_post : undefined,
         // ⭐ Ko'rinmas rejim: onlayn holat va oxirgi ko'rilgan vaqt boshqalarga ko'rinmaydi
         on: u.online && Number(u.id) !== uid && !(u.is_star && u.hide_online) || undefined, ls: u.ls && !(u.is_star && u.hide_online && Number(u.id) !== uid) ? Number(u.ls) : undefined,
+        bd: u.bday || undefined, sk: u.sk > 1 ? u.sk : undefined,
         dmFrom: u.dm_from === 'fol' ? 'fol' : undefined, rrOff: u.rr_off || undefined, warns: admin ? u.warns : undefined
       })),
       follows: follows.map(f => [Number(f.follower_id), Number(f.followee_id)]),

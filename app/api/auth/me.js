@@ -53,9 +53,10 @@ export default async function handler(req, res) {
         photo = (await r2PutDataUrl(b.photo, 'u').catch(() => null)) || b.photo; // R2 bo'lsa havola, bo'lmasa bazada
       }
       const dmFrom = b.dmFrom === 'fol' || b.dmFrom === 'all' ? b.dmFrom : (u.dm_from || 'all');
+      const bday = b.bday === null || b.bday === '' ? null : b.bday !== undefined ? (/^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/.test(String(b.bday)) ? String(b.bday) : u.bday) : u.bday;
       const notifOff = typeof b.notifOff === 'boolean' ? b.notifOff : !!u.notif_off, rrOff = typeof b.rrOff === 'boolean' ? b.rrOff : !!u.rr_off;
       const [r] = await sql()`update users set name = ${name}, bio = ${bio}, color = ${color}, photo = ${photo}, dm_from = ${dmFrom}, notif_off = ${notifOff}, rr_off = ${rrOff},
-        star_color = ${starColor}, cover = ${cover}, hide_online = ${hideOnline}, hide_read = ${hideRead}, pinned_post = ${pinned}, app_icon = ${appIcon}, username = ${username}, un_changed_at = ${unAt} where id = ${u.id} returning *`;
+        star_color = ${starColor}, cover = ${cover}, hide_online = ${hideOnline}, hide_read = ${hideRead}, pinned_post = ${pinned}, app_icon = ${appIcon}, username = ${username}, un_changed_at = ${unAt}, bday = ${bday} where id = ${u.id} returning *`;
       return send(res, 200, { user: publicUser(r) });
     } catch { return send(res, 500, { error: 'server' }); }
   }

@@ -706,3 +706,7 @@ a.q-ans{text-decoration:none;cursor:pointer}a.q-ans:hover b{text-decoration:unde
 .plink code{margin-top:10px;background:rgba(255,255,255,.16);border-radius:999px;padding:6px 14px;font-size:14px;font-family:inherit;font-weight:700}
 .evr{display:inline-block;background:var(--acc);color:#fff;border-radius:8px;padding:0 6px;font-weight:800;font-size:.92em}
 .m.out .evr{background:#121212}
+/* v1.14.0 profil: seriya va tug'ilgan kun */
+.pchip{display:inline-flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 11px;font-size:13px;font-weight:700}
+.pchip.bd-on{background:linear-gradient(90deg,#FFC531,#FF5A1F);color:#fff;border-color:transparent;animation:bdPop .6s cubic-bezier(.3,1.4,.5,1)}
+@keyframes bdPop{from{transform:scale(.6);opacity:0}}

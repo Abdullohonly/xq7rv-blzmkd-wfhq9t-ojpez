@@ -239,3 +239,7 @@ alter table posts add column if not exists poll jsonb, add column if not exists 
 create table if not exists post_votes (post_id bigint not null references posts(id) on delete cascade, user_id bigint not null references users(id) on delete cascade, opt smallint not null, primary key (post_id, user_id));
 alter table users add column if not exists tags text[] not null default '{}';
 alter table chat_members add column if not exists muted boolean not null default false;
+
+-- v1.14.0 Tug'ilgan kun (faqat kun-oy) va Kun savoli seriyasi
+alter table users add column if not exists bday text check (bday ~ '^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$'),
+  add column if not exists streak int not null default 0, add column if not exists streak_day date;

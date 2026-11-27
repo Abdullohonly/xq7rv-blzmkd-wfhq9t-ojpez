@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.13.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.14.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -86,11 +86,28 @@ async function sync(force) {
   save(); softRender();
 }
 // Foydalanuvchi yozayotganda sahifani qayta chizmaymiz, faqat chatdagi xabarlarni yangilaymiz
+// 🖼 Qayta chizishda tayyor (yuklangan) rasmlar o'sha-o'sha element bo'lib qoladi: miltillamaydi, sakramaydi
+// 🎂 Tug'ilgan kun: faqat kun va oy saqlanadi (yosh ko'rsatilmaydi)
+const bdText = bd => { const [m, d] = String(bd || '').split('-').map(Number); return m && d ? `${d}-${OYLAR[m - 1]}` : ''; };
+const bdToday = bd => { if (!bd) return false; const t = new Date(Date.now() + 5 * 36e5); return bd === String(t.getUTCMonth() + 1).padStart(2, '0') + '-' + String(t.getUTCDate()).padStart(2, '0'); };
+function setHTML(el, html) {
+  const keep = new Map();
+  for (const i of el.querySelectorAll('img')) if (i.complete && i.naturalWidth) { const k = i.getAttribute('src'); (keep.get(k) || keep.set(k, []).get(k)).push(i); }
+  el.innerHTML = html;
+  if (!keep.size) return;
+  for (const n of el.querySelectorAll('img')) {
+    const a = keep.get(n.getAttribute('src')); if (!a || !a.length) continue;
+    const o = a.shift();
+    for (const at of [...o.attributes]) if (!n.hasAttribute(at.name)) o.removeAttribute(at.name);
+    for (const at of [...n.attributes]) if (at.name !== 'src' && o.getAttribute(at.name) !== at.value) o.setAttribute(at.name, at.value);
+    n.replaceWith(o);
+  }
+}
 function softRender() {
   const name = route()[0];
   if (name === 'chat') {
     const box = $('#msgs'), c = DB.chats.find(x => x.id === CH.cid);
-    if (box && c) { const near = innerHeight + scrollY >= document.body.scrollHeight - 160; box.innerHTML = msgList(c); const sb = $('#chat-sub'), u0 = me(); if (sb && u0) sb.innerHTML = typingText(c) ? `<span class="typing">${typingText(c)}</span>` : c.type === 'group' ? `${c.members.length} a‘zo` : isSaved(c) ? 'Faqat siz ko‘rasiz' : seenText(peer(c, u0)); if (near) scrollTo(0, document.body.scrollHeight); markRead(c); if (!XOQ.t || XOQ.idle > 0) xoPoll(); return; }
+    if (box && c) { const near = innerHeight + scrollY >= document.body.scrollHeight - 160; setHTML(box, msgList(c)); const sb = $('#chat-sub'), u0 = me(); if (sb && u0) sb.innerHTML = typingText(c) ? `<span class="typing">${typingText(c)}</span>` : c.type === 'group' ? `${c.members.length} a‘zo` : isSaved(c) ? 'Faqat siz ko‘rasiz' : seenText(peer(c, u0)); if (near) scrollTo(0, document.body.scrollHeight); markRead(c); if (!XOQ.t || XOQ.idle > 0) xoPoll(); return; }
   }
   // Admin panel fonda o'zi qayta chizilmaydi (sakramasin); ↻ tugmasi bilan yangilanadi
   if (name === 'admin') return;
@@ -349,7 +366,7 @@ function render() {
   const html = V(arg);
   const desk = DESK.matches && me() && !['auth', 'admin'].includes(name);
   document.body.classList.toggle('is-desk', !!desk);
-  app.innerHTML = desk ? deskShell(name, html) : html;
+  setHTML(app, desk ? deskShell(name, html) : html);
   draftRestore();
   // sahifa almashganda animatsiya: dock bo'yicha o'ngga/chapga, boshqa sahifalar pastdan
   if (PG.last !== name) {
@@ -884,7 +901,8 @@ after.auth = () => {
 // Owner ismi hamma joyda aylanadigan tilla ramkada
 const STAR_COLOR_LIST = [['tilla', 'Tilla'], ['olov', 'Lahzam olovi'], ['platina', 'Platina'], ['yoqut', 'Yoqut'], ['zumrad', 'Zumrad']];
 const STAR_I = '<svg class="star-i" width="13" height="13" viewBox="0 0 24 24" aria-label="Yulduz a’zosi" role="img"><path d="M12 2.5l2.9 6.2 6.8.8-5 4.7 1.3 6.7L12 17.6l-6 3.3 1.3-6.7-5-4.7 6.8-.8z" fill="currentColor"/></svg>';
-const NM = (x, big) => !x ? '' : (x.star && !x.owner) ? `<span class="ntag star c-${esc(x.starColor || 'tilla')}${big ? ' big' : ''}"><span class="in">${STAR_I}<span class="gtx">${esc(x.name)}</span></span></span>` : x.owner ? `<span class="ntag${big ? ' big' : ''}"><span class="in"><span class="gtx">${esc(x.name)}</span></span></span>` : esc(x.name);
+const NM = (x, big) => !x ? '' : NM0(x, big) + (bdToday(x.bd) ? ' <span title="Bugun tug‘ilgan kuni">🎂</span>' : '');
+const NM0 = (x, big) => (x.star && !x.owner) ? `<span class="ntag star c-${esc(x.starColor || 'tilla')}${big ? ' big' : ''}"><span class="in">${STAR_I}<span class="gtx">${esc(x.name)}</span></span></span>` : x.owner ? `<span class="ntag${big ? ' big' : ''}"><span class="in"><span class="gtx">${esc(x.name)}</span></span></span>` : esc(x.name);
 // ⭐ Yulduz profil muqovalari: 10 gradient + 10 naqsh
 const GRADS = ['linear-gradient(135deg,#FF5A1F,#FFB547)', 'linear-gradient(135deg,#0B1026,#2B2F6B)', 'linear-gradient(135deg,#0EA5E9,#22D3EE)', 'linear-gradient(135deg,#FF8FA3,#FFC3A0)', 'linear-gradient(135deg,#7C3AED,#DB2777)',
   'linear-gradient(135deg,#059669,#34D399)', 'linear-gradient(135deg,#8A6410,#F5C542)', 'linear-gradient(135deg,#64748B,#CBD5E1)', 'linear-gradient(135deg,#121212,#FF3D00)', 'linear-gradient(120deg,#5FD3F3,#B07CFF,#FF8FD8)'];
@@ -1029,7 +1047,7 @@ function srvSearch(c) {
   clearTimeout(SRV_T); const q = CH.q; if (!c || q.length < 2) { CH.srv = null; return; }
   SRV_T = setTimeout(async () => {
     const r = await api('act', { method: 'POST', body: { t: 'msearch', chat: c.id, q } });
-    if (CH.q !== q || CH.cid !== c.id || !r.ok) return; CH.srv = { q, list: r.list }; const box = $('#msgs'); if (box) box.innerHTML = msgList(c);
+    if (CH.q !== q || CH.cid !== c.id || !r.ok) return; CH.srv = { q, list: r.list }; const box = $('#msgs'); if (box) setHTML(box, msgList(c));
   }, 350);
 }
 // Kim o'qidi: a'zoning oxirgi o'qigan vaqti xabar vaqtidan keyin bo'lsa
@@ -1166,6 +1184,7 @@ function profile(name) {
       <div style="font-family:var(--head);font-weight:700;font-size:22px;margin-top:10px">${NM(p, true)}</div>
       <div class="row" style="justify-content:center;gap:8px;margin-top:2px"><span class="muted" style="font-size:14px">@${esc(p.u)}</span>${p.owner ? OWNER_PILL : isFounder(p) ? '<span class="founder">Asoschi</span>' : ''}${p.star && !p.owner ? '<a href="/yulduz" data-link class="founder star-pill">⭐ Yulduz</a>' : ''}</div>
       ${medalsOf(p.id).length ? `<a href="/oyinlar" data-link class="medals">${medalsOf(p.id).map(x => `<span>${x.m} ${esc(x.g)}</span>`).join('')}</a>` : ''}
+      ${p.bd || p.sk ? `<div class="row" style="justify-content:center;gap:6px;margin-top:8px;flex-wrap:wrap">${p.sk ? `<span class="pchip" title="Kun savoliga ketma-ket javob bergan kunlar">🔥 ${p.sk} kun</span>` : ''}${p.bd ? `<span class="pchip${bdToday(p.bd) ? ' bd-on' : ''}">${bdToday(p.bd) ? '🎉 Bugun tug‘ilgan kuni!' : '🎂 ' + bdText(p.bd)}</span>` : ''}</div>` : ''}
       ${p.bio ? `<p style="margin:10px 0 0;max-width:320px">${linkify(p.bio)}</p>` : ''}
       ${own && (!p.bio || !p.photo) ? `<button class="link-btn" style="margin-top:8px" data-act="editprofile">+ ${!p.photo ? 'Rasm' : ''}${!p.photo && !p.bio ? ' va ' : ''}${!p.bio ? 'bio' : ''} qo‘shish</button>` : ''}
       ${p.blocked ? '<span class="tag red" style="margin-top:8px">Bloklangan</span>' : ''}</div>
@@ -1549,6 +1568,7 @@ document.addEventListener('click', async e => {
         ${tg.photo ? `<button type="button" class="btn ghost" style="height:42px;color:var(--danger)" data-act="ph-clear" data-u="${tg.id}">Olib tashlash</button>` : ''}</div></div>
       <div class="field"><label for="pn">Ism</label><input class="inp" id="pn" maxlength="40" required value="${esc(tg.name)}"></div>
       <div class="field"><label for="pb">Bio</label><textarea class="inp" id="pb" maxlength="${tg.star ? 200 : 100}" style="height:96px;padding:12px 16px" placeholder="O‘zingiz haqingizda qisqacha">${esc(tg.bio || '')}</textarea><div class="row" style="justify-content:space-between"><span class="hint bad" id="pb-h"></span><span class="hint" id="pb-n">${(tg.bio || '').length}/${tg.star ? 200 : 100}</span></div><span class="muted" style="font-size:12px">Ko‘pi bilan ${tg.star ? 200 : 100} belgi va 3 qator · havola va telefon raqam mumkin emas</span></div>
+      <div class="field"><span style="font-size:14px;font-weight:700">🎂 Tug‘ilgan kun <span class="muted" style="font-weight:400">· ixtiyoriy, yil ko‘rinmaydi</span></span><div class="row" style="gap:8px"><select class="inp" id="bd-d" aria-label="Kun" style="flex:1"><option value="">Kun</option>${Array.from({ length: 31 }, (_, i) => `<option value="${String(i + 1).padStart(2, '0')}"${(tg.bd || '').slice(3) === String(i + 1).padStart(2, '0') ? ' selected' : ''}>${i + 1}</option>`).join('')}</select><select class="inp" id="bd-m" aria-label="Oy" style="flex:2"><option value="">Oy</option>${OYLAR.map((o, i) => `<option value="${String(i + 1).padStart(2, '0')}"${(tg.bd || '').slice(0, 2) === String(i + 1).padStart(2, '0') ? ' selected' : ''}>${o}</option>`).join('')}</select></div></div>
       <div class="field"><span style="font-size:14px;font-weight:700">Rang</span><div class="row" style="flex-wrap:wrap">${COLORS.map(c => `<label style="cursor:pointer"><input type="radio" name="pc" value="${c}" class="sr" ${c === tg.color ? 'checked' : ''}><span class="av swatch" style="width:40px;height:40px;background:${c}"></span></label>`).join('')}</div></div>
       <button class="btn acc full">Saqlash</button></form>`); break;
     }
@@ -1594,7 +1614,7 @@ document.addEventListener('click', async e => {
       Object.keys(m.reacts).forEach(k => m.reacts[k] = m.reacts[k].filter(x => x !== u.id));
       if (!had) (m.reacts[e2] = m.reacts[e2] || []).push(u.id);
       document.querySelectorAll('.rx-bar').forEach(b => b.remove());
-      { const box = $('#msgs'), y = scrollY; if (box && route()[0] === 'chat') { box.innerHTML = msgList(c); scrollTo(0, y); } else render(); }
+      { const box = $('#msgs'), y = scrollY; if (box && route()[0] === 'chat') { setHTML(box, msgList(c)); scrollTo(0, y); } else render(); }
       if (!m.tmp) server({ t: 'react', msg: m.id, emoji: e2 }); break;
     }
     case 'play': {
@@ -1983,7 +2003,7 @@ document.addEventListener('submit', async e => {
   if (kind === 'qans') {
     const v = $('#q-in').value.trim(); if (v.length < 2) return toast('Javob juda qisqa');
     DB.daily = [{ id: 'qtmp', uid: u.id, text: v, t: now(), likes: 0 }, ...(DB.daily || [])]; render();
-    server({ t: 'qans', text: v }, 'Javobingiz qo‘shildi ✨'); return;
+    server({ t: 'qans', text: v }).then(r => { if (r && r.ok) toast(r.streak > 1 ? `🔥 ${r.streak} kunlik seriya! Ertaga ham qaytib keling` : 'Javobingiz qo‘shildi ✨ Ertaga ham javob bersangiz, 🔥 seriya boshlanadi'); }); return;
   }
   if (kind === 'qset') {
     const v = $('#qs-t').value.trim(); if (v && v.length < 5) return toast('Savol juda qisqa');
@@ -2068,11 +2088,15 @@ document.addEventListener('submit', async e => {
     { const bp = bio !== (tg.bio || '') && bioProblem(bio), h = $('#pb-h'); if (bp) { h.textContent = '❌ ' + bp; h.classList.remove('shake'); void h.offsetWidth; h.classList.add('shake'); return; } }
     const c = f.querySelector('input[name=pc]:checked'), color = c ? c.value : tg.color;
     const btn = f.querySelector('button.btn.acc'); btn.disabled = true; btn.textContent = 'Saqlanmoqda…';
-    const body = { name, bio, color }; if (PHOTO !== undefined) body.photo = PHOTO || null;
+    const bdd = $('#bd-d').value, bdm = $('#bd-m').value;
+    if (!!bdd !== !!bdm) { toast('Tug‘ilgan kun uchun kun va oyni birga tanlang', true); btn.disabled = false; btn.textContent = 'Saqlash'; return; }
+    if (bdd && new Date(Date.UTC(2024, bdm - 1, bdd)).getUTCMonth() !== bdm - 1) { toast('Bunday sana yo‘q', true); btn.disabled = false; btn.textContent = 'Saqlash'; return; }
+    const bd = bdd ? bdm + '-' + bdd : null;
+    const body = { name, bio, color, bday: bd }; if (PHOTO !== undefined) body.photo = PHOTO || null;
     const r = await api('auth/me', { method: 'PATCH', body });
     if (!r.user) { btn.disabled = false; btn.textContent = 'Saqlash'; toast(r.message || 'Saqlab bo‘lmadi', true); return; }
     SESSION = r.user; DB.sess = SESSION;
-    Object.assign(tg, { name, bio, color }); if (PHOTO !== undefined) tg.photo = PHOTO || null;
+    Object.assign(tg, { name, bio, color, bd: bd || undefined }); if (PHOTO !== undefined) tg.photo = PHOTO || null;
     PHOTO = undefined;
     closeSheet(); render(); toast('Saqlandi ✅'); sync(true); return;
   }
