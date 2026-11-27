@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.9.4'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.9.5'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -1586,7 +1586,7 @@ document.addEventListener('click', async e => {
     case 'pushon': { try { localStorage.setItem('lahzam_push_asked', '1'); } catch (err) {} const r = await pushEnable(true); toast(r === 'ok' ? 'Bildirishnomalar yoqildi 🔔' : r === 'ios' ? 'iPhone’da avval Lahzam’ni ekranga o‘rnating 📲' : r === 'denied' ? 'Brauzer sozlamalarida Lahzam’ga ruxsat bering' : 'Bu brauzer push’ni qo‘llamaydi', r !== 'ok'); closeSheet(); render(); break; }
     case 'pushoff': { await pushDisable(); toast('Push o‘chirildi'); render(); break; }
     case 'pushlater': closeSheet(); break;
-    case 'pushnever': try { localStorage.setItem('lahzam_push_asked', '1'); } catch (err) {} closeSheet(); break;
+    case 'pushnever': try { localStorage.setItem('lahzam_push_never', '1'); } catch (err) {} closeSheet(); break;
     case 'inst-go': doInstall(); break;
     case 'inst-fab-x': FAB_OFF = true; instFab(); break;
     case 'inst-copy': { try { await navigator.clipboard.writeText(location.origin); toast('Havola nusxalandi'); } catch (err) { toast(location.origin); } break; }
@@ -2001,14 +2001,17 @@ async function pushDisable() {
   try { localStorage.setItem('lahzam_push', '0'); const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
     if (sub) { await api('act', { method: 'POST', body: { t: 'pushoff', endpoint: sub.endpoint } }); await sub.unsubscribe(); } } catch (e) {}
 }
+// Ilovada (o'rnatilgan) bildirishnomaga ruxsat har ochilganda so'raladi, "Qayta ko'rsatilmasin" bosilmaguncha
+let PUSH_TRY = 0;
 function maybeAskPush() {
-  if (!SESSION || !PUSH_OK || (IOS && !standalone()) || $('#modal-root').innerHTML) return;
-  let asked = null, off = null; try { asked = localStorage.getItem('lahzam_push_asked'); off = localStorage.getItem('lahzam_push') === '0'; } catch (e) {}
+  if (!SESSION || !PUSH_OK || (IOS && !standalone())) return;
+  let never = null, off = null; try { never = localStorage.getItem('lahzam_push_never'); off = localStorage.getItem('lahzam_push') === '0'; } catch (e) {}
   if (Notification.permission === 'granted') { if (!off) pushEnable(false); return; } // obunani jimgina yangilab turamiz
-  if (Notification.permission !== 'default' || asked) return;
-  // "Qayta ko'rsatilmasin" bosilmaguncha har safar ochilganda so'raladi
-  sheet(`<div class="inst-sheet"><div class="inst-hero"><span style="font-size:44px">🔔</span><div><b>Xabarlarni o‘tkazib yubormang</b><span>Kimdir yozsa yoki postingizga javob qilsa, telefoningizga darhol bildirishnoma keladi</span></div></div>
-    <button class="btn acc full inst-big" data-act="pushon">🔔 Ruxsat berish</button><button class="btn ghost full" style="margin-top:10px" data-act="pushnever">Qayta ko‘rsatilmasin</button></div>`);
+  if (never || !standalone() && localStorage.getItem('lahzam_push_asked')) return;
+  if ($('#modal-root').innerHTML || (SESSION && SESSION.termsOk === false)) { if (PUSH_TRY++ < 20) setTimeout(maybeAskPush, 4000); return; }
+  const denied = Notification.permission === 'denied';
+  sheet(`<div class="inst-sheet"><div class="inst-hero"><span style="font-size:44px">🔔</span><div><b>Bildirishnomalarga ruxsat bering</b><span>${denied ? 'Bildirishnomalar telefoningizda o‘chirilgan. Yoqish uchun: <b>Sozlamalar → Ilovalar → Lahzam → Bildirishnomalar → Yoqish</b>' : 'Kimdir yozsa, javobingizni yoqtirsa yoki X/O’da navbatingiz kelsa, telefoningizga darhol xabar keladi'}</span></div></div>
+    <button class="btn acc full inst-big" data-act="pushon">${denied ? '🔔 Qayta tekshirish' : '🔔 Ruxsat berish'}</button><button class="btn ghost full" style="margin-top:10px" data-act="pushnever">Qayta ko‘rsatilmasin</button></div>`);
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.go) { closeSheet(); go(e.data.go); } });
 const WAIT_BIP = ANDROID && !INAPP && !FIREFOX; // bu brauzerlarda haqiqiy "O'rnatish" tugmasi bo'ladi

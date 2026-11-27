@@ -394,13 +394,11 @@ export default async function handler(req, res) {
         G.w = wl ? G.t : G.b.includes('.') ? null : 'd'; G.t = G.t === 'x' ? 'o' : 'x';
         const up = await db`update messages set xo = ${JSON.stringify(G)}::jsonb where id = ${mid} and xo->>'b' = ${old} returning id`;
         if (!up.length) return bad(res, 'Raqib sizdan oldin yurdi, qayta urinib ko‘ring');
-        // javob darhol qaytadi, e'lon va push keyin
-        send(res, 200, { ok: true, xo: G });
         try {
           if (G.w) await db`insert into messages (chat_id, user_id, body, is_sys) values (${m.chat_id}, null, ${G.w === 'd' ? '🤝 X/O: durang!' : (G.w === 'x' ? '❌' : '⭕') + ' @' + me.username + ' X/O o‘yinida yutdi! 🏆'}, true)`;
           else { const nxt = G.t === 'x' ? G.x : G.o; if (nxt) await pushTo(db, [nxt], { title: 'X/O ❌⭕', body: 'Sizning navbatingiz!', url: '/c/c' + m.chat_id, tag: 'xo' + mid }); }
         } catch (e) {}
-        return;
+        return send(res, 200, { ok: true, xo: G });
       }
       case 'pushsub': {
         const s = b.sub || {}, ep = str(s.endpoint, 800), k = s.keys || {};
@@ -492,10 +490,9 @@ export default async function handler(req, res) {
         if (!del.length) {
           const ins = await db`insert into daily_likes (answer_id, user_id) select ${id}, ${uid} where exists(select 1 from daily_answers where id = ${id}) on conflict do nothing returning answer_id`;
           if (ins.length) {
-            send(res, 200, { ok: true });
+            // bildirishnoma javobdan OLDIN yuboriladi (Vercel javobdan keyin funksiyani to'xtatishi mumkin)
             const [a] = await db`select user_id, body from daily_answers where id = ${id}`;
             if (a) await notify(db, Number(a.user_id), `❤️ ${me.name || '@' + me.username} Kun savolidagi javobingizni yoqtirdi: “${String(a.body).slice(0, 60)}”`, '/', uid).catch(() => {});
-            return;
           }
         }
         return send(res, 200, { ok: true });
