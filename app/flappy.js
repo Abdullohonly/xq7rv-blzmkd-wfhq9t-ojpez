@@ -1,7 +1,9 @@
 /* Lahzam mini o'yini: "Flappy" — klassik piksel uslubi. Barcha sprite'lar Lahzam uchun o'zimiz chizgan. */
 (function () {
   const W = 144, H = 256, GROUND = 56, FLOOR = H - GROUND;   // o'yin piksel o'lchamda
-  const PW = 26, CAP = 12, GAP = 64, SPACING = 92, SPEED = 1.05, GRAV = 0.22, FLAP = -4.2, MAXV = 7, R = 5.2;
+  // Fizika: asl o'yinning ochiq klonidagi (FlapPyBird) qiymatlar — 288x512 ekran, 30 FPS: tortishish 1, sakrash -9, max tushish 10, quvur tezligi 4, oraliq 100.
+  // Bizning maydon 2 barobar kichik (144x256) va 60 FPS, shuning uchun: tezlik /4, tezlanish /8 (masshtab 1/2 × vaqt 1/2 va 1/4).
+  const PW = 26, CAP = 12, GAP = 50, SPACING = 72, SPEED = 1, GRAV = 0.125, FLAP = -2.25, MAXV = 2.5, R = 5.5;
   const BEST_KEY = 'lahzam_flappy_best', SOUND_KEY = 'lahzam_flappy_sound';
 
   function birdSVG(size) {
@@ -143,19 +145,19 @@
     function reset() {
       const r = Math.random(), name = r < 0.6 ? 'day' : r < 0.8 ? 'dusk' : 'night';
       theme = name; bg = scenes[name] || (scenes[name] = backdrop(THEMES[name], name === 'night'));
-      bird = { x: 40, y: 110, vy: 0, rot: 0, frame: 0, since: 99 };
+      bird = { x: 34, y: 110, vy: 0, rot: 0, frame: 0, since: 99 };
       pipes = []; score = 0; state = 'ready'; t = 0; scroll = 0; shake = 0; flash = 0; pop = 0; overT = 0; newBest = false; chatRecord = false;
     }
     function flap() {
       if (state === 'over') { if (performance.now() - endAt > 600) { reset(); sfx('swoosh'); } return; }
       if (state === 'dying') return;
       if (state === 'ready') state = 'play';
-      bird.vy = FLAP; bird.since = 0; sfx('flap');
+      bird.vy = FLAP; bird.since = 0; bird.rot = -0.785; sfx('flap');
     }
     function addPipe() {
       const prev = pipes[pipes.length - 1];
-      let mid = 50 + Math.random() * (FLOOR - 100);
-      if (prev) mid = Math.max(prev.mid - 70, Math.min(prev.mid + 70, mid));
+      // asl o'yindagidek: oraliqning tepasi maydonning 20%–60% oralig'ida tasodifiy
+      const mid = FLOOR * 0.2 + Math.random() * (FLOOR * 0.6 - GAP) + GAP / 2; void prev;
       pipes.push({ x: W + 4, mid: Math.round(mid), passed: false });
     }
     function die() {
@@ -170,7 +172,7 @@
       if (state === 'play' || state === 'dying') { bird.vy = Math.min(MAXV, bird.vy + GRAV); bird.y += bird.vy; bird.since++; if (bird.y < -12) { bird.y = -12; bird.vy = 0; } }
       if (state === 'play') {
         if (t % (bird.vy < 0 ? 4 : 7) === 0) bird.frame = (bird.frame + 1) % 3;
-        bird.rot = bird.since < 14 ? Math.max(-0.45, bird.rot - 0.15) : Math.min(1.5, bird.rot + 0.06);
+        bird.rot = Math.min(1.57, bird.rot + 0.026); // sakraganda 45° tepaga, so'ng sekin pastga burilib, tumshug'i yerga qaraydi
         scroll += SPEED;
         if (!pipes.length || pipes[pipes.length - 1].x < W - SPACING) addPipe();
         for (const p of pipes) {
@@ -209,7 +211,7 @@
     }
     function drawBird() {
       const img = state === 'over' || state === 'dying' ? BIRD_DEAD : BIRD[bird.frame];
-      g.save(); g.translate(Math.round(bird.x), Math.round(bird.y)); g.rotate(bird.rot);
+      g.save(); g.translate(Math.round(bird.x), Math.round(bird.y)); g.rotate(Math.max(-0.35, bird.rot));
       g.drawImage(img, -9, -6); g.restore();
     }
     function render() {
