@@ -85,6 +85,9 @@ export default async function handler(req, res) {
         if (b.at) { if (!isStar(me)) return send(res, 403, { error: 'star', message: 'Postni rejalashtirish faqat ⭐ Yulduz a’zolari uchun' });
           const t = Number(b.at); if (!(t > Date.now() + 60e3 && t < Date.now() + 30 * 864e5)) return bad(res, 'Vaqt 1 daqiqadan 30 kungacha bo‘lishi kerak'); at = new Date(t).toISOString(); }
         if (!body && !img && !poll && !quote) return bad(res, 'Avval biror narsa yozing');
+        // ⏳ Lahza cheklovi: 24 soatda oddiy userga 1 ta, ⭐ Yulduz a'zosiga 8 ta
+        if (b.lahza) { const lim = isStar(me) ? 8 : 1, [{ n }] = await db`select count(*)::int as n from posts where user_id = ${uid} and is_lahza and created_at > now() - interval '1 day'`;
+          if (n >= lim) return send(res, 429, { error: 'lahza', message: isStar(me) ? 'Kuniga ko‘pi bilan 8 ta Lahza joylash mumkin' : 'Kuniga 1 ta Lahza joylash mumkin. ⭐ Yulduz bilan — kuniga 8 tagacha!' }); }
         if (!(await rateLimit('post:' + uid, 10, 3600))) return send(res, 429, { error: 'rate', message: 'Soatiga ko‘pi bilan 10 ta post' });
         // Yangi akkaunt birinchi haftada ko'pi bilan 7 ta post saqlay oladi (eskisini o'chirsa, joy bo'shaydi)
         if (!isOwnerEmail(me.email) && Date.now() - new Date(me.created_at).getTime() < 7 * 864e5) {

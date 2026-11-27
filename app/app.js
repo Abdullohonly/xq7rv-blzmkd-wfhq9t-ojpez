@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.12.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.12.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -499,6 +499,7 @@ function starPage() {
     <div class="card" style="padding:4px 16px">
       ${perk('✨', 'Rangli nametag va yulduzcha', 'Ismingiz atrofida aylanadigan ramka, 5 xil rangdan tanlaysiz')}
       ${perk('🖼', 'Profil muqovasi', '10 xil gradient va 10 xil naqsh')}
+      ${perk('⏳', 'Kuniga 8 ta Lahza', 'Oddiy akkauntda kuniga 1 ta, Yulduz bilan 8 tagacha 24 soatlik lahza')}
       ${perk('🔤', '3 harfli username', 'Username’ni oyiga bir marta almashtirish, qisqa nomlar faqat siz uchun')}
       ${perk('📝', 'Uzun postlar', '1500 belgigacha post va 200 belgigacha bio')}
       ${perk('👻', 'Ko‘rinmas rejim', 'Onlayn holat va “o‘qildi” belgisini yashirish')}
@@ -1898,7 +1899,9 @@ document.addEventListener('click', async e => {
     case 'lzclose': lzClose(); break;
     case 'lzgo': lzClose(); go(el.dataset.href); break;
     case 'lzlike': { const p = DB.posts.find(x => x.id === id); if (!p) break; const i = p.likes.indexOf(u.id); if (i >= 0) p.likes.splice(i, 1); else { p.likes.push(u.id); navigator.vibrate && navigator.vibrate(15); } el.className = 'lz-like' + (i < 0 ? ' on' : ''); el.textContent = `${i < 0 ? '❤️' : '🤍'} ${p.likes.length || ''}`; server({ t: 'like', post: id }); break; }
-    case 'lzadd': { const lz = $('#post-lahza'), ta = $('#post-text'); if (lz && !lz.checked) { lz.checked = true; lz.dispatchEvent(new Event('change', { bubbles: true })); } if (ta) { ta.scrollIntoView({ block: 'center', behavior: 'smooth' }); ta.focus(); ta.placeholder = '⏳ 24 soatlik lahzangizni yozing yoki rasm qo‘shing…'; } break; }
+    case 'lzadd': {
+      { const lim = u.star ? 8 : 1, n = DB.posts.filter(p => p.uid === u.id && p.lahza && now() - p.t < DAY).length;
+        if (n >= lim) { if (u.star) toast('Bugun 8 ta Lahza joyladingiz — ertaga yana ✨', true); else sheet(`<h2>⏳ Bugungi Lahza joylandi</h2><p class="muted" style="margin:0 0 14px">Oddiy akkauntda kuniga <b>1 ta</b> Lahza joylash mumkin. ⭐ Yulduz a’zolari kuniga <b>8 tagacha</b> Lahza joylaydi.</p><a href="/yulduz" data-link class="btn acc full">⭐ Yulduz haqida</a><button class="btn ghost full" style="margin-top:8px" data-act="close-sheet-btn">Keyinroq</button>`); break; } } const lz = $('#post-lahza'), ta = $('#post-text'); if (lz && !lz.checked) { lz.checked = true; lz.dispatchEvent(new Event('change', { bubbles: true })); } if (ta) { ta.scrollIntoView({ block: 'center', behavior: 'smooth' }); ta.focus(); ta.placeholder = '⏳ 24 soatlik lahzangizni yozing yoki rasm qo‘shing…'; } break; }
     case 'glbtab': GLB.tab = id; render(); break;
     case 'glbgame': GLB.g = id; render(); break;
     case 'qedit': sheet(`<h2>Kun savolini o‘zgartirish ✏️</h2><form class="stack" data-form="qset"><textarea class="inp" id="qs-t" maxlength="160" style="height:110px;padding:12px 16px" placeholder="Bugungi savol…">${esc(qText())}</textarea><p class="muted" style="margin:0;font-size:13px">Faqat bugungi savol o‘zgaradi. Bo‘sh qoldirsangiz, avtomatik savol qaytadi.</p><button class="btn full">Saqlash</button></form>`); break;
