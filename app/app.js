@@ -1,8 +1,8 @@
-/* Lahzam v1.6.3 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.6.4 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.6.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.6.4'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -381,6 +381,7 @@ function header(extra = '', deskTitle = '') {
     <div class="top-act">
       <a href="/qidiruv" data-link class="ibtn" aria-label="Qidirish">${NI('search', false, 20)}</a>
       <a href="/bildirishnomalar" data-link class="ibtn" aria-label="Bildirishnomalar${n ? ', ' + n + ' ta yangi' : ''}">${NI('bell', false, 20)}${n ? `<span class="badge">${n > 99 ? '99+' : n}</span>` : ''}</a>
+      <button class="ibtn" data-act="theme" aria-label="${DB.theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}" title="${DB.theme === 'dark' ? 'Kunduzgi rejim' : 'Tungi rejim'}">${THEME_ICO()}</button>
       <button class="ibtn" data-act="topmenu" aria-label="Ko‘proq: tungi rejim, yozuv, reyting, o‘yinlar"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="19" cy="12" r="2.2"/></svg></button>
       ${u ? `<a href="/@${esc(u.u)}" data-link class="top-av" aria-label="Profilim">${avatar(u, 38)}</a>` : `<a href="/kirish" data-link class="btn" style="height:40px;background:#fff;color:#111;border-radius:999px">Kirish</a>`}
     </div></div>${extra}</header>`;
