@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.12.9'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.13.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -67,11 +67,14 @@ async function sync(force) {
   SYNC.busy = true;
   let r;
   try {
-    const res = await fetch('/api/sync', { credentials: 'same-origin', headers: SYNC.etag && !force ? { 'If-None-Match': SYNC.etag } : {} });
+    // ⚡ avval yengil tekshiruv (fp); onlayn holatlar yangilanib turishi uchun har 60 soniyada bir to'liq sync
+    const light = SYNC.fp && !force && now() - (SYNC.full || 0) < 60e3;
+    const res = await fetch('/api/sync' + (light ? '?fp=' + encodeURIComponent(SYNC.fp) : ''), { credentials: 'same-origin', headers: SYNC.etag && !force ? { 'If-None-Match': SYNC.etag } : {} });
     SYNC.busy = false; SYNC.last = now();
-    if (res.status === 304) return; // o'zgarish yo'q: hech narsa yuklanmaydi
+    if (res.status === 304) { SYNC.full = now(); return; } // o'zgarish yo'q: hech narsa yuklanmaydi
     r = { ok: res.ok, status: res.status, ...(await res.json().catch(() => ({}))) };
-    if (res.ok) SYNC.etag = res.headers.get('ETag');
+    if (r.same) return;
+    if (res.ok) { SYNC.etag = res.headers.get('ETag'); SYNC.fp = r.fp; SYNC.full = now(); }
   } catch (e) { SYNC.busy = false; SYNC.last = now(); return; }
   if (r.status === 401) { adoptSession(null); save(); render(); return; }
   if (!r.ok) return;
@@ -2222,9 +2225,13 @@ api('auth/me').then(async r => {
   if (SESSION) { applyIcon(); setTimeout(() => { if (standalone() || instSeen()) maybeAskPush(); }, 3000); }
 });
 // Jonli yangilanish: chat ochiq bo'lsa har 3 soniyada, boshqa sahifalarda har 8 soniyada yangi narsalar o'zi keladi
+let ACT_T = now();
+['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => addEventListener(ev, () => { const was = now() - ACT_T > 60e3; ACT_T = now(); if (was && SESSION) sync(); }, { passive: true }));
 setInterval(() => {
   if (!SESSION || document.visibilityState !== 'visible') return;
-  const gap = route()[0] === 'chat' ? 3000 : 8000;
+  // foydalanuvchi tinch tursa (1 daqiqa hech narsa bosmasa) tekshiruv sekinlashadi
+  const idle = now() - ACT_T > 60e3, inChat = route()[0] === 'chat';
+  const gap = inChat ? (idle ? 10000 : 3000) : (idle ? 30000 : 8000);
   if (now() - SYNC.last >= gap - 200) sync();
 }, 1000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && SESSION) sync(); });
