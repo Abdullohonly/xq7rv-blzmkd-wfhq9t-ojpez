@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.8.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.8.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -303,7 +303,22 @@ function route() {
   return ['404'];
 }
 const PUBLIC = ['auth', 'profile', 'post', 'tag', 'admin', 'updates', 'doc', 'star', '404'];
-const PG = { last: null, tm: 0 }, NAV_ORDER = ['home', 'groups', 'dms', 'updates'];
+const PG = { last: null, tm: 0, ind: {} }, NAV_ORDER = ['home', 'groups', 'dms', 'updates'];
+// Navigatsiyadagi tanlangan fon eski joyidan yangi joyiga suriladi
+function slideNav() {
+  [['dock', '.dock', '.dock .on'], ['side', '.side', '.side .snav.on']].forEach(([k, cs, os]) => {
+    const box = $(cs), on = $(os); if (!box) return;
+    if (!on) { box.classList.remove('has-ind'); return; }
+    const ind = document.createElement('span'); ind.className = 'nav-ind'; ind.setAttribute('aria-hidden', 'true');
+    box.prepend(ind); box.classList.add('has-ind');
+    const to = { x: on.offsetLeft, y: on.offsetTop, w: on.offsetWidth, h: on.offsetHeight };
+    const put = r => { ind.style.transform = `translate(${r.x}px,${r.y}px)`; ind.style.width = r.w + 'px'; ind.style.height = r.h + 'px'; };
+    const from = PG.ind[k];
+    PG.ind[k] = to;
+    if (!from || (from.x === to.x && from.y === to.y && from.w === to.w)) return put(to);
+    put(from); void ind.offsetWidth; ind.classList.add('go'); put(to);
+  });
+}
 function render() {
   document.documentElement.dataset.theme = DB.theme;
   document.documentElement.dataset.fs = DB.fs || 'md';
@@ -324,6 +339,7 @@ function render() {
     if (dir) { app.classList.remove('pg-r', 'pg-l', 'pg-u'); void app.offsetWidth; app.classList.add(dir); clearTimeout(PG.tm); PG.tm = setTimeout(() => app.classList.remove(dir), 400); }
   }
   document.title = name === 'home' ? 'Lahzam — Har lahza yoningizda!' : (TITLES[name] || '') + ' · Lahzam';
+  slideNav();
   after[name] && after[name](arg);
   if (SESSION && SESSION.termsOk === false && name !== 'doc') consentGate();
   save();
