@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.12.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.12.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -649,9 +649,10 @@ function lzGroups() {
 }
 function lzRing() {
   const u = me(), G = lzGroups(), mine = G.find(g => g.uid === u.id);
-  const item = g => { const w = user(g.uid); return `<button class="lz-it${g.unseen ? '' : ' seen'}" data-act="lzopen" data-id="${g.uid}" aria-label="@${esc(w.u)} lahzalari"><span class="lz-ring">${avatar(w, 58)}</span><span class="lz-nm">${g.uid === u.id ? 'Siz' : esc(w.name.split(' ')[0])}</span></button>`; };
+  // halqa ichida oddiy avatar (Owner olmos halqasi bilan ikki halqa ustma-ust tushmasin)
+  const item = g => { const w = user(g.uid); return `<button class="lz-it${g.unseen ? '' : ' seen'}" data-act="lzopen" data-id="${g.uid}" aria-label="@${esc(w.u)} lahzalari"><span class="lz-ring">${avatar({ ...w, _in: 1 }, 56)}</span><span class="lz-nm">${g.uid === u.id ? 'Siz' : esc(w.name.split(' ')[0])}</span></button>`; };
   return `<div class="lz-bar" role="list" aria-label="Lahzalar">
-    ${mine ? '' : `<button class="lz-it lz-add" data-act="lzadd" aria-label="Lahza qo‘shish"><span class="lz-ring">${avatar(u, 58)}<i>+</i></span><span class="lz-nm">Lahza</span></button>`}
+    <button class="lz-it lz-add" data-act="lzadd" aria-label="Lahza qo‘shish"><span class="lz-ring"><span class="lz-plus">+</span></span><span class="lz-nm">${mine ? 'Yana' : 'Lahza'}</span></button>
     ${G.map(item).join('')}
     ${G.length ? '' : '<div class="lz-empty muted">⏳ Hali hech kim Lahza joylamadi. 24 soatda yo‘qoladigan birinchi lahzani siz joylang!</div>'}</div>`;
 }
