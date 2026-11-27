@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.9.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.9.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -634,7 +634,8 @@ function auth() {
       <p style="margin:8px 0 0;font-weight:600">Fikrlar, guruhlar va shaxsiy suhbatlar bir joyda.</p>
       <p style="margin:10px 0 0;font-weight:500">Birinchi 50 kishi profilida umrbod “Asoschi” belgisi bo‘ladi.</p>
     </div>
-    <div class="card stack" style="margin:-30px 12px 0;gap:14px;padding:20px">${inner}</div></div>`;
+    <div class="card stack" style="margin:-30px 12px 0;gap:14px;padding:20px">${inner}</div>
+    <a class="about-btn" href="https://lahzam-three.vercel.app" target="_blank" rel="noopener">✦ Loyiha bilan tanishish <span aria-hidden="true">→</span></a></div>`;
   if (s === 'start') return shell(`
     <label class="agree"><input type="checkbox" id="agree" ${AUTH.agree ? 'checked' : ''}><span>Men <b>13 yoshdan kattaman</b> va Lahzamning <a href="/shartlar" data-link>Foydalanish shartlari</a>, <a href="/maxfiylik" data-link>Maxfiylik siyosati</a> hamda <a href="/qoidalar" data-link>Jamiyat qoidalari</a>ga roziman</span></label>
     <div class="gwrap${AUTH.agree ? '' : ' locked'}"><button type="button" class="gfake" data-act="gfake"><svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg><span>Google bilan davom etish</span></button><div id="gbtn" class="greal"></div><button type="button" class="glock" data-act="glock" aria-label="Avval rozilik belgisini qo‘ying"></button></div>

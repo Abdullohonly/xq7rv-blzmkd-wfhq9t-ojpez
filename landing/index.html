@@ -5,79 +5,171 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#FF5A1F">
 <title>Lahzam — Har lahza yoningizda!</title>
-<meta name="description" content="Lahzam: fikringizni yozing, guruhlarda gaplashing, do‘stlaringiz bilan shaxsiy suhbatlashing. Birinchi 50 kishiga umrbod “Asoschi” belgisi.">
+<meta name="description" content="Lahzam: o‘zbekcha ijtimoiy tarmoq. Ochiq maydon, guruhlar, shaxsiy chat, Kun savoli, mini o‘yinlar va ⭐ Yulduz.">
 <meta property="og:title" content="Lahzam — Har lahza yoningizda!">
-<meta property="og:description" content="Fikrlar, guruhlar va shaxsiy suhbatlar bir joyda.">
+<meta property="og:description" content="Fikrlar, guruhlar, shaxsiy suhbatlar va o‘yinlar bir joyda.">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Manrope:wght@800&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Manrope:wght@800&family=Unbounded:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
-/* VOICE: confident, warm product launch for Uzbek audience
-   IDEA: the app's own "two floors" — orange public square on top, dark private chat below
-   PICTURE: a real phone showing the app's main screen with the dock
-   COLOUR and TYPE: Lahzam orange #FF5A1F, ink #121212, warm paper #F6F3EE; Unbounded titles, Instrument Sans body
-   LAYOUT: orange hero with phone, three feature bands, founder band in black, footer */
-:root{--acc:#FF5A1F;--ink:#121212;--paper:#F6F3EE;--mute:#5F5F5F;--gold:#E3B341}
+:root{--acc:#FF5A1F;--ink:#121212;--paper:#F6F3EE;--mute:#5F5F5F;--gold:#E3B341;--ease:cubic-bezier(.2,.8,.2,1)}
 *{box-sizing:border-box;min-width:0}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 "Instrument Sans",system-ui,sans-serif;overflow-x:clip}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 "Instrument Sans",system-ui,sans-serif;overflow-x:clip;-webkit-tap-highlight-color:transparent}
 a{color:inherit}
 :focus-visible{outline:3px solid #121212;outline-offset:3px;border-radius:10px}
 .wrap{max-width:1180px;margin:0 auto;padding:0 max(5vw,18px)}
+h1,h2,h3{font-family:Unbounded,sans-serif;letter-spacing:-.03em;text-wrap:balance}
+h1{font-weight:800;font-size:clamp(40px,6vw,76px);line-height:1;margin:0}
+h2{font-size:clamp(28px,3.8vw,48px);line-height:1.06;margin:0 0 14px}
+.sub{color:var(--mute);max-width:56ch;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:56px;padding:0 26px;border-radius:18px;font-weight:700;text-decoration:none;font-size:16px;transition:transform .25s var(--ease),box-shadow .25s}
+.btn:hover{transform:translateY(-3px)}
+.btn:active{transform:scale(.97)}
+.btn.white{background:#fff;color:var(--ink);box-shadow:0 10px 30px -12px rgba(0,0,0,.4)}
+.btn.dark{background:var(--ink);color:#fff;box-shadow:0 14px 30px -12px rgba(0,0,0,.55)}
+.btn.line{border:2px solid rgba(255,255,255,.65);color:#fff}
+
+/* ---------- hero ---------- */
+.hero{position:relative;background:var(--acc);color:#fff;border-radius:0 0 56px 56px;padding-bottom:80px;overflow:hidden;isolation:isolate}
+.blob{position:absolute;border-radius:50%;filter:blur(60px);opacity:.55;z-index:-1;animation:float 14s ease-in-out infinite}
+.b1{width:520px;height:520px;background:#FF8A4C;top:-160px;left:-120px}
+.b2{width:420px;height:420px;background:#FFC531;bottom:-180px;right:10%;animation-delay:-5s;opacity:.4}
+.b3{width:300px;height:300px;background:#D62F6B;top:30%;right:-80px;animation-delay:-9s;opacity:.35}
+@keyframes float{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(40px,-30px) scale(1.08)}66%{transform:translate(-30px,25px) scale(.95)}}
 nav.top{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
 .brand{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:#fff}
 .brand b{font-family:Manrope,sans-serif;font-weight:800;font-size:26px;letter-spacing:-.045em}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:54px;padding:0 24px;border-radius:18px;font-weight:700;text-decoration:none;font-size:16px}
-.btn.white{background:#fff;color:var(--ink)}
-.btn.dark{background:var(--ink);color:#fff}
-.btn.line{border:2px solid rgba(255,255,255,.6);color:#fff}
-.hero{background:var(--acc);color:#fff;border-radius:0 0 48px 48px;padding-bottom:70px;overflow:hidden}
-.hero-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:40px;align-items:center;padding-top:30px}
-h1{font-family:Unbounded,sans-serif;font-weight:700;font-size:clamp(36px,5.2vw,64px);line-height:1.04;letter-spacing:-.035em;margin:0;text-wrap:balance}
-.lead{font-size:clamp(17px,1.6vw,20px);max-width:34ch;margin:20px 0 30px;opacity:.95}
+.brand svg{animation:wob 4s ease-in-out infinite}
+@keyframes wob{0%,100%{transform:rotate(0)}50%{transform:rotate(-8deg)}}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:40px;align-items:center;padding-top:24px}
+.chip{display:inline-flex;align-items:center;gap:8px;background:#121212;color:var(--gold);border-radius:999px;padding:8px 16px;font-family:Unbounded,sans-serif;font-size:12px;font-weight:700;margin-bottom:22px}
+.chip i{width:8px;height:8px;border-radius:50%;background:#3CD070;box-shadow:0 0 0 0 #3CD070;animation:ping 1.8s infinite}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(60,208,112,.7)}100%{box-shadow:0 0 0 10px rgba(60,208,112,0)}}
+.h1 .w{display:inline-block;opacity:0;transform:translateY(60%) rotate(4deg);animation:rise .8s var(--ease) forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+.rot{display:inline-block;position:relative;color:#121212;min-width:6ch}
+.rot span{position:absolute;left:0;top:0;opacity:0;transform:translateY(40%);transition:opacity .45s,transform .45s var(--ease);white-space:nowrap}
+.rot span.on{opacity:1;transform:none;position:relative}
+.lead{font-size:clamp(17px,1.6vw,20px);max-width:36ch;margin:22px 0 30px;opacity:.95}
 .ctas{display:flex;gap:12px;flex-wrap:wrap}
-.chip{display:inline-flex;align-items:center;gap:8px;background:#121212;color:var(--gold);border-radius:999px;padding:7px 14px;font-family:Unbounded,sans-serif;font-size:12px;font-weight:700;margin-bottom:22px}
-.phone{width:min(330px,100%);aspect-ratio:9/18.5;margin:0 auto;background:#121212;border-radius:46px;padding:10px;box-shadow:0 40px 80px -30px rgba(0,0,0,.5);transform:rotate(3deg)}
+
+.phone-wrap{perspective:1200px}
+.phone{width:min(330px,100%);aspect-ratio:9/18.5;margin:0 auto;background:#121212;border-radius:46px;padding:10px;box-shadow:0 50px 90px -30px rgba(0,0,0,.55);transform:rotateY(-14deg) rotateX(6deg) rotate(2deg);transition:transform .2s ease-out;animation:bob 6s ease-in-out infinite}
+@keyframes bob{0%,100%{translate:0 0}50%{translate:0 -14px}}
 .screen{width:100%;height:100%;border-radius:38px;background:var(--paper);overflow:hidden;position:relative;color:var(--ink)}
-.s-top{background:var(--acc);padding:18px 14px 16px;border-radius:0 0 22px 22px;display:flex;justify-content:space-between;align-items:center;color:#fff}
-.s-card{background:#fff;border-radius:18px;margin:8px 8px 0;padding:11px;font-size:12px;line-height:1.45}
-.s-card b{font-size:12px}
+.s-top{background:var(--acc);padding:18px 14px 14px;border-radius:0 0 22px 22px;display:flex;justify-content:space-between;align-items:center;color:#fff}
+.s-q{background:#121212;color:#fff;border-radius:18px;margin:8px 8px 0;padding:11px;font-size:11.5px}
+.s-q small{color:var(--acc);font-weight:800;letter-spacing:.1em;font-size:9px}
+.s-q b{display:block;font-family:Unbounded;font-size:12.5px;margin:4px 0 2px;letter-spacing:-.01em}
+.feed{position:relative}
+.s-card{background:#fff;border-radius:18px;margin:8px 8px 0;padding:11px;font-size:12px;line-height:1.45;animation:slideIn .6s var(--ease) both}
+@keyframes slideIn{from{opacity:0;transform:translateY(-20px) scale(.96)}to{opacity:1;transform:none}}
 .s-row{display:flex;gap:6px;margin-top:8px}
 .s-pill{background:#F4F2EE;border-radius:999px;padding:4px 9px;font-weight:700;font-size:10.5px}
-.s-dock{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:#121212;color:#fff;border-radius:999px;padding:5px;display:flex;gap:6px;align-items:center;font-size:10px;font-weight:700}
-.s-dock span{padding:8px 11px;border-radius:999px}
-.s-dock .on{background:#fff;color:#111}
+.s-pill.h{color:#D61F52}
+.s-dock{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:#121212;color:#fff;border-radius:999px;padding:5px;display:flex;gap:4px;align-items:center;font-size:10px;font-weight:700}
+.s-dock span{padding:8px 10px;border-radius:999px;position:relative;z-index:1;transition:color .3s}
+.s-dock .on{color:#111}
+.s-ind{position:absolute;top:5px;height:calc(100% - 10px);background:#fff;border-radius:999px;transition:left .45s cubic-bezier(.3,1.2,.4,1),width .45s cubic-bezier(.3,1.2,.4,1);z-index:0}
 .s-dock .plus{width:30px;height:30px;padding:0;border-radius:50%;background:var(--acc);display:flex;align-items:center;justify-content:center;font-size:18px}
-.band{padding:clamp(56px,8vw,110px) 0}
-h2{font-family:Unbounded,sans-serif;font-size:clamp(28px,3.6vw,44px);line-height:1.08;letter-spacing:-.025em;margin:0 0 14px;text-wrap:balance}
-.sub{color:var(--mute);max-width:56ch;margin:0}
-.feat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:40px}
-.f{background:#fff;border-radius:28px;padding:26px}
-.f h3{font-family:Unbounded,sans-serif;font-size:19px;margin:16px 0 8px;letter-spacing:-.01em}
+.heart-pop{position:absolute;font-size:22px;pointer-events:none;animation:hp 1.2s ease-out forwards}
+@keyframes hp{0%{opacity:0;transform:scale(.4)}20%{opacity:1;transform:scale(1.2)}100%{opacity:0;transform:translateY(-60px) scale(1)}}
+
+/* ---------- marquee ---------- */
+.marq{overflow:hidden;background:#121212;color:#fff;padding:18px 0;margin-top:-28px;position:relative;z-index:2;transform:rotate(-1.5deg);width:104%;margin-left:-2%}
+.marq-in{display:flex;gap:40px;width:max-content;animation:mq 34s linear infinite;font-family:Unbounded;font-weight:700;font-size:clamp(16px,2vw,22px)}
+.marq-in span{display:inline-flex;align-items:center;gap:40px;white-space:nowrap}
+.marq-in span::after{content:"✦";color:var(--acc)}
+@keyframes mq{to{transform:translateX(-50%)}}
+
+.band{padding:clamp(64px,9vw,120px) 0}
+.rv{opacity:0;transform:translateY(40px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.rv.in{opacity:1;transform:none}
+.rv.d1{transition-delay:.1s}.rv.d2{transition-delay:.2s}.rv.d3{transition-delay:.3s}.rv.d4{transition-delay:.4s}
+
+/* ---------- features ---------- */
+.feat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:44px}
+.f{background:#fff;border-radius:28px;padding:26px;position:relative;overflow:hidden;transition:transform .35s var(--ease),box-shadow .35s}
+.f:hover{transform:translateY(-8px) rotate(-.5deg);box-shadow:0 30px 50px -30px rgba(0,0,0,.35)}
+.f h3{font-size:19px;margin:16px 0 8px;letter-spacing:-.01em}
 .f p{margin:0;color:var(--mute);font-size:16px}
-.ico{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center}
-.ico svg{width:26px;height:26px}
-.play{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;align-items:center}
-.chat{background:#121212;border-radius:32px;padding:22px;color:#fff;display:flex;flex-direction:column;gap:10px}
-.m{max-width:80%;padding:10px 14px;border-radius:18px;font-size:15px}
+.ico{width:56px;height:56px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:26px;transition:transform .4s cubic-bezier(.3,1.6,.5,1)}
+.f:hover .ico{transform:scale(1.15) rotate(-10deg)}
+
+/* ---------- daily question ---------- */
+.qd{background:#121212;color:#fff;border-radius:40px;padding:clamp(30px,5vw,60px);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;align-items:center;position:relative;overflow:hidden}
+.qd::after{content:"";position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,var(--acc),transparent 65%);right:-140px;top:-160px;opacity:.5;animation:float 12s ease-in-out infinite}
+.qd h2{color:#fff}.qd .sub{color:#cfcfcf}
+.qcard{background:#1d1d1d;border-radius:26px;padding:22px;position:relative;z-index:1}
+.qcard small{color:var(--acc);font-weight:800;letter-spacing:.12em;font-size:12px}
+.qcard .q{font-family:Unbounded;font-size:22px;line-height:1.25;margin:8px 0 14px;min-height:2.5em}
+.qa{border-left:2px solid var(--acc);padding:4px 0 4px 12px;margin-top:10px;color:#ddd;font-size:15px;opacity:0;transform:translateX(-14px);transition:all .5s var(--ease)}
+.qa.in{opacity:1;transform:none}
+.qa b{color:#fff}
+.caret{display:inline-block;width:2px;height:1em;background:var(--acc);vertical-align:-3px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* ---------- games ---------- */
+.games{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-top:40px}
+.g{background:#fff;border-radius:26px;padding:20px 16px;text-align:center;transition:transform .4s cubic-bezier(.3,1.5,.5,1)}
+.g:hover{transform:translateY(-10px) scale(1.03)}
+.g .em{font-size:44px;display:block;animation:bounce 2.6s ease-in-out infinite}
+.g:nth-child(2) .em{animation-delay:.3s}.g:nth-child(3) .em{animation-delay:.6s}.g:nth-child(4) .em{animation-delay:.9s}.g:nth-child(5) .em{animation-delay:1.2s}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.g b{display:block;font-family:Unbounded;font-size:16px;margin-top:8px}
+.g span{font-size:13px;color:var(--mute)}
+.play{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;align-items:center;margin-top:50px}
+.chat{background:#121212;border-radius:32px;padding:22px;color:#fff;display:flex;flex-direction:column;gap:10px;min-height:380px}
+.m{max-width:80%;padding:10px 14px;border-radius:18px;font-size:15px;opacity:0;transform:translateY(16px) scale(.96);transition:all .45s var(--ease)}
 .m.in{background:#262626;align-self:flex-start;border-bottom-left-radius:6px}
 .m.out{background:var(--acc);align-self:flex-end;border-bottom-right-radius:6px}
-.sys{align-self:center;background:#2a2a2a;border-radius:999px;padding:7px 14px;font-size:13px;font-weight:700}
-.game{display:flex;align-items:center;gap:12px;background:#1d1d1d;border:1px solid #333;border-radius:18px;padding:12px;align-self:flex-start}
-.founder{background:#121212;color:#fff;border-radius:40px;padding:clamp(34px,5vw,64px);display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.7fr);gap:30px;align-items:center}
-.founder h2{color:#fff}
-.founder .sub{color:#cfcfcf}
-.badge-big{font-family:Unbounded,sans-serif;font-weight:700;color:var(--gold);background:#000;border:1px solid #3a3122;border-radius:999px;padding:14px 26px;font-size:clamp(22px,3vw,34px);justify-self:center}
-.meter{height:12px;background:#2a2a2a;border-radius:99px;overflow:hidden;margin:22px 0 8px;max-width:420px}
-.meter i{display:block;height:100%;width:14%;background:var(--gold);border-radius:99px}
+.m.show{opacity:1;transform:none}
+.xo{display:grid;grid-template-columns:repeat(3,44px);gap:5px;background:#1d1d22;padding:6px;border-radius:14px;margin-top:6px}
+.xo i{width:44px;height:44px;border-radius:10px;background:#2c2c33;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:800;font-size:22px}
+.xo i.x{color:var(--acc)}.xo i.o{color:#FFC531}
+.xo i.pop{animation:pp .35s cubic-bezier(.3,1.6,.5,1)}
+.xo i.win{background:#3d3320;box-shadow:inset 0 0 0 2px #FFC531}
+@keyframes pp{from{transform:scale(0)}to{transform:scale(1)}}
+.sys{align-self:center;background:#2a2a2a;border-radius:999px;padding:7px 14px;font-size:13px;font-weight:700;opacity:0;transition:opacity .4s}
+.sys.show{opacity:1}
+
+/* ---------- star ---------- */
+.star{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;align-items:center}
+.nt{display:inline-flex;align-items:center;gap:8px;font-family:Unbounded;font-weight:700;font-size:clamp(20px,2.6vw,28px);padding:12px 22px;border-radius:999px;background:#121212;color:#fff;position:relative}
+.nt::before{content:"";position:absolute;inset:-3px;border-radius:999px;padding:3px;background:conic-gradient(from var(--na),#FFE08A,#FF5A1F,#B07CFF,#4CC9F0,#FFE08A);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:spin 3s linear infinite}
+@property --na{syntax:'<angle>';inherits:false;initial-value:0deg}
+@keyframes spin{to{--na:360deg}}
+.perks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:22px 0}
+.perks div{background:#fff;border-radius:18px;padding:14px 16px;font-weight:600;font-size:15px}
+.price{display:flex;gap:12px;flex-wrap:wrap}
+.price div{background:#121212;color:#fff;border-radius:22px;padding:18px 22px}
+.price b{font-family:Unbounded;font-size:24px;display:block}
+.price span{font-size:13px;color:#bbb}
+
+/* ---------- more ---------- */
+.mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:40px}
+.mini div{background:#fff;border-radius:24px;padding:20px}
+.mini b{display:block;font-size:16px;margin:8px 0 4px}
+.mini p{margin:0;color:var(--mute);font-size:14px}
+.mini .e{font-size:28px}
+.founder{background:var(--acc);color:#fff;border-radius:40px;padding:clamp(34px,5vw,64px);display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.7fr);gap:30px;align-items:center;position:relative;overflow:hidden}
+.founder .sub{color:#fff;opacity:.9}
+.badge-big{font-family:Unbounded;font-weight:700;color:var(--gold);background:#121212;border-radius:999px;padding:16px 28px;font-size:clamp(22px,3vw,34px);justify-self:center;animation:bob 4s ease-in-out infinite}
+.cta-end{text-align:center}
 footer{padding:40px 0 60px;color:var(--mute);font-size:15px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-top:1px solid #E5E0D6}
-@media(max-width:860px){.hero-grid,.play,.founder{grid-template-columns:minmax(0,1fr)}.feat{grid-template-columns:minmax(0,1fr)}.phone{transform:none;max-width:300px}}
-@media(prefers-reduced-motion:no-preference){.phone{transition:transform .6s ease}.phone:hover{transform:rotate(0deg) translateY(-6px)}}
+.bar{position:fixed;top:0;left:0;height:3px;background:var(--acc);z-index:50;width:0;transition:width .1s}
+
+@media(max-width:900px){.hero-grid,.play,.qd,.star,.founder{grid-template-columns:minmax(0,1fr)}.feat{grid-template-columns:minmax(0,1fr)}.games{grid-template-columns:repeat(3,minmax(0,1fr))}.mini{grid-template-columns:repeat(2,minmax(0,1fr))}.phone{transform:none;max-width:290px}}
+@media(max-width:520px){.games{grid-template-columns:repeat(2,minmax(0,1fr))}.perks{grid-template-columns:minmax(0,1fr)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.rv,.m,.qa,.sys,.h1 .w{opacity:1!important;transform:none!important}}
 </style>
 </head>
 <body>
+<div class="bar" id="bar"></div>
 <header class="hero">
+  <span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span>
   <div class="wrap">
     <nav class="top" aria-label="Asosiy">
       <a class="brand" href="/" aria-label="Lahzam">
@@ -87,83 +179,186 @@ footer{padding:40px 0 60px;color:var(--mute);font-size:15px;display:flex;justify
     </nav>
     <div class="hero-grid">
       <div>
-        <span class="chip">Birinchi 50 kishiga · Asoschi</span>
-        <h1>Har lahza yoningizda!</h1>
-        <p class="lead">Lahzam — o‘zbekcha ijtimoiy tarmoq. Fikrlar, guruhlar va shaxsiy suhbatlar bir joyda: ochiq maydonda fikringizni yozing, guruhlarda gaplashing, do‘stlaringiz bilan shaxsiy suhbatlashing.</p>
+        <span class="chip"><i></i>Ochiq · bepul · o‘zbekcha</span>
+        <h1 class="h1"><span class="w">Har</span> <span class="w" style="animation-delay:.1s">lahza</span><br><span class="w" style="animation-delay:.2s">yoningizda!</span></h1>
+        <p class="lead">Lahzam — o‘zbekcha ijtimoiy tarmoq. Bu yerda <span class="rot" id="rot"><span class="on">fikr yozasiz</span><span>guruhda gaplashasiz</span><span>do‘st topasiz</span><span>o‘yin o‘ynaysiz</span><span>savolga javob berasiz</span></span></p>
         <div class="ctas">
-          <a class="btn dark" data-app="/kirish" href="#">Bepul qo‘shilish</a>
+          <a class="btn dark" data-app="/kirish" href="#">Bepul qo‘shilish →</a>
           <a class="btn line" href="#imkoniyatlar">Nimasi bor?</a>
         </div>
       </div>
-      <div aria-hidden="true">
-        <div class="phone"><div class="screen">
+      <div class="phone-wrap" aria-hidden="true">
+        <div class="phone" id="phone"><div class="screen">
           <div class="s-top"><span style="font-family:Manrope;font-weight:800;font-size:17px;letter-spacing:-.04em">lahzam</span><span style="display:flex;gap:6px"><i style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.25)"></i><i style="width:28px;height:28px;border-radius:50%;background:#FFD9C7;border:2px solid #fff"></i></span></div>
-          <div class="s-card"><b>Jasur</b> <span style="color:#777">· 4 daq</span><div>O‘zbekistonda eng ko‘p vaqtni nimaga yo‘qotamiz? Menimcha metan navbatiga.</div><div class="s-row"><span class="s-pill" style="color:#D61F52">♥ 214</span><span class="s-pill">18 javob</span></div></div>
-          <div class="s-card"><b>Aziza</b> <span style="color:#777">· 40 daq</span><div>Kitob tavsiya qiling: qishda o‘qish uchun issiq, sokin roman. <b style="color:#C2410C">#kitob</b></div><div class="s-row"><span class="s-pill">♥ 96</span><span class="s-pill">22 javob</span></div></div>
-          <div class="s-card"><b>Bekzod</b> <span style="color:#777">· 3 soat</span><div>Do‘konimga birinchi onlayn buyurtma keldi. Alhamdulillah.</div></div>
-          <div class="s-dock"><span class="plus">+</span><span class="on">Ochiq</span><span>Guruhlar</span><span>Shaxsiy</span></div>
+          <div class="s-q"><small>✦ KUN SAVOLI</small><b>Bugun sizni nima xursand qildi?</b><span style="color:#aaa">128 ta javob</span></div>
+          <div class="feed" id="feed"></div>
+          <div class="s-dock" id="sdock"><span class="s-ind" id="sind"></span><span class="plus">+</span><span class="on">Ochiq</span><span>Guruhlar</span><span>Shaxsiy</span></div>
         </div></div>
       </div>
     </div>
   </div>
 </header>
 
+<div class="marq" aria-hidden="true"><div class="marq-in"><span>Ochiq maydon</span><span>Guruhlar</span><span>Shaxsiy chat</span><span>Kun savoli</span><span>Lahzalar 24 soat</span><span>X/O</span><span>Mina</span><span>Tetris</span><span>2048</span><span>Flappy</span><span>⭐ Yulduz</span><span>Lotin ↔ Кирилл</span><span>Ochiq maydon</span><span>Guruhlar</span><span>Shaxsiy chat</span><span>Kun savoli</span><span>Lahzalar 24 soat</span><span>X/O</span><span>Mina</span><span>Tetris</span><span>2048</span><span>Flappy</span><span>⭐ Yulduz</span><span>Lotin ↔ Кирилл</span></div></div>
+
 <main>
   <section class="band" id="imkoniyatlar"><div class="wrap">
-    <h2>Uchta joy — har biri o‘z vaqti uchun</h2>
-    <p class="sub">Lahzam cheksiz lentaga emas, suhbatga qurilgan. Kerakli joyga bir bosishda o‘tasiz.</p>
+    <h2 class="rv">Uchta joy — har biri o‘z vaqti uchun</h2>
+    <p class="sub rv d1">Lahzam cheksiz lentaga emas, suhbatga qurilgan. Kerakli joyga bir bosishda o‘tasiz.</p>
     <div class="feat">
-      <article class="f"><div class="ico" style="background:#FFE6DC"><svg viewBox="0 0 24 24" fill="none" stroke="#C2410C" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg></div>
-        <h3>Ochiq maydon</h3><p>500 belgigacha qisqa fikr, javoblar, layklar va ko‘rishlar soni. “Lahza” postlar 24 soatda o‘zi o‘chadi.</p></article>
-      <article class="f"><div class="ico" style="background:#E3F4EC"><svg viewBox="0 0 24 24" fill="none" stroke="#0F7A5A" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.8-3.4 3.2-5.2 6-5.2s5.2 1.8 6 5.2M16 5.3a3 3 0 0 1 0 5.6M18 14.9c1.6.7 2.6 2.4 3 5.1"/></svg></div>
-        <h3>Guruhlar</h3><p>Ochiq, ruxsatli yoki yopiq guruhlar. Reaksiyalar, “⭐ Foydali” javoblar va katalog orqali yangi jamoalar.</p></article>
-      <article class="f"><div class="ico" style="background:#E7EEFF"><svg viewBox="0 0 24 24" fill="none" stroke="#2D5BFF" stroke-width="2" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.7-4.9A8 8 0 1 1 21 12z"/></svg></div>
-        <h3>Shaxsiy suhbat</h3><p>Do‘stlaringiz bilan yuzma-yuz suhbat. Postni bir bosishda chatga yuborasiz.</p></article>
-    </div>
-  </div></section>
-
-  <section class="band" style="padding-top:0"><div class="wrap play">
-    <div>
-      <h2>Chatda <span style="color:var(--acc)">@flappy</span> deb yozing</h2>
-      <p class="sub">Har qanday guruh yoki shaxsiy chatda mini o‘yin ochiladi. Eng yaxshi natija o‘sha chatga rekord bo‘lib yoziladi — do‘stlaringiz uni yangilashga harakat qiladi.</p>
-    </div>
-    <div class="chat" aria-label="Chat namunasi">
-      <div class="m in"><b style="display:block;font-size:12px;color:#FF9A78">Aziza</b>Kim o‘ynaydi?</div>
-      <div class="m out">@flappy</div>
-      <div class="game"><svg viewBox="0 0 64 64" width="44" height="44" aria-hidden="true"><ellipse cx="30" cy="34" rx="22" ry="19" fill="#FFC531"/><ellipse cx="24" cy="40" rx="11" ry="7" fill="#FFE08A"/><circle cx="38" cy="27" r="7" fill="#fff"/><circle cx="40" cy="27" r="3.2" fill="#121212"/><path d="M49 33l12 3-12 4z" fill="#FF5A1F"/></svg><div><b>Flappy</b><div style="font-size:13px;color:#bbb">Rekord: 24 · @musoxon</div></div></div>
-      <div class="sys">@aziza dan rekord 25 ta! 🏆</div>
+      <article class="f rv d1"><div class="ico" style="background:#FFE6DC">🌍</div>
+        <h3>Ochiq maydon</h3><p>Qisqa fikrlar, rasmlar, javoblar va layklar. “⏳ Lahza” postlar 24 soatda o‘zi o‘chadi.</p></article>
+      <article class="f rv d2"><div class="ico" style="background:#E3F4EC">👥</div>
+        <h3>Guruhlar</h3><p>Ochiq, ruxsatli yoki yopiq guruhlar. Reaksiyalar, so‘rovnomalar, javob berish va o‘yin turnirlari.</p></article>
+      <article class="f rv d3"><div class="ico" style="background:#E7EEFF">💬</div>
+        <h3>Shaxsiy suhbat</h3><p>Kim yozayotgani, kim o‘qigani ko‘rinadi. Postni bir bosishda chatga yuborasiz.</p></article>
     </div>
   </div></section>
 
   <section class="band" style="padding-top:0"><div class="wrap">
-    <div class="founder">
+    <div class="qd rv">
+      <div style="position:relative;z-index:1">
+        <h2>✦ Kun savoli</h2>
+        <p class="sub">Har kuni hamma uchun bitta savol. Javobingizni yozing, boshqalarnikini o‘qing va yoqtiring. Eng yaxshi javoblar tepaga chiqadi.</p>
+      </div>
+      <div class="qcard" id="qcard"><small>✦ BUGUNGI SAVOL</small><div class="q" id="qtext"></div><div id="qans"></div></div>
+    </div>
+  </div></section>
+
+  <section class="band" style="padding-top:0" id="oyinlar"><div class="wrap">
+    <h2 class="rv">5 ta mini o‘yin 🎮</h2>
+    <p class="sub rv d1">Yakka o‘ynang yoki chatga yuboring: rekord o‘sha chatga yoziladi, guruhlarda esa turnir o‘tkazasiz.</p>
+    <div class="games">
+      <div class="g rv d1"><span class="em">❌⭕</span><b>X/O</b><span>Do‘stingiz bilan navbatma-navbat</span></div>
+      <div class="g rv d2"><span class="em">💣</span><b>Mina</b><span>Minalarni toping</span></div>
+      <div class="g rv d3"><span class="em">🧱</span><b>Tetris</b><span>Klassika</span></div>
+      <div class="g rv d4"><span class="em">🔢</span><b>2048</b><span>Sonlarni qo‘shing</span></div>
+      <div class="g rv d4"><span class="em">🐤</span><b>Flappy</b><span>Quvurlar orasidan</span></div>
+    </div>
+    <div class="play">
+      <div class="rv">
+        <h2>Chatda <span style="color:var(--acc)">@xo</span> deb yozing</h2>
+        <p class="sub">Do‘stingiz bilan chatning o‘zida X/O o‘ynaysiz. Navbat kelsa telefoningizga xabar keladi. G‘olib chatga e’lon qilinadi 🏆</p>
+      </div>
+      <div class="chat" id="chat" aria-label="Chat namunasi">
+        <div class="m in"><b style="display:block;font-size:12px;color:#FF9A78">Aziza</b>Kim o‘ynaydi? 😄</div>
+        <div class="m out">@xo</div>
+        <div class="m in" style="background:#1a1a1a;border:1px solid #333"><b style="font-size:13px">❌⭕ X/O</b><div class="xo" id="xo"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+        <div class="sys" id="xosys">❌ @aziza X/O o‘yinida yutdi! 🏆</div>
+      </div>
+    </div>
+  </div></section>
+
+  <section class="band" style="padding-top:0"><div class="wrap star">
+    <div class="rv">
+      <h2>⭐ Yulduz</h2>
+      <p class="sub">Profilingizni o‘zingizga xos qiling. Yulduz a’zolari ismi atrofida aylanuvchi rangli halqa, chiroyli muqova va ko‘proq imkoniyat oladi.</p>
+      <div class="perks">
+        <div>🌈 Nom atrofida rangli animatsiya</div><div>🖼 10 ta gradient va 10 ta naqsh muqova</div>
+        <div>✏️ 3 harfli username</div><div>🙈 Onlaynni va o‘qilganni yashirish</div>
+        <div>📌 Profilda post qadash</div><div>⏰ Xabarni keyinroq yuborish</div>
+        <div>📊 Shaxsiy statistika</div><div>🎨 Ilova ikonkasini almashtirish</div>
+      </div>
+      <div class="price"><div><b>5 000 so‘m</b><span>1 oy</span></div><div><b>12 000 so‘m</b><span>3 oy · tejamkor</span></div></div>
+    </div>
+    <div class="rv d2" style="text-align:center"><span class="nt">⭐ Sizning ismingiz</span></div>
+  </div></section>
+
+  <section class="band" style="padding-top:0"><div class="wrap">
+    <h2 class="rv">Va yana…</h2>
+    <div class="mini">
+      <div class="rv d1"><span class="e">📲</span><b>Ilova kabi o‘rnating</b><p>Android, iPhone va kompyuterga bir bosishda o‘rnatiladi, bildirishnomalar keladi.</p></div>
+      <div class="rv d2"><span class="e">🔤</span><b>Lotin ↔ Кирилл</b><p>Har qanday postni o‘zingizga qulay alifboda o‘qiysiz.</p></div>
+      <div class="rv d3"><span class="e">🌙</span><b>Tungi rejim</b><p>Ko‘zingizni charchatmaydigan qorong‘i ko‘rinish.</p></div>
+      <div class="rv d4"><span class="e">🛡</span><b>Toza va xavfsiz</b><p>Spamga qarshi himoya va moderatsiya ilk kundan ishlaydi.</p></div>
+    </div>
+  </div></section>
+
+  <section class="band" style="padding-top:0"><div class="wrap">
+    <div class="founder rv">
       <div>
         <h2>Birinchi 50 kishi — umrbod Asoschi</h2>
-        <p class="sub">Lahzamga eng birinchi qo‘shilgan 50 kishining profilida doimiy “Asoschi” belgisi turadi. Bu belgini keyin hech kim ola olmaydi.</p>
-        <div class="meter" role="img" aria-label="Asoschi o‘rinlari to‘lmoqda"><i></i></div>
-        <p style="margin:0 0 22px;color:#cfcfcf;font-size:15px">O‘rinlar to‘lmoqda</p>
-        <a class="btn white" data-app="/kirish" href="#">O‘rnimni egallash</a>
+        <p class="sub">Lahzamga eng birinchi qo‘shilganlarning profilida doimiy “Asoschi” belgisi turadi. Bu belgini keyin hech kim ola olmaydi.</p>
+        <p style="margin:24px 0 0"><a class="btn dark" data-app="/kirish" href="#">O‘rnimni egallash →</a></p>
       </div>
       <span class="badge-big">Asoschi</span>
     </div>
-  </div></section>
-
-  <section class="band" style="padding-top:0"><div class="wrap">
-    <h2>Toza va xavfsiz</h2>
-    <p class="sub">Spamga qarshi himoya ilk kundan ishlaydi: juda tez yozganlarga “Shoshmang 🙂”, davom etsa 15 daqiqalik hordiq. Shikoyat qilingan postlarni moderatorlar ko‘rib chiqadi.</p>
   </div></section>
 </main>
 
 <div class="wrap"><footer>
   <span>© 2026 Lahzam — Har lahza yoningizda!</span>
-  <span><a data-app="/" href="#">Ilovani ochish</a></span>
+  <span><a data-app="/" href="#">Ilovani ochish</a> · <a data-app="/shartlar" href="#">Shartlar</a> · <a data-app="/maxfiylik" href="#">Maxfiylik</a></span>
 </footer></div>
 
 <script>
 {
-  // Ilova alohida manzilda: lahzam.uz → app.lahzam.uz, hozircha Vercel domeni
   const APP_URL = 'https://lahzam-app.vercel.app';
   for (const a of document.querySelectorAll('[data-app]')) a.href = APP_URL + a.dataset.app;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // scroll bo'yicha paydo bo'lish
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: .15 });
+  document.querySelectorAll('.rv').forEach(el => io.observe(el));
+  addEventListener('scroll', () => { const h = document.documentElement; document.getElementById('bar').style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight) * 100) + '%'; }, { passive: true });
+
+  // aylanuvchi so'zlar
+  const rs = [...document.querySelectorAll('#rot span')]; let ri = 0;
+  setInterval(() => { rs[ri].classList.remove('on'); ri = (ri + 1) % rs.length; rs[ri].classList.add('on'); }, 2200);
+
+  // telefon sichqonchaga ergashadi
+  const ph = document.getElementById('phone');
+  if (!reduce && matchMedia('(pointer:fine)').matches) addEventListener('mousemove', e => { const x = e.clientX / innerWidth - .5, y = e.clientY / innerHeight - .5; ph.style.transform = `rotateY(${-14 + x * 18}deg) rotateX(${6 - y * 12}deg) rotate(2deg)`; });
+
+  // telefondagi lenta: postlar birin-ketin tushadi
+  const POSTS = [
+    ['Jasur', '4 daq', 'O‘zbekistonda eng ko‘p vaqtni nimaga yo‘qotamiz? Menimcha tirbandlikka 🚗', 214, 18],
+    ['Aziza', '40 daq', 'Kitob tavsiya qiling: qishda o‘qish uchun issiq roman 📚 <b style="color:#C2410C">#kitob</b>', 96, 22],
+    ['Bekzod', '1 soat', 'Do‘konimga birinchi onlayn buyurtma keldi. Alhamdulillah 🤲', 301, 40],
+    ['Madina', '2 soat', 'IELTS 7.5 oldim!!! 🎉 Hammaga rahmat', 512, 63],
+    ['Sardor', '3 soat', 'Guruhda Tetris turniri boshlandi, kim qo‘shiladi? 🧱', 77, 12]
+  ];
+  const feed = document.getElementById('feed'); let pi = 0;
+  const card = p => `<div class="s-card"><b>${p[0]}</b> <span style="color:#777">· ${p[1]}</span><div>${p[2]}</div><div class="s-row"><span class="s-pill h">♥ ${p[3]}</span><span class="s-pill">${p[4]} javob</span></div></div>`;
+  function nextPost() {
+    feed.insertAdjacentHTML('afterbegin', card(POSTS[pi % POSTS.length])); pi++;
+    while (feed.children.length > 3) feed.lastElementChild.remove();
+    if (!reduce) { const h = document.createElement('span'); h.className = 'heart-pop'; h.textContent = '❤️'; h.style.left = (30 + Math.random() * 50) + '%'; h.style.top = '45%'; ph.querySelector('.screen').appendChild(h); setTimeout(() => h.remove(), 1300); }
+  }
+  nextPost(); nextPost(); setInterval(nextPost, 2800);
+
+  // telefondagi menyu: oq fon suriladi
+  const dk = document.getElementById('sdock'), ind = document.getElementById('sind'), tabs = [...dk.querySelectorAll('span:not(.s-ind):not(.plus)')]; let ti = 0;
+  const putInd = () => { const t = tabs[ti]; ind.style.left = t.offsetLeft + 'px'; ind.style.width = t.offsetWidth + 'px'; tabs.forEach((x, i) => x.classList.toggle('on', i === ti)); };
+  putInd(); setInterval(() => { ti = (ti + 1) % tabs.length; putInd(); }, 2400);
+
+  // kun savoli: savol yoziladi, javoblar paydo bo'ladi
+  const QS = [['Bugun sizni nima xursand qildi?', [['Madina', 'Onam pishirgan palov 😋'], ['Jasur', 'Imtihondan o‘tdim!'], ['Aziza', 'Ertalabki qor ❄️']]],
+    ['Choy yoki qahva? ☕', [['Bekzod', 'Albatta choy, ko‘k choy 🍵'], ['Sardor', 'Ertalab qahva, kechqurun choy'], ['Nilufar', 'Limonli choy!']]],
+    ['Qaysi shaharga borishni orzu qilasiz?', [['Aziz', 'Istanbul 🕌'], ['Malika', 'Samarqandni qayta ko‘rmoqchiman'], ['Javohir', 'Tokio 🇯🇵']]]];
+  const qt = document.getElementById('qtext'), qa = document.getElementById('qans'); let qi = 0, started = false;
+  async function runQ() {
+    const [q, ans] = QS[qi++ % QS.length]; qa.innerHTML = ''; qt.innerHTML = '<span class="caret"></span>';
+    for (let i = 1; i <= q.length; i++) { qt.innerHTML = q.slice(0, i) + '<span class="caret"></span>'; await new Promise(r => setTimeout(r, reduce ? 0 : 38)); }
+    for (const [n, t] of ans) { await new Promise(r => setTimeout(r, 650)); const d = document.createElement('div'); d.className = 'qa'; d.innerHTML = `<b>${n}</b> ${t}`; qa.appendChild(d); requestAnimationFrame(() => requestAnimationFrame(() => d.classList.add('in'))); }
+    setTimeout(runQ, 3200);
+  }
+  new IntersectionObserver((es, o) => { if (es[0].isIntersecting && !started) { started = true; runQ(); o.disconnect(); } }, { threshold: .3 }).observe(document.getElementById('qcard'));
+
+  // chatdagi X/O: xabarlar chiqadi va o'yin o'ynaladi
+  const chat = document.getElementById('chat'), ms = [...chat.querySelectorAll('.m')], cells = [...document.querySelectorAll('#xo i')], sys = document.getElementById('xosys');
+  const MOVES = [[4, 'x'], [0, 'o'], [2, 'x'], [6, 'o'], [3, 'x'], [8, 'o'], [5, 'x']], WIN = [3, 4, 5];
+  async function runChat() {
+    const w = ms => new Promise(r => setTimeout(r, reduce ? 0 : ms));
+    while (true) {
+      ms.forEach(m => m.classList.remove('show')); sys.classList.remove('show'); cells.forEach(c => { c.className = ''; c.textContent = ''; });
+      for (const m of ms) { await w(600); m.classList.add('show'); }
+      for (const [i, s] of MOVES) { await w(650); cells[i].textContent = s === 'x' ? '✕' : '○'; cells[i].className = s + ' pop'; }
+      await w(300); WIN.forEach(i => cells[i].classList.add('win')); await w(300); sys.classList.add('show');
+      await w(3500);
+    }
+  }
+  new IntersectionObserver((es, o) => { if (es[0].isIntersecting) { runChat(); o.disconnect(); } }, { threshold: .3 }).observe(chat);
 }
 </script>
 </body>
