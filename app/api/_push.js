@@ -48,7 +48,7 @@ export async function pushTo(db, ids, data) {
   ids = [...new Set(ids.map(Number))].filter(Boolean); if (!ids.length) return;
   try {
     const subs = await db`select s.id, s.endpoint, s.p256dh, s.auth from push_subs s join users u on u.id = s.user_id
-      where s.user_id = any(${ids}::bigint[]) and not u.is_system and (u.last_seen is null or u.last_seen < now() - interval '12 seconds') limit 300`;
+      where s.user_id = any(${ids}::bigint[]) and not u.is_system and (${!!data.always} or u.last_seen is null or u.last_seen < now() - interval '12 seconds') limit 300`;
     const dead = [];
     await Promise.all(subs.map(s => sendOne(s, data).then(st => { if (st === 404 || st === 410) dead.push(Number(s.id)); }).catch(() => {})));
     if (dead.length) await db`delete from push_subs where id = any(${dead}::bigint[])`;

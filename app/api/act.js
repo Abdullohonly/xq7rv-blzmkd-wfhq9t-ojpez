@@ -17,7 +17,7 @@ const mentions = t => [...new Set((t.match(/@([a-z0-9._]{3,20})/gi) || []).map(s
 async function notify(db, to, body, link, from) {
   if (!to || to === from) return;
   const ins = await db`insert into notifications (user_id, body, link) select ${to}, ${body}, ${link} from users where id = ${to} and not notif_off and not is_system returning id`;
-  if (ins.length) await pushTo(db, [to], { title: 'Lahzam', body, url: link || '/', tag: 'n' + ins[0].id });
+  if (ins.length) await pushTo(db, [to], { title: 'Lahzam', body, url: link || '/', tag: 'n' + ins[0].id, always: true });
 }
 async function notifyMentions(db, text, from, fromName, where, link, only) {
   for (const n of mentions(text)) {
@@ -297,7 +297,10 @@ export default async function handler(req, res) {
         if (others.length) {
           const st = /^\[s:[a-z0-9]+\]$/.test(body), pp = /^\[post:\d+\]\n?/.exec(body), prev = pp ? '📝 Post: ' + body.slice(pp[0].length) : poll ? '📊 ' + poll.q : img ? '📷 Rasm' + (body ? ': ' + body : '') : xo ? '❌⭕ X/O o‘yini' : game ? '🎮 O‘yin' : st ? '🎨 Stiker' : body;
           const grp = c.kind === 'group', who = me.name || '@' + me.username;
-          await pushTo(db, others.map(o => o.user_id), { title: grp ? c.name : who, body: (grp ? who + ': ' : '') + prev.slice(0, 160), url: '/c/c' + cid, tag: 'c' + cid });
+          // shaxsiy chat: hammaga push; guruh: faqat @belgilangan odamlarga
+          let to = others.map(o => Number(o.user_id));
+          if (grp) { const ns = mentions(body); if (!ns.length) to = []; else { const rows = await db`select id from users where lower(username) = any(${ns}::text[])`; const ok = new Set(rows.map(r => Number(r.id))); to = to.filter(x => ok.has(x)); } }
+          if (to.length) await pushTo(db, to, { title: grp ? c.name : who, body: (grp ? who + ': ' : '') + prev.slice(0, 160), url: '/c/c' + cid, tag: 'c' + cid });
         }
         return send(res, 200, { ok: true, id: 'm' + m.id });
       }
