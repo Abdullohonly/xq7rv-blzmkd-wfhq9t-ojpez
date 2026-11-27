@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.12.8'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.12.9'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -622,7 +622,7 @@ function postCard(p, full) {
   return `<article class="card stack" data-post="${p.id}" style="gap:8px">
     <div class="row" style="justify-content:space-between">
       <a href="/@${esc(a.u)}" data-link class="row" style="text-decoration:none;gap:10px">${avatar(a, 42)}
-        <div><div class="name" style="font-size:15px">${NM(a)}${founderPill(a)}</div><div class="muted">@${esc(a.u)} · ${ago(p.t)}${p.edited ? ' · tahrirlandi' : ''}${p.lahza ? ' · <span class="lahza">Lahza · 24 soat</span>' : ''}</div></div></a>
+        <div style="min-width:0"><div class="name" style="font-size:15px">${full ? NM(a) + founderPill(a) : NM({ ...a, name: String(a.name || a.u).split(' ')[0] })}</div><div class="muted">${full ? '@' + esc(a.u) + ' · ' : ''}${ago(p.t)}${p.edited ? ' · tahrirlandi' : ''}${p.lahza ? ' · <span class="lahza">Lahza · 24 soat</span>' : ''}</div></div></a>
       <button class="ibtn dark" style="width:38px;height:38px" data-act="postmenu" data-id="${p.id}" aria-label="Ko‘proq">${I.dots}</button>
     </div>
     ${p.text ? `<p class="txt ${long ? 'clamp' : ''}" style="${full ? 'font-size:19px' : ''}">${linkify(p.text)}</p>` : ''}
