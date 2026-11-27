@@ -494,3 +494,20 @@ button.seen{background:none;padding:0;cursor:pointer}
 .comp .check{white-space:nowrap;font-size:14px}
 @media (max-width:370px){.top .ibtn{width:36px;height:36px}.top-act{gap:3px}.top-av .av{width:36px!important;height:36px!important}}
 .brand-t{display:flex;flex-direction:column;line-height:1;min-width:0}.brand-t small{font-size:10.5px;font-weight:700;opacity:.8;letter-spacing:.02em;margin-top:2px}@media (max-width:330px){.brand-t{display:none}}
+/* 1.7.0: post joylash — "Ip" (thread) uslubi */
+.comp-d{display:flex;gap:12px;padding:16px 16px 14px}
+.cd-rail{display:flex;flex-direction:column;align-items:center;gap:8px;flex:none}
+.cd-line{width:2px;flex:1;min-height:28px;background:var(--line,#EEE6DC);border-radius:2px}
+.cd-dot{width:20px;height:20px;border-radius:50%;background:var(--line,#EEE6DC)}
+.cd-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px}
+.cd-who{display:flex;align-items:baseline;gap:6px;font-weight:700;font-size:15px;flex-wrap:wrap}.cd-who .muted{font-weight:400;font-size:13px}
+.comp-d textarea{min-height:48px;font-size:16px;margin-top:-4px}
+.comp-d .pprev{border-radius:18px;overflow:hidden}
+.cd-chips{display:flex;gap:6px;flex-wrap:wrap}
+.cd-chip{height:36px;padding:0 12px;border-radius:999px;border:0;background:var(--soft,#F3F0EA);color:var(--ink);font-weight:700;font-size:13px;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.cd-chip.cd-img{background:#FFE3D4;color:#C2410C}
+[data-theme=dark] .cd-chip.cd-img{background:#3a2216;color:#FFB38A}
+.cd-chip:has(input:checked){background:var(--ink);color:var(--bg)}
+.cd-chip:focus-within{outline:2px solid var(--acc);outline-offset:2px}
+.cd-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cd-go{height:42px;padding:0 22px;border-radius:999px;background:var(--ink);color:var(--bg);font-weight:800;font-size:14px}

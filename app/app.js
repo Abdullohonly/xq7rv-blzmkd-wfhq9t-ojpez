@@ -1,8 +1,8 @@
-/* Lahzam v1.6.6 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
+/* Lahzam v1.7.0 — hamma ma'lumot serverda (Neon). Brauzerda faqat tez ochilish uchun nusxa saqlanadi. */
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.6.6'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.7.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -553,15 +553,19 @@ function home() {
       <p style="margin:6px 0 10px;color:#ddd;font-size:14px">Nima yozishni bilmayapsizmi? O‘zingizni tanishtiring: kim siz va Lahzamga nima uchun keldingiz?</p>
       <button class="btn acc" style="height:42px" data-act="intro">Tanishtiruv yozish</button></div>` : ''}
     <a href="/oyinlar" data-link class="card games-strip">${GAMES.map(g => `<span class="gs-i">${g.ico(30)}</span>`).join('')}<span style="flex:1;min-width:0"><b>O‘yinlar</b><span class="muted" style="display:block;font-size:13px">Flappy, Tetris, 2048 · yakka yoki do‘stlar bilan</span></span><span class="gs-go">▶</span></a>
-    <form class="card comp" data-form="post">
-      <div class="row" style="align-items:flex-start;gap:12px">${avatar(u, 40)}
-        <label style="flex:1"><span class="sr">Post matni</span><textarea id="post-text" rows="2" maxlength="${LIMIT.post + 100}" placeholder="Nima gap, ${esc(u.name.split(' ')[0])}?"></textarea></label></div>
-      <div id="post-prev"></div>
-      <div class="row" style="justify-content:space-between;margin-top:6px">
-        <div class="row" style="gap:8px"><label class="pill" style="cursor:pointer" aria-label="Rasm qo‘shish">📷<input type="file" accept="image/*" id="post-img" class="sr"></label>
-        <label class="check" title="24 soatdan keyin yo‘qoladi"><input type="checkbox" id="post-lahza"> ⏳ Lahza</label></div>
-        <div class="row" style="gap:10px"><span class="counter" id="post-count">0 / ${LIMIT.post}</span>
-        <button class="btn acc" style="height:40px;border-radius:999px">Joylash</button></div>
+    <form class="card comp comp-d" data-form="post">
+      <div class="cd-rail" aria-hidden="true">${avatar(u, 42)}<span class="cd-line"></span><span class="cd-dot"></span></div>
+      <div class="cd-main">
+        <div class="cd-who">${NM(u)}<span class="muted">@${esc(u.u)}</span></div>
+        <label><span class="sr">Post matni</span><textarea id="post-text" rows="2" maxlength="${LIMIT.post + 100}" placeholder="Nima gap, ${esc(u.name.split(' ')[0])}?"></textarea></label>
+        <div id="post-prev"></div>
+        <div class="cd-chips">
+          <label class="cd-chip cd-img" aria-label="Rasm qo‘shish"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>Rasm<input type="file" accept="image/*" id="post-img" class="sr"></label>
+          <label class="cd-chip" title="24 soatdan keyin yo‘qoladi"><input type="checkbox" id="post-lahza" class="sr"><span>⏳ Lahza</span></label>
+          <button type="button" class="cd-chip" data-act="cd-ins" data-v="#"># Teg</button>
+          <button type="button" class="cd-chip" data-act="cd-ins" data-v="@">@ Belgilash</button>
+        </div>
+        <div class="cd-foot"><span class="counter" id="post-count">0 / ${LIMIT.post}</span><button class="btn cd-go">Joylash</button></div>
       </div>
     </form>
     ${posts.map(p => postCard(p)).join('') || '<div class="card muted">Hali post yo‘q.</div>'}
@@ -1597,6 +1601,7 @@ document.addEventListener('click', async e => {
       if (!r.ok) { toast('O‘chirib bo‘lmadi', true); break; }
       UPD.list = UPD.list.filter(x => x.id !== +id); toast('O‘chirildi'); render(); break;
     }
+    case 'cd-ins': { const ta = $('#post-text'); if (!ta) break; const v = el.dataset.v, pre = ta.value && !/\s$/.test(ta.value) ? ' ' : ''; ta.value += pre + v; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); ta.dispatchEvent(new Event('input', { bubbles: true })); break; }
     case 'postimg-x': POSTIMG = null; $('#post-prev').innerHTML = ''; break;
     case 'viewpimg': { const p = P(); if (p && p.img) sheet(`<img src="${esc(p.img)}" alt="Post rasmi" style="width:100%;border-radius:16px;display:block"><button class="btn ghost full" style="margin-top:10px" data-act="close-sheet-btn">Yopish</button>`); break; }
     case 'follist': {
