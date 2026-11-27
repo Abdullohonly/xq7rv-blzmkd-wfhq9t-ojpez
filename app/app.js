@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.10.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.10.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -445,13 +445,13 @@ function lbCard() {
   const unit = GLB.g === 'xo' ? ' g‘alaba' : '';
   const order = [top[1], top[0], top[2]];
   return `<div class="card lb"><div class="row" style="justify-content:space-between;gap:8px"><b class="lb-h">🏆 Reyting</b>
-    <div class="lb-tabs"><button class="${GLB.tab === 'week' ? 'on' : ''}" data-act="lbtab" data-id="week">Bu hafta</button><button class="${GLB.tab === 'all' ? 'on' : ''}" data-act="lbtab" data-id="all">Umrbod</button></div></div>
-    <div class="lb-games">${LBG.map(([k, n, e]) => `<button class="${GLB.g === k ? 'on' : ''}" data-act="lbgame" data-id="${k}">${e} ${n}</button>`).join('')}</div>
+    <div class="lb-tabs"><button class="${GLB.tab === 'week' ? 'on' : ''}" data-act="glbtab" data-id="week">Bu hafta</button><button class="${GLB.tab === 'all' ? 'on' : ''}" data-act="glbtab" data-id="all">Umrbod</button></div></div>
+    <div class="lb-games">${LBG.map(([k, n, e]) => `<button class="${GLB.g === k ? 'on' : ''}" data-act="glbgame" data-id="${k}">${e} ${n}</button>`).join('')}</div>
     ${top.length ? `<div class="podium">${order.map((r, i) => { const pl = [2, 1, 3][i]; if (!r) return `<div class="pd p${pl} empty"><span class="pd-m">${['🥈', '🥇', '🥉'][i]}</span><div class="pd-b">—</div></div>`; const w = user(r.u) || { u: '?', name: '?' };
       return `<a href="/@${esc(w.u)}" data-link class="pd p${pl}${r.u === u.id ? ' me' : ''}">${avatar(w, pl === 1 ? 56 : 46)}<span class="pd-m">${['🥈', '🥇', '🥉'][i]}</span><b>${esc(w.name.split(' ')[0])}</b><span class="pd-s">${r.s}${unit}</span><div class="pd-b"></div></a>`; }).join('')}</div>`
       : `<p class="muted" style="text-align:center;margin:18px 0 6px">${GLB.tab === 'week' ? 'Bu hafta hali hech kim o‘ynamadi. Birinchi bo‘ling! 🚀' : 'Hali natija yo‘q.'}</p>`}
     <div class="lb-me">${mine ? `Siz: <b>${mine.n}-o‘rin</b> · ${mine.s}${unit}` : GLB.g === 'xo' ? 'Chatda do‘stingiz bilan @xo o‘ynab, g‘alaba qozoning' : 'Hali natijangiz yo‘q: o‘ynang va reytingga chiqing!'}</div>
-    <p class="muted" style="margin:8px 0 0;font-size:12px;text-align:center">Har dushanba haftalik reyting yangilanadi · haftaning eng yaxshi 3 talig‘i profilda medal bilan turadi</p></div>`;
+    <p class="muted" style="margin:8px 0 0;font-size:12px;text-align:center">Yakka, chat va guruhlardagi natijalar ham hisoblanadi · haftalik reyting har dushanba yangilanadi · top 3 profilda medal bilan turadi</p></div>`;
 }
 function gamesPage() {
   const best = k => { try { return +localStorage.getItem({ flappy: 'lahzam_flappy_best', tetris: 'lahzam_tetris_best', '2048': 'lahzam_2048_best', mines: 'lahzam_mines_best' }[k]) || 0; } catch (e) { return 0; } };
@@ -1761,8 +1761,8 @@ document.addEventListener('click', async e => {
       UPD.list = UPD.list.filter(x => x.id !== +id); toast('O‘chirildi'); render(); break;
     }
     case 'qall': sheet(qSheet()); break;
-    case 'lbtab': GLB.tab = id; render(); break;
-    case 'lbgame': GLB.g = id; render(); break;
+    case 'glbtab': GLB.tab = id; render(); break;
+    case 'glbgame': GLB.g = id; render(); break;
     case 'qedit': sheet(`<h2>Kun savolini o‘zgartirish ✏️</h2><form class="stack" data-form="qset"><textarea class="inp" id="qs-t" maxlength="160" style="height:110px;padding:12px 16px" placeholder="Bugungi savol…">${esc(qText())}</textarea><p class="muted" style="margin:0;font-size:13px">Faqat bugungi savol o‘zgaradi. Bo‘sh qoldirsangiz, avtomatik savol qaytadi.</p><button class="btn full">Saqlash</button></form>`); break;
     case 'qlike': { const a = (DB.daily || []).find(x => x.id === el.dataset.id); if (a) { a.liked = !a.liked; a.likes = (a.likes || 0) + (a.liked ? 1 : -1); if ($('#modal-root .sheet')) sheet(qSheet()); } api('act', { method: 'POST', body: { t: 'qlike', id: el.dataset.id } }).then(() => sync(true)); break; }
     case 'qdel': { DB.daily = (DB.daily || []).filter(x => x.id !== el.dataset.id); closeSheet(); render(); server({ t: 'qdel', id: el.dataset.id }); break; }
