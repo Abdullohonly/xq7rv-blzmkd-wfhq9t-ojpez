@@ -5,7 +5,25 @@ import { promisify } from 'node:util';
 
 const scrypt = promisify(_scrypt);
 export const OWNER_EMAIL = 'musoxonshovkatov@gmail.com';
-export const RESERVED = ['admin', 'lahzam', 'musoojon', 'support', 'yordam', 'root', 'api', 'flappy', 'tetris', '2048', 'musoxon', 'xo', 'mines', 'everyone', 'here', 'all', 'hamma'];
+// 🚫 Taqiqlangan usernamelar (aniq mos kelsa)
+export const RESERVED = [
+  // tizim va rollar
+  'admin', 'administrator', 'root', 'system', 'sys', 'moderator', 'mod', 'mods', 'owner', 'staff', 'team', 'support', 'help', 'yordam', 'security', 'xavfsizlik', 'bot', 'robot', 'null', 'undefined', 'anonymous', 'anonim', 'guest', 'mehmon', 'test', 'user', 'users',
+  // Lahzam nomi va rasmiy akkauntlar
+  'lahzam', 'lahza', 'lahzamuz', 'lahzam.uz', 'official', 'rasmiy', 'news', 'yangiliklar', 'updates', 'info', 'contact', 'aloqa', 'feedback', 'abuse', 'report', 'shikoyat',
+  // hammani belgilash
+  'everyone', 'here', 'all', 'hamma', 'barcha', 'channel',
+  // ilova sahifalari va yo'llari
+  'api', 'www', 'web', 'app', 'mail', 'email', 'me', 'home', 'login', 'kirish', 'logout', 'chiqish', 'signup', 'register', 'auth', 'account', 'profile', 'settings', 'sozlamalar', 'search', 'qidiruv', 'notifications', 'explore', 'groups', 'guruhlar', 'shaxsiy', 'oyinlar', 'reyting', 'statistika', 'shartlar', 'maxfiylik', 'qoidalar',
+  // ⭐ Yulduz va to'lovlar (firibgarlikka qarshi)
+  'yulduz', 'star', 'premium', 'pro', 'verified', 'verify', 'tasdiq', 'billing', 'payment', 'tolov', 'pay', 'click', 'payme', 'uzcard', 'humo',
+  // o'yin akkauntlari
+  'flappy', 'tetris', '2048', 'mines', 'xo',
+  // ega
+  'musoxon', 'musoojon'
+];
+// 🚫 Ichida shu so'z bo'lsa ham taqiqlanadi (soxta rasmiy akkauntlarga qarshi): masalan "lahzam_admin", "official.uz"
+export const RESERVED_PARTS = ['admin', 'lahzam', 'official', 'rasmiy', 'moderator', 'support', 'everyone'];
 const COOKIE = 'lz_s';
 const MONTH = 30 * 24 * 3600;
 
@@ -129,6 +147,7 @@ export function checkUsername(v, email, star) {
   if ((v.match(/\./g) || []).length > 2) return 'Ko‘pi bilan 2 ta nuqta (.) ishlatish mumkin';
   if (/^\.|\.$/.test(v) || v.includes('..')) return 'Nuqta boshida, oxirida yoki ketma-ket bo‘lmasin';
   if (RESERVED.includes(v) && !(v === 'musoxon' && isOwnerEmail(email))) return `@${v} band`;
+  { const part = RESERVED_PARTS.find(w => v.replace(/[._]/g, '').includes(w)); if (part && !isOwnerEmail(email)) return `Username ichida “${part}” so‘zi bo‘lmasin`; }
   return null;
 }
 

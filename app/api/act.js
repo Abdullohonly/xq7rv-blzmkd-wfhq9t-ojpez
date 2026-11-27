@@ -85,6 +85,12 @@ export default async function handler(req, res) {
         if (b.at) { if (!isStar(me)) return send(res, 403, { error: 'star', message: 'Postni rejalashtirish faqat ⭐ Yulduz a’zolari uchun' });
           const t = Number(b.at); if (!(t > Date.now() + 60e3 && t < Date.now() + 30 * 864e5)) return bad(res, 'Vaqt 1 daqiqadan 30 kungacha bo‘lishi kerak'); at = new Date(t).toISOString(); }
         if (!body && !img && !poll && !quote) return bad(res, 'Avval biror narsa yozing');
+        // 📣 @everyone Ochiq maydonda: hamma foydalanuvchiga push — faqat Lahzam egasi, soatiga bir marta
+        const pubEvr = /(^|[^\w])@everyone(?![\w])/i.test(body) && !at;
+        if (pubEvr) {
+          if (!isOwnerEmail(me.email)) return send(res, 403, { error: 'everyone', message: 'Ochiq maydonda @everyone faqat Lahzam jamoasi uchun' });
+          if (!(await rateLimit('evr:pub', 1, 3600))) return send(res, 429, { error: 'rate', message: '@everyone ni soatiga bir marta ishlatish mumkin' });
+        }
         // ⏳ Lahza cheklovi: 24 soatda oddiy userga 1 ta, ⭐ Yulduz a'zosiga 8 ta
         if (b.lahza) { const lim = isStar(me) ? 8 : 1, [{ n }] = await db`select count(*)::int as n from posts where user_id = ${uid} and is_lahza and created_at > now() - interval '1 day'`;
           if (n >= lim) return send(res, 429, { error: 'lahza', message: isStar(me) ? 'Kuniga ko‘pi bilan 8 ta Lahza joylash mumkin' : 'Kuniga 1 ta Lahza joylash mumkin. ⭐ Yulduz bilan — kuniga 8 tagacha!' }); }
@@ -103,6 +109,8 @@ export default async function handler(req, res) {
         if (quote) { const [qo] = await db`select user_id from posts where id = ${quote}`; if (qo) await notify(db, Number(qo.user_id), `🔁 @${me.username} postingizni iqtibos qildi`, `/p/${p.id}`, uid).catch(() => {}); }
         await db`insert into post_views (post_id, user_id) values (${p.id}, ${uid}) on conflict do nothing`;
         await notifyMentions(db, body, uid, me.username, 'postda', `/p/${p.id}`);
+        if (pubEvr) { const all = await db`select id from users where not is_system and not is_blocked and id <> ${uid}`;
+          await pushTo(db, all.map(r => Number(r.id)), { title: '📣 Lahzam', body: body.replace(/@everyone/ig, '').trim().slice(0, 160) || 'Yangi e’lon', url: `/p/${p.id}`, tag: 'evr' + p.id, always: true }).catch(() => {}); }
         return send(res, 200, { ok: true, id: 'p' + p.id });
       }
       case 'reply': {
