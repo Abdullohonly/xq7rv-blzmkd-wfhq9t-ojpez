@@ -43,6 +43,19 @@ export async function r2PutDataUrl(dataUrl, prefix) {
   return `${E().R2_PUBLIC_URL.trim().replace(/\/+$/, '')}/${key}`;
 }
 
+// Ochiq havola bo'yicha faylni R2'dan o'chiradi (faqat o'z bucket'imizdagi fayl). Xato bo'lsa jim o'tadi
+export async function r2DeleteUrl(url) {
+  if (!r2Ready() || typeof url !== 'string') return;
+  const base = E().R2_PUBLIC_URL.trim().replace(/\/+$/, '') + '/';
+  if (!url.startsWith(base)) return;
+  const key = url.slice(base.length); if (!/^[a-z]+\/\d{4}-\d{2}\/[0-9a-f]{32}\.(jpg|png|webp)$/.test(key)) return;
+  const host = `${E().R2_ACCOUNT_ID.trim()}.r2.cloudflarestorage.com`, path = `/${E().R2_BUCKET.trim()}/${key}`;
+  const amzDate = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const { headers } = sigV4({ method: 'DELETE', host, path, payloadHash: sha256(Buffer.alloc(0)), amzDate, region: 'auto', service: 's3', headers: {}, accessKey: E().R2_ACCESS_KEY_ID.trim(), secret: E().R2_SECRET_ACCESS_KEY.trim() });
+  delete headers.host;
+  await fetch(`https://${host}${path}`, { method: 'DELETE', headers, redirect: 'error', signal: AbortSignal.timeout(8000) }).catch(() => {});
+}
+
 // R2 bucket'dagi fayllar soni va umumiy hajmi (ListObjectsV2, 1000 tadan; ko'pi bilan 20 sahifa)
 export async function r2Usage() {
   if (!r2Ready()) return null;

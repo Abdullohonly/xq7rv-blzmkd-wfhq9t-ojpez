@@ -1,4 +1,4 @@
-import { sql, requireAdmin, isOwnerEmail, send, sameOrigin } from '../_lib.js';
+import { sql, requireAdmin, isOwnerEmail, send, sameOrigin, clientIp } from '../_lib.js';
 import { r2Usage } from '../_r2.js';
 // Faqat ega (musoxonshovkatov@gmail.com) uchun: GET — ro'yxat; POST { action, id } — block | unblock | delete
 export default async function handler(req, res) {
@@ -14,7 +14,7 @@ export default async function handler(req, res) {
         (select count(*)::int from users where not is_system and created_at > now() - interval '1 day') as today,
         (select count(*)::int from users where is_blocked) as blocked,
         (select count(*)::int from banned_emails) as banned`;
-      let r2 = null; try { r2 = await r2Usage(); } catch (e) { r2 = { error: String(e.message).slice(0, 80) }; }
+      let r2 = null; try { r2 = await r2Usage(); } catch (e) { r2 = { error: 'R2 statistikasi olinmadi' }; }
       return send(res, 200, { dbBytes: Number(r.bytes), limitBytes: 512 * 1024 * 1024, users: r.users, today: r.today, blocked: r.blocked, banned: r.banned, r2 });
     }
     if (req.method === 'GET') {
@@ -26,12 +26,14 @@ export default async function handler(req, res) {
     if (!sameOrigin(req)) return send(res, 403, { error: 'origin' });
     const { action, id, email } = req.body || {};
     if (!['block', 'unblock', 'delete', 'unban', 'star', 'unstar'].includes(action)) return send(res, 400, { error: 'action' });
-    if (action === 'unban') { await db`delete from banned_emails where email = ${String(email || '').toLowerCase()}`; await db`update users set is_blocked = false where email = ${String(email || '').toLowerCase()}`; return send(res, 200, { ok: true }); }
+    if (action === 'unban') { await db`insert into admin_log (admin_id, action, ip, note) values (${a.me.id}, 'unban', ${clientIp(req)}, ${String(email || '').toLowerCase().slice(0, 120)})`; await db`delete from banned_emails where email = ${String(email || '').toLowerCase()}`; await db`update users set is_blocked = false where email = ${String(email || '').toLowerCase()}`; return send(res, 200, { ok: true }); }
     const [t] = await db`select * from users where id = ${Number(id)} and not is_system`;
     if (!t) return send(res, 404, { error: 'not_found' });
     if (isOwnerEmail(t.email)) return send(res, 400, { error: 'owner' });
+    // admin harakatlari jurnali
+    await db`insert into admin_log (admin_id, action, target_id, ip) values (${a.me.id}, ${action}, ${t.id}, ${clientIp(req)})`;
     if (action === 'block') {
-      await db`update users set is_blocked = true where id = ${t.id}`;
+      await db`update users set is_blocked = true, session_ver = session_ver + 1 where id = ${t.id}`;
       if (t.email) await db`insert into banned_emails (email) values (${t.email}) on conflict do nothing`;
     } else if (action === 'unblock') {
       await db`update users set is_blocked = false where id = ${t.id}`;

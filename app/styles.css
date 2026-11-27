@@ -613,3 +613,13 @@ img{-webkit-user-drag:none;-webkit-touch-callout:none}
 .lb-me{margin-top:12px;background:var(--bg);border-radius:14px;padding:10px 12px;font-size:14px;text-align:center}
 .medals{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:8px;text-decoration:none}
 .medals span{background:var(--card);border:1.5px solid var(--line);border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700;color:var(--ink)}
+
+/* v1.10.4 — xabar yuborish animatsiyasi */
+@keyframes mOut{0%{opacity:0;transform:translate(18px,26px) scale(.86)}60%{opacity:1;transform:translate(0,-3px) scale(1.02)}100%{transform:none}}
+@keyframes mIn{0%{opacity:0;transform:translate(-14px,14px) scale(.92)}70%{opacity:1;transform:translate(0,-2px) scale(1.01)}100%{transform:none}}
+.m.m-new-out{animation:mOut .42s cubic-bezier(.2,.9,.3,1.2) both;transform-origin:100% 100%}
+.m.m-new-in{animation:mIn .4s cubic-bezier(.2,.9,.3,1.2) both;transform-origin:0 100%}
+.chat-in .round{transition:transform .15s ease}
+.chat-in .round:active{transform:scale(.85) rotate(-12deg)}
+@media (prefers-reduced-motion:reduce){.m.m-new-out,.m.m-new-in{animation:none}}
+a.q-ans{text-decoration:none;cursor:pointer}a.q-ans:hover b{text-decoration:underline}

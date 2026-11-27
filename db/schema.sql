@@ -229,3 +229,7 @@ on conflict (username) do nothing;
 
 -- v1.10.0 O'yinlar reytingi: har o'yinchi/o'yin uchun faqat eng yaxshi natija (umrbod + haftalik), eski haftalar o'chiriladi
 create table if not exists game_best (game text not null, wk date not null, user_id bigint not null references users(id) on delete cascade, score int not null, primary key (game, wk, user_id));
+
+-- v1.10.3 xavfsizlik: sessiyani bekor qilish va admin jurnali
+alter table users add column if not exists session_ver int not null default 0;
+create table if not exists admin_log (id bigserial primary key, at timestamptz not null default now(), admin_id bigint, action text not null, target_id bigint, ip text, note text);

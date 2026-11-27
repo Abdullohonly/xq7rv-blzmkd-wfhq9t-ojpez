@@ -13,7 +13,12 @@ function bioProblem(v, max = 100) {
 // GET /api/auth/me — kim kirgan; PATCH — profil (ism, bio, rang, rasm); DELETE — chiqish
 const PHOTO_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 export default async function handler(req, res) {
-  if (req.method === 'DELETE') { if (!sameOrigin(req)) return send(res, 403, { error: 'origin' }); clearSession(res); return send(res, 200, { ok: true }); }
+  if (req.method === 'DELETE') {
+    if (!sameOrigin(req)) return send(res, 403, { error: 'origin' });
+    // ?all=1 — barcha qurilmalardan chiqish: sessiya versiyasi oshadi, hamma eski cookie'lar bekor bo'ladi
+    if ((req.query || {}).all === '1') { try { const u = await currentUser(req); if (u) await sql()`update users set session_ver = session_ver + 1 where id = ${u.id}`; } catch (e) {} }
+    clearSession(res); return send(res, 200, { ok: true });
+  }
   if (req.method === 'PATCH') {
     if (!sameOrigin(req)) return send(res, 403, { error: 'origin' });
     try {

@@ -2,12 +2,13 @@ import { sql, currentUser, isOwnerEmail, hasAdminPass, send } from './_lib.js';
 // GET /api/img?u=ID — profil rasmi (hamma ko'radi, uzoq keshlanadi: v= o'zgarsa yangisi olinadi)
 // GET /api/img?m=ID — chatdagi rasm (faqat shu chat a'zolari ko'radi)
 const TYPES = { jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
-const ALLOWED = u => { try { const h = new URL(u).hostname; return h.endsWith('.r2.dev') || h.endsWith('.googleusercontent.com'); } catch { return false; } };
+const R2_HOST = (() => { try { return new URL(process.env.R2_PUBLIC_URL || '').hostname; } catch { return ''; } })();
+const ALLOWED = u => { try { const x = new URL(u), h = x.hostname; return x.protocol === 'https:' && !x.port && ((R2_HOST && h === R2_HOST) || h.endsWith('.googleusercontent.com')); } catch { return false; } };
 async function out(res, dataUrl, cache) {
   // R2 / Google havolasi: serverda olib, o'z domenimizdan beramiz (CDN keshlaydi)
   if (/^https:\/\//.test(dataUrl || '')) {
     if (!ALLOWED(dataUrl)) return send(res, 404, { error: 'not_found' });
-    const r = await fetch(dataUrl, { signal: AbortSignal.timeout(10000) });
+    const r = await fetch(dataUrl, { redirect: 'error', signal: AbortSignal.timeout(10000) });
     const type = r.headers.get('content-type') || '';
     if (!r.ok || !/^image\/(jpeg|png|webp)/.test(type)) return send(res, 404, { error: 'not_found' });
     const buf = Buffer.from(await r.arrayBuffer());

@@ -35,20 +35,25 @@ export function encrypt(payload, p256dh, authSecret, _as = null, _salt = null) {
   const rs = Buffer.alloc(4); rs.writeUInt32BE(4096);
   return Buffer.concat([salt, rs, Buffer.from([as.length]), as, ct]);
 }
+// Faqat rasmiy push xizmatlari (SSRF himoyasi: server begona manzillarga so'rov yubormaydi)
+const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^updates\.push\.services\.mozilla\.com$/, /(^|\.)push\.apple\.com$/, /\.notify\.windows\.com$/];
+export const pushHostOk = ep => { try { const u = new URL(ep); return u.protocol === 'https:' && !u.port && PUSH_HOSTS.some(r => r.test(u.hostname)); } catch { return false; } };
 async function sendOne(sub, data) {
+  if (!pushHostOk(sub.endpoint)) return 410;
   const body = encrypt(JSON.stringify(data), sub.p256dh, sub.auth);
   const r = await fetch(sub.endpoint, {
-    method: 'POST', body, signal: AbortSignal.timeout(5000),
+    method: 'POST', body, redirect: 'error', signal: AbortSignal.timeout(5000),
     headers: { TTL: '86400', Urgency: 'high', 'Content-Encoding': 'aes128gcm', 'Content-Type': 'application/octet-stream', Authorization: `vapid t=${jwt(sub.endpoint)}, k=${vapid().publicKey}` }
   });
   return r.status;
 }
 // Foydalanuvchilarga push: ilova hozir ochiq bo'lganlarga yubormaymiz (ular ilovaning o'zida ko'radi)
 export async function pushTo(db, ids, data) {
+  const always = !!data.always; data = { ...data }; delete data.always;
   ids = [...new Set(ids.map(Number))].filter(Boolean); if (!ids.length) return;
   try {
     const subs = await db`select s.id, s.endpoint, s.p256dh, s.auth from push_subs s join users u on u.id = s.user_id
-      where s.user_id = any(${ids}::bigint[]) and not u.is_system and (${!!data.always} or u.last_seen is null or u.last_seen < now() - interval '12 seconds') limit 300`;
+      where s.user_id = any(${ids}::bigint[]) and not u.is_system and (${always} or u.last_seen is null or u.last_seen < now() - interval '12 seconds') limit 300`;
     const dead = [];
     await Promise.all(subs.map(s => sendOne(s, data).then(st => { if (st === 404 || st === 410) dead.push(Number(s.id)); }).catch(() => {})));
     if (dead.length) await db`delete from push_subs where id = any(${dead}::bigint[])`;

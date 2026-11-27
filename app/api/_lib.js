@@ -39,7 +39,7 @@ export function readCookie(req, name = COOKIE) {
   return null;
 }
 export function setSession(res, user) {
-  const token = sign({ uid: Number(user.id), exp: Math.floor(Date.now() / 1000) + MONTH, k: 's' });
+  const token = sign({ uid: Number(user.id), exp: Math.floor(Date.now() / 1000) + MONTH, k: 's', v: Number(user.session_ver || 0) });
   res.setHeader('Set-Cookie', `${COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${MONTH}`);
 }
 export function clearSession(res) {
@@ -101,6 +101,8 @@ export async function currentUser(req) {
   if (!p || p.k !== 's') return null;
   const [u] = await sql()`select * from users where id = ${p.uid} and not is_system`;
   if (!u || u.is_blocked) return null;
+  // sessiya versiyasi: "barcha qurilmalardan chiqish" yoki blokdan keyin eski cookie'lar ishlamaydi
+  if (Number(p.v || 0) !== Number(u.session_ver || 0)) return null;
   return u;
 }
 export const TERMS_VER = 2; // hujjatlar o'zgarsa oshiriladi: hamma qayta rozilik beradi

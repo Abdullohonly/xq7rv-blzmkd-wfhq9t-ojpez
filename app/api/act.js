@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { TERMS_VER, OWNER_EMAIL, isStar, clearSession, sql, currentUser, isOwnerEmail, hasAdminPass, rateLimit, tooMany, send, sameOrigin } from './_lib.js';
-import { r2PutDataUrl } from './_r2.js';
-import { pushTo } from './_push.js';
+import { r2PutDataUrl, r2DeleteUrl } from './_r2.js';
+import { pushTo, pushHostOk } from './_push.js';
 import { clean } from './_clean.js';
 // POST /api/act — ilovadagi har bir amal: post, javob, layk, kuzatish, guruh, xabar, reaksiya, so'rovnoma...
 // Har bir amalda: kim qilayotgani (sessiya), ruxsati (a'zo/admin/egasi) va chegaralar serverda tekshiriladi.
@@ -316,7 +316,9 @@ export default async function handler(req, res) {
         const own = Number(m.user_id) === uid, gAdmin = m.kind === 'group' && (admin || Number(m.admin_id) === uid);
         if (!own && !gAdmin) return send(res, 403, { error: 'forbidden' });
         await db`update chats set pin_id = null where id = ${m.chat_id} and pin_id = ${mid}`;
-        await db`delete from messages where id = ${mid}`;
+        const [gone] = await db`delete from messages where id = ${mid} returning img`;
+        // xabar o'chsa, rasmi ham R2'dan o'chadi (havola tarqalgan bo'lsa ham endi ochilmaydi)
+        if (gone && gone.img) await r2DeleteUrl(gone.img);
         return send(res, 200, { ok: true });
       }
       case 'react': {
@@ -426,7 +428,7 @@ export default async function handler(req, res) {
       }
       case 'pushsub': {
         const s = b.sub || {}, ep = str(s.endpoint, 800), k = s.keys || {};
-        if (!/^https:\/\//.test(ep) || !/^[A-Za-z0-9_-]{80,100}$/.test(k.p256dh || '') || !/^[A-Za-z0-9_-]{16,32}$/.test(k.auth || '')) return bad(res, 'sub');
+        if (!pushHostOk(ep) || !/^[A-Za-z0-9_-]{80,100}$/.test(k.p256dh || '') || !/^[A-Za-z0-9_-]{16,32}$/.test(k.auth || '')) return bad(res, 'sub');
         await db`insert into push_subs (user_id, endpoint, p256dh, auth) values (${uid}, ${ep}, ${k.p256dh}, ${k.auth})
           on conflict (endpoint) do update set user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth`;
         await db`delete from push_subs where user_id = ${uid} and id not in (select id from push_subs where user_id = ${uid} order by created_at desc limit 5)`;

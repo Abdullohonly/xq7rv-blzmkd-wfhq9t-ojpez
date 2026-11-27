@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.10.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.10.4'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -168,11 +168,18 @@ function translit(text) {
     return sc === 'cyr' && !cyr && /[a-z]/i.test(tok) ? wordToCyr(tok) : sc === 'lat' && cyr ? wordToLat(tok) : tok;
   }).join('');
 }
+// Matnni bo'laklarga ajratib, har birini alohida xavfsiz chiqaramiz: havola ichiga @mention tushib qolmaydi
 function linkify(text) {
-  return esc(translit(text))
-    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener nofollow">$1</a>')
-    .replace(/(^|[^\w/])@([a-z0-9._]{3,20})/gi, '$1<a href="/@$2" data-link>@$2</a>')
-    .replace(/(^|\s)#([\p{L}0-9_]{2,30})/gu, '$1<a href="/t/$2" data-link>#$2</a>');
+  const t = translit(String(text ?? '')), re = /(https?:\/\/[^\s<>"']+)|(^|[^\w/])@([a-z0-9._]{3,20})|(^|\s)#([\p{L}0-9_]{2,30})/giu;
+  let out = '', last = 0, m;
+  while ((m = re.exec(t))) {
+    out += esc(t.slice(last, m.index));
+    if (m[1]) { const u = m[1]; out += `<a href="${esc(u)}" target="_blank" rel="noopener nofollow ugc">${esc(u)}</a>`; }
+    else if (m[3]) out += `${esc(m[2])}<a href="/@${m[3]}" data-link>@${m[3]}</a>`;
+    else out += `${esc(m[4])}<a href="/t/${encodeURIComponent(m[5])}" data-link>#${esc(m[5])}</a>`;
+    last = re.lastIndex;
+  }
+  return out + esc(t.slice(last));
 }
 function avatar(u, size = 44) {
   if (!u) return '';
@@ -299,7 +306,7 @@ function route() {
   if ((m = p.match(/^\/p\/([\w-]+)$/))) return ['post', m[1]];
   if ((m = p.match(/^\/c\/([\w-]+)$/))) return ['chat', m[1]];
   if ((m = p.match(/^\/g\/([\w-]+)$/))) return ['group', m[1]];
-  if ((m = p.match(/^\/t\/(.+)$/))) return ['tag', m[1]];
+  if ((m = p.match(/^\/t\/(.+)$/))) { let tg = m[1]; try { tg = decodeURIComponent(tg); } catch (e) {} return ['tag', tg]; }
   return ['404'];
 }
 const PUBLIC = ['auth', 'profile', 'post', 'tag', 'admin', 'updates', 'doc', 'star', '404'];
@@ -606,7 +613,7 @@ const qDay = () => Math.floor((Date.now() + 5 * 3600e3) / 864e5);
 const qText = () => (DB && DB.dq) || QS[qDay() % QS.length];
 function qCard() {
   const A = DB.daily || [], u = me(), mineA = A.find(a => a.uid === u.id);
-  const top = A.slice(0, 2).map(a => { const w = user(a.uid); return `<div class="q-ans"><b>${esc(w.name.split(' ')[0])}</b> ${esc(a.text)}${a.likes ? `<span class="q-lk">❤️ ${a.likes}</span>` : ''}</div>`; }).join('');
+  const top = A.slice(0, 2).map(a => { const w = user(a.uid); return `<a class="q-ans" href="/@${esc(w.u)}" data-link><b>${esc(w.name.split(' ')[0])}</b> ${esc(a.text)}${a.likes ? `<span class="q-lk">❤️ ${a.likes}</span>` : ''}</a>`; }).join('');
   return `<section class="card q-card" aria-label="Kun savoli">
     <div class="q-top"><span class="q-tag">✦ KUN SAVOLI</span><span class="q-n">${A.length ? A.length + ' ta javob' : 'Birinchi bo‘lib javob bering'}${isAdmin() ? ` <button class="q-edit" data-act="qedit" aria-label="Savolni o‘zgartirish">✏️</button>` : ''}</span></div>
     <h3 class="q-q">${esc(qText())}</h3>
@@ -618,7 +625,7 @@ function qCard() {
 function qSheet() {
   const A = DB.daily || [], u = me();
   return `<h2>✦ Kun savoli</h2><p style="margin:-4px 0 12px;font-weight:700">${esc(qText())}</p>
-  <div class="stack" style="gap:8px">${A.map(a => { const w = user(a.uid); return `<div class="q-row">${avatar(w, 34)}<div style="flex:1;min-width:0"><div class="row" style="gap:6px">${NM(w)}<span class="muted" style="font-size:12px">${ago(a.t)}</span></div><div>${esc(a.text)}</div></div>
+  <div class="stack" style="gap:8px">${A.map(a => { const w = user(a.uid); return `<div class="q-row"><a href="/@${esc(w.u)}" data-link aria-label="@${esc(w.u)} profili">${avatar(w, 34)}</a><div style="flex:1;min-width:0"><div class="row" style="gap:6px"><a href="/@${esc(w.u)}" data-link style="text-decoration:none;color:inherit">${NM(w)}</a><span class="muted" style="font-size:12px">${ago(a.t)}</span></div><div>${esc(a.text)}</div></div>
     <button class="pill ${a.liked ? 'on' : ''}" data-act="qlike" data-id="${a.id}" aria-label="Yoqtirish">${I.heart(a.liked)}${a.likes || ''}</button>
     ${a.uid === u.id ? `<button class="pill" data-act="qdel" data-id="${a.id}" aria-label="O‘chirish">✕</button>` : ''}</div>`; }).join('') || '<p class="muted">Hali javob yo‘q.</p>'}</div>`;
 }
@@ -887,6 +894,7 @@ function xoPoll() {
     if (XOQ.idle < 400) xoPoll();
   }, waiting ? 800 : 2500);
 }
+const MSEEN = { cid: null, ids: new Set() };
 function msgHtml(c, m) {
   const u = me();
   if (m.sys) return `<div class="sys">${linkify(m.text)}</div>`;
@@ -908,7 +916,11 @@ function msgHtml(c, m) {
   const rd = mine && !isSaved(c) ? readersOf(c, m).length : 0;
   const meta = m.sched ? `<span class="mt sched">⏰ ${dayLabel(m.t) === 'Bugun' ? '' : uzDate(m.t) + ' '}${clock(m.t)} da yuboriladi</span>` : `<span class="mt">${m.edited ? 'tahrirlandi · ' : ''}${clock(m.t)}${mine && !isSaved(c) ? (m.tmp ? '<i class="tick">🕓</i>' : `<i class="tick${rd ? ' read' : ''}" aria-label="${rd ? 'O‘qildi' : 'Yetkazildi'}">✓✓</i>`) : ''}</span>`;
   const hit = CH.q && m.text && m.text.toLowerCase().includes(CH.q) ? ' hit' : '';
-  return `<div class="m ${mine ? 'out' : 'in'}${hit}${stk ? ' stkm' : ''}${m.sched ? ' schedm' : ''}" data-msg="${m.id}" id="m-${m.id}">${c.type === 'group' && !mine ? `<a class="who" href="/@${esc(a.u)}" data-link style="text-decoration:none">${NM(a)}</a>` : ''}${fwd}${quote}${body}
+  // yangi xabar bir marta animatsiya bilan chiqadi (qayta chizilganda takrorlanmaydi)
+  let fresh = '';
+  if (MSEEN.cid === c.id && !MSEEN.ids.has(m.id) && !(m.tmp === undefined && MSEEN.ids.has('tmp-of-' + m.text))) fresh = mine ? ' m-new-out' : ' m-new-in';
+  MSEEN.ids.add(m.id); if (m.tmp) MSEEN.ids.add('tmp-of-' + m.text);
+  return `<div class="m ${mine ? 'out' : 'in'}${hit}${stk ? ' stkm' : ''}${m.sched ? ' schedm' : ''}${fresh}" data-msg="${m.id}" id="m-${m.id}">${c.type === 'group' && !mine ? `<a class="who" href="/@${esc(a.u)}" data-link style="text-decoration:none">${NM(a)}</a>` : ''}${fwd}${quote}${body}
     <div class="reacts">${rx.map(([e, v]) => `<button class="rx ${v.includes(u.id) ? 'mine' : ''}" data-act="react" data-c="${c.id}" data-m="${m.id}" data-e="${e}" aria-label="${e} reaksiya, ${v.length}">${e} ${v.length}</button>`).join('')}
       <button class="rx-add rx-btn" data-act="rxbar" data-c="${c.id}" data-m="${m.id}" aria-label="Reaksiya bildirish">😊<b>+</b></button>${m.tmp || m.sched ? '' : `<button class="rx-add" data-act="m-reply" data-c="${c.id}" data-m="${m.id}" aria-label="Javob berish">↩</button>`}<button class="rx-add" data-act="msgmenu" data-c="${c.id}" data-m="${m.id}" aria-label="Xabar amallari">⋯</button>${meta}</div></div>`;
 }
@@ -983,6 +995,8 @@ function chatBottom() {
   const box = $('#msgs'); if (box) box.querySelectorAll('img').forEach(im => { if (!im.complete) im.addEventListener('load', () => { if (innerHeight + scrollY >= document.body.scrollHeight - im.clientHeight - 200) go2(); }, { once: true }); });
 }
 after.chat = () => {
+  const c0 = DB.chats.find(x => x.id === CH.cid);
+  if (c0 && MSEEN.cid !== c0.id) { MSEEN.cid = c0.id; MSEEN.ids = new Set(c0.msgs.map(x => x.id)); c0.msgs.forEach(x => x.tmp && MSEEN.ids.add('tmp-of-' + x.text)); }
   markRead(DB.chats.find(x => x.id === CH.cid));
   const q = $('#cq');
   if (q) { q.addEventListener('input', () => { CH.q = q.value.trim().toLowerCase(); const c = DB.chats.find(x => x.id === CH.cid); $('#msgs').innerHTML = msgList(c); srvSearch(c); }); if (!CH.q) q.focus(); return; }
@@ -1440,7 +1454,7 @@ document.addEventListener('click', async e => {
       loadQR(url); break;
     }
     case 'theme': { DB.theme = DB.theme === 'dark' ? 'light' : 'dark'; save(); closeSheet(); const y = scrollY; render(); scrollTo(0, y); break; }
-    case 'logout': $('#modal-root').innerHTML = ''; el.disabled = true; try { localStorage.setItem('lahzam_noauto', '1'); window.google && google.accounts && google.accounts.id.disableAutoSelect(); } catch (e) {} await api('auth/me', { method: 'DELETE' }); ADM = { checked: false, configured: false, verified: false }; adoptSession(null); AUTH = { step: 'start' }; save(); $('#modal-root').innerHTML = ''; go('/kirish'); toast('Akkauntdan chiqdingiz 👋'); break;
+    case 'logout': $('#modal-root').innerHTML = ''; el.disabled = true; try { localStorage.setItem('lahzam_noauto', '1'); window.google && google.accounts && google.accounts.id.disableAutoSelect(); } catch (e) {} await api(el.dataset.all ? 'auth/me?all=1' : 'auth/me', { method: 'DELETE' }); ADM = { checked: false, configured: false, verified: false }; adoptSession(null); AUTH = { step: 'start' }; save(); $('#modal-root').innerHTML = ''; go('/kirish'); toast('Akkauntdan chiqdingiz 👋'); break;
     case 'reset': { const keep = DB; DB = Object.assign(fresh(keep), { me: keep.me, sess: keep.sess, users: keep.users.filter(x => x.id === keep.me) }); SYNC.sig = ''; save(); toast('Yangilanmoqda…'); await sync(true); render(); break; }
     case 'newgroup': sheet(`<h2>Yangi guruh</h2><form class="stack" data-form="group">
       <div class="field"><label for="gn">Nomi</label><input class="inp" id="gn" required maxlength="40" placeholder="Masalan: SAT tayyorgarlik"></div>
@@ -1555,7 +1569,7 @@ document.addEventListener('click', async e => {
       SESSION.termsOk = true; DB.sess = SESSION; save(); $('#modal-root').innerHTML = ''; toast('Rahmat! Xush kelibsiz 👋'); render(); break;
     }
     case 'logoutask': sheet(`<h2>Akkauntdan chiqasizmi? 👋</h2><p class="muted" style="margin:-4px 0 14px">Qayta kirish uchun Google yoki username va parol kerak bo‘ladi.</p>
-      <div class="stack" style="gap:8px"><button class="btn full" style="background:var(--danger,#E8423A);color:#fff" data-act="logout">Ha, chiqish</button><button class="btn ghost full" data-act="close-sheet-btn">Bekor qilish</button></div>`); break;
+      <div class="stack" style="gap:8px"><button class="btn full" style="background:var(--danger,#E8423A);color:#fff" data-act="logout">Ha, chiqish</button><button class="btn ghost full" data-act="logout" data-all="1">🔒 Barcha qurilmalardan chiqish</button><button class="btn ghost full" data-act="close-sheet-btn">Bekor qilish</button></div>`); break;
     case 'solo': { const g = GAMES.find(x => x.k === id); if (g) g.open({ solo: true, onEnd: () => null }); break; }
     case 'gamesend': {
       const g = GAMES.find(x => x.k === id); if (!g || !u) break;
