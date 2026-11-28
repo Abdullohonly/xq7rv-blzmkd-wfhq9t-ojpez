@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.15.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.15.4'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -94,12 +94,12 @@ function setMaint(v) {
   const was = MAINT; MAINT = v || null;
   const owner = !!(SESSION && SESSION.isOwner);
   let ov = document.getElementById('maint');
-  const r0 = route()[0], adminDoor = !SESSION && (r0 === 'admin' || r0 === 'auth');
+  const r0 = route()[0], adminDoor = r0 === 'admin' || r0 === 'auth'; // admin eshigi: har qanday holatda ochiq
   if (MAINT && !owner && !MAINT_AUTH && !adminDoor) {
     if (!ov) { ov = document.createElement('div'); ov.id = 'maint'; ov.setAttribute('role', 'alertdialog'); document.body.appendChild(ov); }
     ov.innerHTML = `<div class="mt-box"><div class="mt-ico" aria-hidden="true">🛠</div><h1>Sayt ustida ishlanmoqda</h1><p class="mt-msg">${esc(MAINT)}</p>
       <div class="mt-dots" aria-hidden="true"><i></i><i></i><i></i></div><p class="muted" style="margin:0 0 18px">Ma’lumotlaringiz xavfsiz. Ishlar tugashi bilan sahifa o‘zi yangilanadi.</p>
-      <a class="btn acc full" href="${LANDING}">Lahzam bilan tanishish</a>${SESSION ? '' : '<button class="link-btn" style="margin-top:12px" data-act="maintlogin">Admin kirishi</button>'}</div>`;
+      <a class="btn acc full" href="${LANDING}">Lahzam bilan tanishish</a><button class="link-btn" style="margin-top:12px" data-act="maintlogin">Admin kirishi</button></div>`;
   } else if (ov) ov.remove();
   let bar = document.getElementById('maint-bar');
   if (MAINT && owner) { if (!bar) { bar = document.createElement('a'); bar.id = 'maint-bar'; bar.href = '/musoojon'; bar.setAttribute('data-link', ''); document.body.appendChild(bar); } bar.textContent = '🛠 Texnik rejim yoqilgan: boshqalar saytni ko‘ra olmaydi'; }
@@ -1435,7 +1435,7 @@ function admin() {
       <button class="btn acc full">${setup ? 'O‘rnatish' : 'Kirish'}</button>`}
     </form></div></div>`;
   }
-  if (!isAdmin()) return `<div class="shell">${backBar('Admin')}<div class="pad"><div class="card stack"><b style="font-family:var(--head);font-size:18px">Ruxsat yo‘q 🔒</b><p class="muted" style="margin:0">Admin panelga faqat Lahzam egasi o‘z Gmail'i bilan kirgan holda kira oladi.</p>${me() ? '<a href="/" data-link class="btn ghost">Bosh sahifaga</a>' : '<a href="/kirish" data-link class="btn acc">Kirish</a>'}</div></div></div>`;
+  if (!isAdmin()) return `<div class="shell">${backBar('Admin')}<div class="pad"><div class="card stack"><b style="font-family:var(--head);font-size:18px">Ruxsat yo‘q 🔒</b><p class="muted" style="margin:0">Admin panelga faqat Lahzam egasi o‘z Gmail'i bilan kirgan holda kira oladi.</p>${SESSION ? `<p class="muted" style="margin:0">Hozir <b>@${esc(SESSION.username || '')}</b> akkauntidasiz.</p><button class="btn acc" data-act="logout">Chiqib, egasi sifatida kirish</button>` : '<a href="/kirish" data-link class="btn acc">Kirish</a>'}</div></div></div>`;
   const t = now(), users = realUsers();
   const msgs = DB.chats.reduce((n, c) => n + c.msgs.length, 0);
   const activeToday = new Set([...DB.posts.filter(p => t - p.t < DAY).map(p => p.uid), ...DB.chats.flatMap(c => c.msgs.filter(m => !m.sys && t - m.t < DAY).map(m => m.uid))]).size;
