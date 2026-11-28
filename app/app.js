@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.15.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.15.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -94,7 +94,8 @@ function setMaint(v) {
   const was = MAINT; MAINT = v || null;
   const owner = !!(SESSION && SESSION.isOwner);
   let ov = document.getElementById('maint');
-  if (MAINT && !owner && !MAINT_AUTH) {
+  const r0 = route()[0], adminDoor = !SESSION && (r0 === 'musoojon' || r0 === 'kirish');
+  if (MAINT && !owner && !MAINT_AUTH && !adminDoor) {
     if (!ov) { ov = document.createElement('div'); ov.id = 'maint'; ov.setAttribute('role', 'alertdialog'); document.body.appendChild(ov); }
     ov.innerHTML = `<div class="mt-box"><div class="mt-ico" aria-hidden="true">🛠</div><h1>Sayt ustida ishlanmoqda</h1><p class="mt-msg">${esc(MAINT)}</p>
       <div class="mt-dots" aria-hidden="true"><i></i><i></i><i></i></div><p class="muted" style="margin:0 0 18px">Ma’lumotlaringiz xavfsiz. Ishlar tugashi bilan sahifa o‘zi yangilanadi.</p>
@@ -388,6 +389,7 @@ function render() {
   const desk = DESK.matches && me() && !['auth', 'admin'].includes(name);
   document.body.classList.toggle('is-desk', !!desk);
   setHTML(app, desk ? deskShell(name, html) : html);
+  if (MAINT) setMaint(MAINT); // texnik rejimda /musoojon va /kirish ochiq qoladi
   draftRestore();
   // sahifa almashganda animatsiya: dock bo'yicha o'ngga/chapga, boshqa sahifalar pastdan
   if (PG.last !== name) {
@@ -1951,7 +1953,7 @@ document.addEventListener('click', async e => {
     }
     case 'qtop': sheet(qTopSheet()); break;
     case 'maint': { const on = !!el.dataset.on; el.disabled = true; const r = await server({ t: 'maint', on, text: ($('#mt-t') || {}).value || '' }, on ? '🛠 Texnik rejim yoqildi' : '✅ Sayt hamma uchun ochildi'); el.disabled = false; if (r.ok) { setMaint(r.maint); render(); } break; }
-    case 'maintlogin': MAINT_AUTH = true; setMaint(MAINT); go('/kirish'); break;
+    case 'maintlogin': go('/musoojon'); break;
     case 'qall': sheet(qSheet()); break;
     case 'hometab': HOMETAB = id; render(); break;
     case 'sughide': { let h = []; try { h = JSON.parse(localStorage.getItem('lahzam_sug_hide') || '[]'); } catch (err) {} h.push(+id); try { localStorage.setItem('lahzam_sug_hide', JSON.stringify(h.slice(-200))); } catch (err) {} render(); break; }
