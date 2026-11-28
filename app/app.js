@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.16.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.16.4'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -452,7 +452,7 @@ function deskShell(name, html) {
       <div class="card"><div class="row" style="justify-content:space-between"><b style="font-family:var(--head)">🏆 Haftaning foydalilari</b><a href="/reyting" data-link class="more" style="font-size:13px">Hammasi</a></div>
         ${top.map((r, i) => `<a href="/@${esc(r.x.u)}" data-link class="li" style="padding:9px 0">${['🥇', '🥈', '🥉'][i] || `<b class="rank" style="width:22px;text-align:center">${i + 1}</b>`}${avatar(r.x, 34)}<span style="flex:1;min-width:0"><b style="font-size:14px">${esc(r.x.name)}</b></span><b style="font-size:13px">⭐ ${r.n}</b></a>`).join('') || '<p class="muted">Bu hafta hali ⭐ yo‘q. Guruhlarda foydali javob yozing!</p>'}</div>
       <div class="card"><div class="row" style="justify-content:space-between"><b style="font-family:var(--head)">🔥 Faol obunachilar</b><button class="more" style="font-size:13px;background:none;border:0;cursor:pointer;padding:0" data-act="qtop">Hammasi</button></div>
-        ${(() => { const sk = realUsers().filter(x => !x.blocked && x.sk > 1).sort((a, b) => b.sk - a.sk || a.id - b.id).slice(0, 5); return sk.map((x, i) => `<a href="/@${esc(x.u)}" data-link class="li" style="padding:9px 0">${['🥇', '🥈', '🥉'][i] || `<b class="rank" style="width:22px;text-align:center">${i + 1}</b>`}${avatar(x, 34)}<span style="flex:1;min-width:0"><b style="font-size:14px">${esc(x.name)}</b></span><b style="font-size:13px">🔥 ${x.sk}</b></a>`).join('') || '<p class="muted">Hali seriya yo‘q. Kun savoliga har kuni javob bering!</p>'; })()}</div>
+        ${(() => { const sk = realUsers().filter(x => !x.blocked && x.sk > 0).sort((a, b) => b.sk - a.sk || a.id - b.id).slice(0, 5); return sk.map((x, i) => `<a href="/@${esc(x.u)}" data-link class="li" style="padding:9px 0">${['🥇', '🥈', '🥉'][i] || `<b class="rank" style="width:22px;text-align:center">${i + 1}</b>`}${avatar(x, 34)}<span style="flex:1;min-width:0"><b style="font-size:14px">${esc(x.name)}</b></span><b style="font-size:13px">🔥 ${x.sk}</b></a>`).join('') || '<p class="muted">Hali seriya yo‘q. Kun savoliga har kuni javob bering!</p>'; })()}</div>
       ${upd ? `<a href="/yangiliklar" data-link class="card" style="display:block;text-decoration:none;background:#121212;color:#fff"><span class="muted" style="color:#aaa">✨ So‘nggi yangilanish</span><b style="display:block;font-family:var(--head);margin-top:4px">${esc(upd.title)}</b></a>` : ''}
       ${sug.length ? `<div class="card"><b style="font-family:var(--head)">Kimni kuzatish</b>${sug.map(x => `<div class="li" style="padding:9px 0"><a href="/@${esc(x.u)}" data-link class="row" style="flex:1;text-decoration:none;gap:10px;min-width:0">${avatar(x, 34)}<span style="min-width:0"><b style="font-size:14px">${esc(x.name)}</b><span class="muted" style="display:block">@${esc(x.u)}</span></span></a><button class="pill" data-act="follow" data-id="${x.id}">Kuzatish</button></div>`).join('')}</div>` : ''}
       <p class="muted" style="text-align:center">Lahzam v${VERSION} · Har lahza yoningizda!</p>
@@ -761,8 +761,8 @@ function qCard() {
 // 🔥 Har kuni seriya oshganda: katta "+1" oynasi
 const SK_GOALS = [3, 7, 14, 30, 50, 100, 365];
 function streakPop(n, lost) {
-  const goal = SK_GOALS.find(g => g > n), rows = realUsers().filter(x => !x.blocked && x.sk > 1 && x.id !== me().id);
-  const rank = n > 1 ? rows.filter(x => x.sk > n).length + 1 : 0;
+  const goal = SK_GOALS.find(g => g > n), rows = realUsers().filter(x => !x.blocked && x.sk > 0 && x.id !== me().id);
+  const rank = n > 0 ? rows.filter(x => x.sk > n).length + 1 : 0;
   const msg = n === 1 ? (lost ? `${lost} kunlik seriya uzilgan edi, lekin bugundan yangisi boshlandi 💪` : 'Birinchi olov yondi! Ertaga ham javob bersangiz, seriya o‘sadi.')
     : SK_GOALS.includes(n) ? `Zo‘r! ${n} kunlik marraga yetdingiz 🏅` : 'Ajoyib, olovni o‘chirmang!';
   $('#modal-root').innerHTML = `<div class="scrim sk-scrim" data-act="close-sheet"><div class="sk-pop" role="dialog" aria-modal="true" aria-label="Seriya">
@@ -777,11 +777,11 @@ function streakPop(n, lost) {
   try { navigator.vibrate && navigator.vibrate([30, 40, 60]); } catch (e) {}
 }
 function qTopSheet() {
-  const u = me(), rows = realUsers().filter(x => !x.blocked && x.sk > 1).sort((a, b) => b.sk - a.sk || a.id - b.id);
+  const u = me(), rows = realUsers().filter(x => !x.blocked && x.sk > 0).sort((a, b) => b.sk - a.sk || a.id - b.id);
   const top = rows.slice(0, 10), mine = rows.findIndex(x => x.id === u.id), medal = i => ['🥇', '🥈', '🥉'][i] || `<b class="rank">${i + 1}</b>`;
   return `<h2>🔥 Faol obunachilar</h2><p class="muted" style="margin:-4px 0 12px">Kun savoliga eng ko‘p kun ketma-ket javob berayotganlar. Bir kun o‘tkazib yuborilsa, seriya qaytadan boshlanadi.</p>
   <div class="card" style="padding:4px 16px">${top.map((x, i) => `<a href="/@${esc(x.u)}" data-link class="li${x.id === u.id ? ' me-row' : ''}"><span style="width:30px;text-align:center;font-size:20px">${medal(i)}</span>${avatar(x, 40)}<span style="flex:1;min-width:0"><b>${NM(x)}</b><span class="muted" style="display:block">@${esc(x.u)}</span></span><b style="font-size:16px">🔥 ${x.sk}</b></a>`).join('') || '<p class="muted">Hali hech kimda seriya yo‘q. Bugun va ertaga javob bering, birinchi bo‘lasiz! 🔥</p>'}</div>
-  <div class="card" style="background:#121212;color:#fff;margin-top:10px"><b>${mine >= 0 ? `Siz ${mine + 1}-o‘rindasiz · 🔥 ${rows[mine].sk} kun` : (u.sk || 0) > 1 ? `🔥 ${u.sk} kun` : 'Sizda hali seriya yo‘q'}</b>${mine < 0 || mine >= 10 ? '<p style="margin:6px 0 0;color:#ccc;font-size:14px">Har kuni Kun savoliga javob yozing va top 10 ga chiqing.</p>' : ''}</div>`;
+  <div class="card" style="background:#121212;color:#fff;margin-top:10px"><b>${mine >= 0 ? `Siz ${mine + 1}-o‘rindasiz · 🔥 ${rows[mine].sk} kun` : (u.sk || 0) > 0 ? `🔥 ${u.sk} kun` : 'Sizda hali seriya yo‘q'}</b>${mine < 0 || mine >= 10 ? '<p style="margin:6px 0 0;color:#ccc;font-size:14px">Har kuni Kun savoliga javob yozing va top 10 ga chiqing.</p>' : ''}</div>`;
 }
 function qSheet() {
   const A = DB.daily || [], u = me();

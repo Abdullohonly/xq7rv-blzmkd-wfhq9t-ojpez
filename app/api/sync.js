@@ -146,7 +146,7 @@ export default async function handler(req, res) {
         star: u.is_star || undefined, starColor: u.is_star ? (u.star_color || 'tilla') : undefined, cover: u.is_star && u.cover ? u.cover : undefined, pin: u.is_star && u.pinned_post ? 'p' + u.pinned_post : undefined,
         // ⭐ Ko'rinmas rejim: onlayn holat va oxirgi ko'rilgan vaqt boshqalarga ko'rinmaydi
         on: u.online && Number(u.id) !== uid && !(u.is_star && u.hide_online) || undefined, ls: u.ls && !(u.is_star && u.hide_online && Number(u.id) !== uid) ? Number(u.ls) : undefined,
-        bd: u.bday || undefined, sk: u.sk > 1 ? u.sk : undefined,
+        bd: u.bday || undefined, sk: u.sk > 0 ? u.sk : undefined,
         dmFrom: u.dm_from === 'fol' ? 'fol' : undefined, rrOff: u.rr_off || undefined, warns: admin ? u.warns : undefined
       })),
       follows: follows.map(f => [Number(f.follower_id), Number(f.followee_id)]),
