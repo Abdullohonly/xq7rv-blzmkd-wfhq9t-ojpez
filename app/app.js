@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.15.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.15.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -94,7 +94,7 @@ function setMaint(v) {
   const was = MAINT; MAINT = v || null;
   const owner = !!(SESSION && SESSION.isOwner);
   let ov = document.getElementById('maint');
-  const r0 = route()[0], adminDoor = !SESSION && (r0 === 'musoojon' || r0 === 'kirish');
+  const r0 = route()[0], adminDoor = !SESSION && (r0 === 'admin' || r0 === 'auth');
   if (MAINT && !owner && !MAINT_AUTH && !adminDoor) {
     if (!ov) { ov = document.createElement('div'); ov.id = 'maint'; ov.setAttribute('role', 'alertdialog'); document.body.appendChild(ov); }
     ov.innerHTML = `<div class="mt-box"><div class="mt-ico" aria-hidden="true">🛠</div><h1>Sayt ustida ishlanmoqda</h1><p class="mt-msg">${esc(MAINT)}</p>
