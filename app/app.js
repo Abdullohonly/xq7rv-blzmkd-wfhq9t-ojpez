@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.18.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.19.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -403,6 +403,76 @@ function draftRestore() {
 }
 document.addEventListener('input', e => { const k = draftKey(e.target); if (!k) return; try { e.target.value.trim() ? localStorage.setItem(k, e.target.value.slice(0, 2000)) : localStorage.removeItem(k); } catch (err) {} });
 document.addEventListener('submit', e => { const el = e.target.querySelector('#msg-in,#post-text,#reply-text'), k = draftKey(el); if (k) try { localStorage.removeItem(k); } catch (err) {} }, true);
+/* 🧭 Birinchi kirishda tanishuv: tugmalarni birma-bir yoritib ko'rsatadi (telefon va kompyuter uchun alohida joylar) */
+const TOUR_KEY = 'lahzam_tour1';
+const TOUR = [
+  { t: '👋 Lahzamga xush kelibsiz!', d: 'Qisqa tanishuv: asosiy tugmalar qayerdaligini ko‘rsatamiz. Istalgan payt “Tugatish”ni bosishingiz mumkin.' },
+  { m: '.dock .plus', k: '.side [data-act="compose"]', t: '➕ Yangi post', d: 'Fikr, rasm yoki 24 soatlik Lahza joylash shu yerdan.' },
+  { m: '.dock a[href="/"]', k: '.side a.snav[href="/"]', t: '🏠 Ochiq maydon', d: 'Hammaning postlari, Kun savoli va Lahzalar shu yerda.' },
+  { m: '.dock a[href="/guruhlar"]', k: '.side a.snav[href="/guruhlar"]', t: '👥 Guruhlar', d: 'Qiziqishlaringiz bo‘yicha guruhlarga qo‘shiling yoki o‘zingiz oching.' },
+  { m: '.dock a[href="/shaxsiy"]', k: '.side a.snav[href="/shaxsiy"]', t: '💬 Shaxsiy chat', d: 'Do‘stlaringiz bilan yakkama-yakka yozishing.' },
+  { m: '.top a[href="/qidiruv"]', k: '.side a.snav[href="/qidiruv"]', t: '🔍 Qidiruv', d: 'Odamlar, postlar va #teglarni toping.' },
+  { m: '.top a[href="/bildirishnomalar"]', k: '.side a.snav[href="/bildirishnomalar"]', t: '🔔 Bildirishnomalar', d: 'Kim yoqtirdi, javob yozdi yoki sizni belgiladi — hammasi shu yerda.' },
+  { m: '.top [data-act="topmenu"]', k: '.side a.snav[href="/oyinlar"]', t: '🎮 O‘yinlar va boshqalar', d: 'Tetris, Flappy, 2048, Mina, X/O va reyting.' },
+  { m: '.dock a[href="/yangiliklar"]', k: '.side a.snav[href="/yangiliklar"]', t: '✨ Lahzam Updates', d: 'Ilovaga nima yangi qo‘shilganini shu yerdan bilib turasiz.' },
+  { m: '.top-av', k: '.side-me', t: '🙂 Profilingiz', d: 'Rasm, bio va postlaringiz. Sozlamalar ham profil orqali ochiladi.' },
+];
+const TR = { i: 0, el: null, raf: 0 };
+function tourVisible(sel) { if (!sel) return null; for (const e of document.querySelectorAll(sel)) { const r = e.getBoundingClientRect(); if (r.width && r.height && getComputedStyle(e).visibility !== 'hidden') return e; } return null; }
+function tourTarget(st) { return st && (st.m || st.k) ? (DESK.matches ? tourVisible(st.k) || tourVisible(st.m) : tourVisible(st.m) || tourVisible(st.k)) : null; }
+function tourMaybe() {
+  try { if (localStorage.getItem(TOUR_KEY)) return; } catch (e) { return; }
+  clearTimeout(TR.wait);
+  TR.wait = setTimeout(() => {
+    if (TR.el || !me() || route()[0] !== 'home') return;
+    if (document.querySelector('.scrim, #lz-splash, #lz-view, .maint')) return tourMaybe();
+    tourOpen(0);
+  }, 1500);
+}
+function tourOpen(i) {
+  if (!TR.el) {
+    TR.el = document.createElement('div'); TR.el.id = 'lz-tour'; TR.el.setAttribute('role', 'dialog'); TR.el.setAttribute('aria-modal', 'true'); TR.el.setAttribute('aria-label', 'Lahzam bilan tanishuv');
+    TR.el.innerHTML = '<div class="tr-hole"></div><div class="tr-card" tabindex="-1" aria-live="polite"></div>';
+    document.body.appendChild(TR.el);
+    TR.el.addEventListener('click', e => { const b = e.target.closest('[data-tr]'); if (!b || b.disabled) return; const a = b.dataset.tr; a === 'next' ? tourGo(TR.i + 1) : a === 'prev' ? tourGo(TR.i - 1) : tourEnd(); });
+    TR.key = e => { if (!TR.el) return; if (e.key === 'Escape') tourEnd(); else if (e.key === 'ArrowRight') tourGo(TR.i + 1); else if (e.key === 'ArrowLeft') tourGo(TR.i - 1); };
+    document.addEventListener('keydown', TR.key);
+    const loop = () => { if (!TR.el) return; tourPlace(); TR.raf = requestAnimationFrame(loop); }; TR.raf = requestAnimationFrame(loop);
+  }
+  tourGo(i);
+}
+function tourGo(i) {
+  if (!TR.el) return; if (i >= TOUR.length) return tourEnd();
+  TR.i = Math.max(0, i); const st = TOUR[TR.i], last = TR.i === TOUR.length - 1, c = TR.el.querySelector('.tr-card');
+  c.innerHTML = `<div class="tr-step">${TR.i + 1} / ${TOUR.length}</div><h3>${st.t}</h3><p>${st.d}</p>
+    <div class="tr-dots" aria-hidden="true">${TOUR.map((_, k) => `<i class="${k === TR.i ? 'on' : ''}"></i>`).join('')}</div>
+    <div class="tr-btns">${last ? '' : '<button class="tr-b ghost" data-tr="end">Tugatish</button>'}<span style="flex:1"></span>
+      <button class="tr-b ghost" data-tr="prev" ${TR.i ? '' : 'disabled'}>‹ Oldingi</button>
+      <button class="tr-b acc" data-tr="${last ? 'end' : 'next'}">${last ? 'Tugatish ✓' : 'Keyingi ›'}</button></div>`;
+  TR.pos = null; tourPlace(); c.querySelector('.tr-b.acc').focus({ preventScroll: true });
+}
+function tourPlace() {
+  const t = tourTarget(TOUR[TR.i]), hole = TR.el.querySelector('.tr-hole'), c = TR.el.querySelector('.tr-card');
+  const W = innerWidth, H = innerHeight, cw = Math.min(340, W - 24), ch = c.offsetHeight;
+  let key, x, y;
+  if (!t) {
+    key = ['c', W, H, ch].join(); if (key === TR.pos) return;
+    hole.style.cssText = `left:${W / 2}px;top:${H / 2}px;width:0;height:0`; x = (W - cw) / 2; y = (H - ch) / 2;
+  } else {
+    const r = t.getBoundingClientRect(), pd = 6;
+    key = [r.left, r.top, r.width, r.height, W, H, ch].map(Math.round).join(); if (key === TR.pos) return;
+    hole.style.cssText = `left:${r.left - pd}px;top:${r.top - pd}px;width:${r.width + pd * 2}px;height:${r.height + pd * 2}px`;
+    x = Math.min(Math.max(12, r.left + r.width / 2 - cw / 2), W - cw - 12);
+    y = r.bottom + 16 + ch < H - 12 ? r.bottom + 16 : r.top - 16 - ch;
+    if (y < 12) { y = Math.min(H - ch - 12, Math.max(12, r.top)); x = r.right + 16 + cw < W - 12 ? r.right + 16 : Math.max(12, r.left - 16 - cw); }
+  }
+  TR.pos = key; c.style.cssText = `width:${cw}px;left:${x}px;top:${y}px`;
+}
+function tourEnd() {
+  try { localStorage.setItem(TOUR_KEY, '1'); } catch (e) {}
+  cancelAnimationFrame(TR.raf); document.removeEventListener('keydown', TR.key);
+  if (TR.el) { TR.el.remove(); TR.el = null; }
+}
 function render() {
   document.documentElement.dataset.theme = DB.theme;
   document.documentElement.dataset.fs = DB.fs || 'md';
@@ -428,6 +498,7 @@ function render() {
   slideNav();
   after[name] && after[name](arg);
   if (SESSION && SESSION.termsOk === false && name !== 'doc') consentGate();
+  if (me() && name === 'home') tourMaybe();
   save();
 }
 /* Kompyuter ko'rinishi: chapda menyu, o'rtada asosiy qism, o'ngda reyting va yangiliklar */
@@ -1425,6 +1496,7 @@ function settings() {
       ${standalone() ? '' : `<button class="li set-row" style="width:100%;text-align:left" data-act="install"><span style="flex:1"><b>📲 Ilovani o‘rnatish</b><span class="muted" style="display:block">Lahzam telefon ekraningizda alohida ilova bo‘ladi</span></span>›</button>`}
       <a href="/oyinlar" data-link class="li set-row"><span style="flex:1"><b>🎮 O‘yinlar</b><span class="muted" style="display:block">Flappy, Tetris va 2048</span></span>›</a>
       <button class="li set-row" style="width:100%;text-align:left" data-act="opensaved"><span style="flex:1"><b>🔖 Saqlangan xabarlar</b><span class="muted" style="display:block">Faqat siz ko‘radigan shaxsiy chat</span></span>›</button>
+      <button class="li set-row" style="width:100%;text-align:left" data-act="tour"><span style="flex:1"><b>🧭 Tanishuvni qayta ko‘rish</b><span class="muted" style="display:block">Asosiy tugmalar qayerdaligini ko‘rsatadi</span></span>›</button>
       <a href="/shartlar" data-link class="li set-row"><span style="flex:1"><b>📄 Foydalanish shartlari</b></span>›</a>
       <a href="/maxfiylik" data-link class="li set-row"><span style="flex:1"><b>🔒 Maxfiylik siyosati</b></span>›</a>
       <a href="/qoidalar" data-link class="li set-row"><span style="flex:1"><b>🤝 Jamiyat qoidalari</b></span>›</a>
@@ -1694,6 +1766,7 @@ document.addEventListener('click', async e => {
       sheet(`<h2>Mening QR kodim</h2><p class="muted" style="margin-top:-6px">Buni faqat siz ko‘rasiz. Do‘stingiz skanerlasa, profilingiz ochiladi.</p><div class="card" style="display:flex;justify-content:center" id="qr-box">Yuklanmoqda…</div><p style="text-align:center;font-weight:700">${esc(location.host)}/@${esc(u.u)}</p><button class="btn ghost full" data-act="copy" data-text="${esc(url)}">Havolani nusxalash</button>`);
       loadQR(url); break;
     }
+    case 'tour': { try { localStorage.removeItem(TOUR_KEY); } catch (e) {} go('/'); setTimeout(() => tourOpen(0), 500); break; }
     case 'theme': { DB.theme = DB.theme === 'dark' ? 'light' : 'dark'; save(); closeSheet(); const y = scrollY; render(); scrollTo(0, y); break; }
     case 'logout': $('#modal-root').innerHTML = ''; el.disabled = true; try { localStorage.setItem('lahzam_noauto', '1'); window.google && google.accounts && google.accounts.id.disableAutoSelect(); } catch (e) {} await api(el.dataset.all ? 'auth/me?all=1' : 'auth/me', { method: 'DELETE' }); ADM = { checked: false, configured: false, verified: false }; adoptSession(null); AUTH = { step: 'start' }; save(); $('#modal-root').innerHTML = ''; go('/kirish'); toast('Akkauntdan chiqdingiz 👋'); break;
     case 'reset': { const keep = DB; DB = Object.assign(fresh(keep), { me: keep.me, sess: keep.sess, users: keep.users.filter(x => x.id === keep.me) }); SYNC.sig = ''; save(); toast('Yangilanmoqda…'); await sync(true); render(); break; }
