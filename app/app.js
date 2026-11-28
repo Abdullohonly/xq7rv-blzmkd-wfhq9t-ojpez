@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.17.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.17.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -2171,7 +2171,7 @@ document.addEventListener('submit', async e => {
     let poll = null;
     if (CMP.poll) { const q = $('#pp-q').value.trim(), opts = [...document.querySelectorAll('.pp-o')].map(x => x.value.trim()).filter(Boolean); if (!q || opts.length < 2) return toast('So‘rovnomaga savol va kamida 2 variant yozing', true); poll = { q, opts }; }
     const quote = CMP.quote, at = CMP.at;
-    if (/(^|[^\w])@everyone(?![\w])/i.test(text) && !isOwnerSession()) return toast('Ochiq maydonda @everyone faqat Lahzam jamoasi uchun', true);
+    if (/(^|[^\w])@everyone(?![\w])/i.test(text) && !(u.star || isOwnerSession())) return toast('📣 @everyone faqat ⭐ Yulduz a’zolari uchun', true);
     if (!guard('post', text.trim() || (img ? 'rasm' : '') || (poll ? poll.q : '') || (quote ? 'iqtibos' : ''))) return save();
     const lahza = $('#post-lahza').checked, tmp = { id: 'tmp' + uid(), uid: u.id, text: text.trim(), img, t: at || now(), lahza, likes: [], views: 1, seen: true, replies: [], quote: quote || undefined, sched: at || undefined, poll: poll ? { q: poll.q, opts: poll.opts.map(t => ({ t, v: [] })) } : undefined };
     DB.posts.unshift(tmp); ta.value = ''; POSTIMG = null; CMP.poll = null; CMP.quote = null; CMP.at = null; render(); toast(at ? '⏰ Rejalashtirildi' : img ? 'Rasm yuklanmoqda…' : 'Joylandi ✅');
@@ -2195,7 +2195,7 @@ document.addEventListener('submit', async e => {
     }
     if (!c.members.includes(u.id)) { toast('Yozish uchun guruhga qo‘shiling', true); return; }
     if (!guard('msg', text)) return save();
-    if (c.type === 'group' && /(^|[^\w])@everyone(?![\w])/i.test(text) && !(isAdmin() || c.admin === u.id)) { toast('Faqat guruh admini @everyone ishlata oladi', true); return; }
+    if (c.type === 'group' && /(^|[^\w])@everyone(?![\w])/i.test(text) && !(u.star || isOwnerSession())) { toast('📣 @everyone faqat ⭐ Yulduz a’zolari uchun', true); return; }
     const isXo = /@xo(?!\w)/i.test(text), game = !isXo && /@(flappy|tetris|2048|mines)(?!\w)/i.test(text), replyTo = CH.reply && !String(CH.reply).startsWith('tmp') ? CH.reply : null;
     c.msgs.push({ id: 'tmp' + uid(), tmp: true, uid: u.id, text: text.trim(), t: now(), reacts: {}, game, ...(isXo ? { xo: { x: u.id, o: null, b: '.........', t: 'x', w: null } } : {}), ...(replyTo ? { replyTo } : {}) });
     CH.reply = null; inp.value = '';

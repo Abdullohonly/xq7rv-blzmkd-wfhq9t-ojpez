@@ -87,11 +87,11 @@ export default async function handler(req, res) {
         if (b.at) { if (!isStar(me)) return send(res, 403, { error: 'star', message: 'Postni rejalashtirish faqat ⭐ Yulduz a’zolari uchun' });
           const t = Number(b.at); if (!(t > Date.now() + 60e3 && t < Date.now() + 30 * 864e5)) return bad(res, 'Vaqt 1 daqiqadan 30 kungacha bo‘lishi kerak'); at = new Date(t).toISOString(); }
         if (!body && !img && !poll && !quote) return bad(res, 'Avval biror narsa yozing');
-        // 📣 @everyone Ochiq maydonda: hamma foydalanuvchiga push — faqat Lahzam egasi, soatiga bir marta
+        // 📣 @everyone Ochiq maydonda: hamma foydalanuvchiga push — faqat ⭐ Yulduz a'zolari (va ega), har kimga soatiga bir marta
         const pubEvr = /(^|[^\w])@everyone(?![\w])/i.test(body) && !at;
         if (pubEvr) {
-          if (!isOwnerEmail(me.email)) return send(res, 403, { error: 'everyone', message: 'Ochiq maydonda @everyone faqat Lahzam jamoasi uchun' });
-          if (!(await rateLimit('evr:pub', 1, 3600))) return send(res, 429, { error: 'rate', message: '@everyone ni soatiga bir marta ishlatish mumkin' });
+          if (!isStar(me) && !isOwnerEmail(me.email)) return send(res, 403, { error: 'star', message: '📣 @everyone faqat ⭐ Yulduz a’zolari uchun' });
+          if (!(await rateLimit('evr:pub:' + uid, 1, 3600))) return send(res, 429, { error: 'rate', message: '@everyone ni soatiga bir marta ishlatish mumkin' });
         }
         // ⏳ Lahza cheklovi: 24 soatda oddiy userga 1 ta, ⭐ Yulduz a'zosiga 8 ta
         if (b.lahza) { const lim = isStar(me) ? 8 : 1, [{ n }] = await db`select count(*)::int as n from posts where user_id = ${uid} and is_lahza and created_at > now() - interval '1 day'`;
@@ -308,10 +308,10 @@ export default async function handler(req, res) {
           const ts = Number(b.at); if (!Number.isFinite(ts) || ts < Date.now() + 50e3 || ts > Date.now() + 30 * 864e5) return bad(res, 'Vaqt 1 daqiqadan 30 kungacha bo‘lsin');
           at = new Date(ts);
         }
-        // 📣 @everyone: guruhdagi hammaga bildirishnoma — faqat guruh admini, 10 daqiqada bir marta
+        // 📣 @everyone: guruhdagi hammaga bildirishnoma — faqat ⭐ Yulduz a'zolari (va ega), guruhda 10 daqiqada bir marta
         const everyone = c.kind === 'group' && /(^|[^\w])@everyone(?![\w])/i.test(body);
         if (everyone) {
-          if (!(admin || Number(c.admin_id) === uid)) return send(res, 403, { error: 'everyone', message: 'Faqat guruh admini @everyone ishlata oladi' });
+          if (!isStar(me) && !isOwnerEmail(me.email)) return send(res, 403, { error: 'star', message: '📣 @everyone faqat ⭐ Yulduz a’zolari uchun' });
           if (!(await rateLimit('evr:' + cid, 1, 600))) return send(res, 429, { error: 'rate', message: '@everyone ni 10 daqiqada bir marta ishlatish mumkin' });
         }
         const [m] = at ? await db`insert into messages (chat_id, user_id, body, is_game, reply_to, img, poll, fwd_user, created_at, scheduled)
