@@ -1,6 +1,6 @@
 /* Lahzam service worker: avval internetdan oladi (har doim yangi versiya), internet yo'q bo'lsa keshdan */
-const CACHE = 'lahzam-1.17.2';
-const SHELL = ['/', '/index.html', '/app.js?v=88', '/boot.js?v=88', '/flappy.js?v=88', '/tetris.js?v=88', '/game2048.js?v=88', '/mines.js?v=88', '/xo.js?v=88', '/stickers.js?v=88', '/docs.js?v=88', '/icon-192.png', '/styles.css?v=88', '/icon.svg'];
+const CACHE = 'lahzam-1.17.3';
+const SHELL = ['/', '/index.html', '/app.js?v=89', '/boot.js?v=89', '/flappy.js?v=89', '/tetris.js?v=89', '/game2048.js?v=89', '/mines.js?v=89', '/xo.js?v=89', '/stickers.js?v=89', '/docs.js?v=89', '/icon-192.png', '/styles.css?v=89', '/icon.svg'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
