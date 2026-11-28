@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.17.4'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.18.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -228,18 +228,27 @@ function translit(text) {
   }).join('');
 }
 // Matnni bo'laklarga ajratib, har birini alohida xavfsiz chiqaramiz: havola ichiga @mention tushib qolmaydi
-function linkify(text) {
-  const t = translit(String(text ?? '')), re = /(https?:\/\/[^\s<>"']+)|(^|[^\w/])@([a-z0-9._]{3,20})|(^|\s)#([\p{L}0-9_]{2,30})/giu;
+// 🔗 lk: true → ⭐ Yulduz muallif: https:// va t.me/... kabi oddiy domenlar ham bosiladigan havola; false → havola oddiy matn; undefined → faqat https://
+const BARE_URL = /^(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:uz|com|ru|net|org|me|io|app|dev|link|tv|co|info|gg|xyz|site|online)(?:\/[^\s<>"']*)?/i;
+function linkify(text, lk) {
+  const t = translit(String(text ?? '')), re = /(https?:\/\/[^\s<>"']+|(?<![\w@./-])(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:uz|com|ru|net|org|me|io|app|dev|link|tv|co|info|gg|xyz|site|online)(?![\w-])(?:\/[^\s<>"']*)?)|(^|[^\w/])@([a-z0-9._]{3,20})|(^|\s)#([\p{L}0-9_]{2,30})/giu;
   let out = '', last = 0, m;
   while ((m = re.exec(t))) {
+    if (m[1]) {
+      let u = m[1], tail = ''; const tm = /[.,!?;:)\]»"']+$/.exec(u); if (tm) { tail = tm[0]; u = u.slice(0, -tail.length); }
+      const bare = !/^https?:/i.test(u);
+      if (lk === false || (bare && !lk) || !u) continue;
+      out += esc(t.slice(last, m.index)) + `<a href="${esc(bare ? 'https://' + u : u)}" target="_blank" rel="noopener nofollow ugc">${esc(u)}</a>` + esc(tail);
+      last = re.lastIndex; continue;
+    }
     out += esc(t.slice(last, m.index));
-    if (m[1]) { const u = m[1]; out += `<a href="${esc(u)}" target="_blank" rel="noopener nofollow ugc">${esc(u)}</a>`; }
-    else if (m[3]) out += m[3].toLowerCase() === 'everyone' ? `${esc(m[2])}<span class="evr">📣 @everyone</span>` : `${esc(m[2])}<a href="/@${m[3]}" data-link>@${m[3]}</a>`;
+    if (m[3]) out += m[3].toLowerCase() === 'everyone' ? `${esc(m[2])}<span class="evr">📣 @everyone</span>` : `${esc(m[2])}<a href="/@${m[3]}" data-link>@${m[3]}</a>`;
     else out += `${esc(m[4])}<a href="/t/${encodeURIComponent(m[5])}" data-link>#${esc(m[5])}</a>`;
     last = re.lastIndex;
   }
   return out + esc(t.slice(last));
 }
+const canLink = a => !!(a && (a.star || a.owner));
 function avatar(u, size = 44) {
   if (!u) return '';
   if (u.owner && !u._in) { const w = size >= 80 ? 5 : size >= 44 ? 3 : 2.5; return `<span class="oav" style="--ow:${w}px">${avatar({ ...u, _in: 1 }, size - w * 2)}</span>`; }
@@ -309,7 +318,7 @@ function guard(kind, text) {
   if (clean.length > LIMIT[kind]) { toast(`Juda uzun: ko‘pi bilan ${LIMIT[kind]} belgi`, true); return false; }
   if (kind !== 'msg') {
     if (/@(flappy|tetris|2048)(?!\w)/i.test(clean)) { toast('O‘yinlar faqat chat va guruhlarda ishlaydi 🎮', true); return false; }
-    const links = (clean.match(/https?:\/\//g) || []).length;
+    const links = (clean.match(/https?:\/\/|(?<![\w@./-])(?:www\.)?[a-z0-9-]+\.(?:uz|com|ru|net|org|me|io|app|dev|link|tv|co|info|gg|xyz|site|online)(?![\w-])/gi) || []).length;
     const fresh = t - u.joined < 7 * DAY && !isOwnerSession();
     if (links > 1) { toast('Bitta postda ko‘pi bilan 1 ta havola', true); return false; }
     if (links && fresh) { toast('Yangi akkauntlar 7 kun havola qo‘ya olmaydi', true); return false; }
@@ -571,7 +580,8 @@ function starPage() {
       ${perk('🔤', '3 harfli username', 'Username’ni oyiga bir marta almashtirish, qisqa nomlar faqat siz uchun')}
       ${perk('📝', 'Uzun postlar', '1500 belgigacha post va 200 belgigacha bio')}
       ${perk('👻', 'Ko‘rinmas rejim', 'Onlayn holat va “o‘qildi” belgisini yashirish')}
-      ${perk('📌', 'Postni qadash', 'Eng yaxshi postingiz profil tepasida turadi')}</div>
+      ${perk('📌', 'Postni qadash', 'Eng yaxshi postingiz profil tepasida turadi')}
+      ${perk('🔗', 'Ishlaydigan havolalar', 'Post, javob va chatda yozgan havolangiz (masalan t.me/kanal) bosiladigan bo‘ladi')}</div>
     <div class="plans">
       <div class="card plan"><span class="muted">1 oy</span><b>5 000 so‘m</b><span class="muted" style="font-size:13px">oyiga 5 000</span></div>
       <div class="card plan best"><span class="badge-best">Foydali</span><span class="muted">3 oy</span><b>12 000 so‘m</b><span class="muted" style="font-size:13px">oyiga 4 000</span></div></div>
@@ -693,7 +703,7 @@ function postCard(p, full) {
         <div style="min-width:0"><div class="name" style="font-size:15px">${full ? NM(a) + founderPill(a) : NM({ ...a, name: String(a.name || a.u).split(' ')[0] })}</div><div class="muted">${full ? '@' + esc(a.u) + ' · ' : ''}${ago(p.t)}${p.edited ? ' · tahrirlandi' : ''}${p.lahza ? ' · <span class="lahza">Lahza · 24 soat</span>' : ''}</div></div></a>
       <button class="ibtn dark" style="width:38px;height:38px" data-act="postmenu" data-id="${p.id}" aria-label="Ko‘proq">${I.dots}</button>
     </div>
-    ${p.text ? `<p class="txt ${long ? 'clamp' : ''}" style="${full ? 'font-size:19px' : ''}">${linkify(p.text)}</p>` : ''}
+    ${p.text ? `<p class="txt ${long ? 'clamp' : ''}" style="${full ? 'font-size:19px' : ''}">${linkify(p.text, canLink(a))}</p>` : ''}
     ${p.img ? `<button class="pimg" data-act="viewpimg" data-id="${p.id}" aria-label="Rasmni kattalashtirish"><img src="${esc(p.img)}" alt="Post rasmi" loading="lazy"></button>` : ''}
     ${long ? `<a href="/p/${p.id}" data-link class="more">Ko‘proq o‘qish</a>` : ''}
     ${p.poll ? postPoll(p) : ''}${p.quote ? quoteCard(p.quote) : ''}${p.sched ? `<div class="sched-b">⏰ ${new Date(p.t).toLocaleString('uz-UZ', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} da chiqadi · faqat siz ko‘ryapsiz</div>` : ''}
@@ -734,7 +744,7 @@ function lzShow() {
   o.style.setProperty('--lzc', w.color || '#FF5A1F');
   o.innerHTML = `<div class="lz-bars">${g.ps.map((x, i) => `<i><em style="${i < LZ.pi ? 'width:100%' : i === LZ.pi ? `animation:lzBar ${dur}ms linear forwards` : ''}"></em></i>`).join('')}</div>
     <div class="lz-head"><button class="lz-av" data-act="lzgo" data-href="/@${esc(w.u)}" aria-label="@${esc(w.u)} profili">${avatar(w, 36)}</button><div style="flex:1;min-width:0"><b>${NM(w)}</b><span>${ago(p.t)} · ⏳ ${Math.max(1, Math.ceil((DAY - (now() - p.t)) / 3600e3))} soat qoldi</span></div><button class="lz-x" data-act="lzclose" aria-label="Yopish">✕</button></div>
-    <div class="lz-body${p.img ? ' has-img' : ''}">${p.img ? `<img src="${esc(p.img)}" alt="">` : ''}${p.text ? `<p class="${p.img ? 'cap' : 'big'}">${linkify(p.text)}</p>` : ''}</div>
+    <div class="lz-body${p.img ? ' has-img' : ''}">${p.img ? `<img src="${esc(p.img)}" alt="">` : ''}${p.text ? `<p class="${p.img ? 'cap' : 'big'}">${linkify(p.text, canLink(w))}</p>` : ''}</div>
     <button class="lz-nav l" data-act="lzprev" aria-label="Oldingi"></button><button class="lz-nav r" data-act="lznext" aria-label="Keyingi"></button>
     <div class="lz-foot"><button class="lz-reply" data-act="lzgo" data-href="/p/${p.id}">💬 Javob yozish</button><button class="lz-like${liked ? ' on' : ''}" data-act="lzlike" data-id="${p.id}" aria-label="Yoqtirish">${liked ? '❤️' : '🤍'} ${p.likes.length || ''}</button></div>`;
   LZ.t = setTimeout(() => lzNext(), dur);
@@ -1132,7 +1142,7 @@ function msgHtml(c, m) {
   else if (postOf(m)) body = chatPostCard(m);
   else if (stk) body = `<div class="stk" role="img" aria-label="Stiker: ${esc(Stickers.label(stk))}">${Stickers.svg(stk)}</div>`;
   else if (m.poll) body = pollHtml(c, m);
-  else body = (m.img ? `<button class="mimg" data-act="viewimg" data-c="${c.id}" data-m="${m.id}"><img src="${esc(m.img)}" alt="Rasm" loading="lazy"></button>` : '') + (m.text ? `<span class="mtx">${linkify(m.text)}</span>` : '');
+  else body = (m.img ? `<button class="mimg" data-act="viewimg" data-c="${c.id}" data-m="${m.id}"><img src="${esc(m.img)}" alt="Rasm" loading="lazy"></button>` : '') + (m.text ? `<span class="mtx">${linkify(m.text, canLink(a))}</span>` : '');
   const rd = mine && !isSaved(c) ? readersOf(c, m).length : 0;
   const meta = m.sched ? `<span class="mt sched">⏰ ${dayLabel(m.t) === 'Bugun' ? '' : uzDate(m.t) + ' '}${clock(m.t)} da yuboriladi</span>` : `<span class="mt">${m.edited ? 'tahrirlandi · ' : ''}${clock(m.t)}${mine && !isSaved(c) ? (m.tmp ? '<i class="tick">🕓</i>' : `<i class="tick${rd ? ' read' : ''}" aria-label="${rd ? 'O‘qildi' : 'Yetkazildi'}">✓✓</i>`) : ''}</span>`;
   const hit = CH.q && m.text && m.text.toLowerCase().includes(CH.q) ? ' hit' : '';
@@ -1315,7 +1325,7 @@ function post(id) {
       <div class="row" style="justify-content:flex-end;gap:10px"><span class="counter" id="reply-count"></span><button class="btn acc" style="height:40px;border-radius:999px">Javob</button></div></form>` : `<a href="/kirish" data-link class="btn acc full">Javob yozish uchun kiring</a>`}
     <div class="card" style="padding:4px 16px">${threadOrder(p.replies).map(r => { const a = user(r.uid), par = r.parent && p.replies.find(x => x.id === r.parent), pa = par && user(par.uid); const real = !String(r.id).startsWith('tmp'); return `<div class="li${r.parent ? ' sub' : ''}" id="r-${r.id}" style="align-items:flex-start">${avatar(a, r.parent ? 32 : 38)}<span style="flex:1;min-width:0"><span><a href="/@${esc(a.u)}" data-link style="text-decoration:none" class="name">${NM(a)}</a>${founderPill(a)} <span class="muted">· ${ago(r.t)}</span></span>
       ${r.parent ? `<button class="rquote" data-act="jumpr" data-r="${r.parent}">↩ ${par ? `<b>@${esc(pa.u)}</b> ${esc(par.text.slice(0, 60))}` : 'o‘chirilgan komment'}</button>` : ''}
-      <p class="txt" style="font-size:15px">${linkify(r.text)}</p>
+      <p class="txt" style="font-size:15px">${linkify(r.text, canLink(a))}</p>
       <span class="row" style="gap:14px;margin-top:2px">${u && real ? `<button class="link-btn" style="font-size:13px" data-act="replyto" data-id="${p.id}" data-r="${r.id}">↩ Javob berish</button>` : ''}${u && (r.uid === u.id || isAdmin()) && real ? `<button class="link-btn" style="font-size:13px;color:var(--mute)" data-act="delreply" data-id="${p.id}" data-r="${r.id}">O‘chirish</button>` : ''}</span></span></div>`; }).join('') || '<p class="muted">Birinchi bo‘lib javob yozing.</p>'}</div>
   </div></div>`;
 }
