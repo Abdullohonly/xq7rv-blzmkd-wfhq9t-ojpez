@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.16.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.16.3'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -81,7 +81,7 @@ async function sync(force) {
   if (r.status === 503 && r.error === 'maint') { MAINT_AUTH = false; setMaint(r.maint); return; }
   if (r.status === 401) { adoptSession(null); save(); render(); return; }
   if (!r.ok) return;
-  setMaint(r.maint);
+  setMaint(r.maint); xoSyncOld();
   const sig = JSON.stringify([r.users, r.follows, r.posts, r.chats, r.notifs, r.stars, r.daily, r.dq]);
   if (sig === SYNC.sig && !force) return;
   SYNC.sig = sig;
@@ -510,6 +510,10 @@ function gsend(g, s) {
   api('act', { method: 'POST', body: { t: 'gscore', game: g, score: Math.floor(s) } }).then(() => { GLB.at = 0; });
 }
 // ❌⭕ Kompyuterga qarshi g'alaba ham X/O reytingiga qo'shiladi
+function xoSyncOld() { // avval qurilmada yig'ilgan g'alabalar bir marta serverga
+  if (!SESSION) return; try { if (localStorage.getItem('lahzam_xo_synced')) return; const n = (JSON.parse(localStorage.getItem('lahzam_xo_best')) || {}).w | 0;
+    localStorage.setItem('lahzam_xo_synced', '1'); if (n > 0) api('act', { method: 'POST', body: { t: 'xobotsync', n } }).then(() => { GLB.at = 0; }); } catch (e) {}
+}
 if (window.XO && !XO.__lb) { const o = XO.open; XO.__lb = true; XO.open = opts => o({ ...(opts || {}), onWin: () => { if (SESSION) api('act', { method: 'POST', body: { t: 'xobot' } }).then(r => { GLB.at = 0; if (r.ok && r.counted) toast('🏆 G‘alaba reytingga qo‘shildi'); }); } }); }
 [['flappy', 'Flappy'], ['tetris', 'Tetris'], ['2048', 'G2048'], ['mines', 'Mines']].forEach(([k, n]) => { const M = window[n]; if (!M || M.__lb) return; const o = M.open; M.__lb = true; M.open = opts => o({ ...(opts || {}), onEnd: sc => { gsend(k, sc); return opts && opts.onEnd ? opts.onEnd(sc) : null; } }); });
 async function loadGLB(force) {

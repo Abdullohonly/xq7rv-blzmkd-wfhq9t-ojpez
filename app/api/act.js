@@ -437,6 +437,13 @@ export default async function handler(req, res) {
           on conflict (game, wk, user_id) do update set score = game_best.score + 1`;
         return send(res, 200, { ok: true, counted: true });
       }
+      case 'xobotsync': { // bir martalik: avvalgi (qurilmada saqlangan) kompyuterga qarshi g'alabalar umrbod reytingga
+        const n = Math.min(100, Math.max(0, Math.floor(Number(b.n) || 0)));
+        if (!n || !(await rateLimit('xobsync:' + uid, 1, 315360000))) return send(res, 200, { ok: true, counted: false });
+        await db`insert into game_best (game, wk, user_id, score) values ('xo', '2000-01-01', ${uid}, ${n})
+          on conflict (game, wk, user_id) do update set score = greatest(game_best.score, excluded.score)`;
+        return send(res, 200, { ok: true, counted: true });
+      }
       case 'gscore': {
         const MAX = { flappy: 999, tetris: 999999, '2048': 300000, mines: 1000 }, g = String(b.game || ''), sc = Number(b.score);
         if (!MAX[g] || !Number.isInteger(sc) || sc < 1 || sc > MAX[g]) return bad(res, 'score');
