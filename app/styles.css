@@ -764,3 +764,38 @@ a.q-ans{text-decoration:none;cursor:pointer}a.q-ans:hover b{text-decoration:unde
 .txt{color:#050505;font-weight:500;-webkit-font-smoothing:antialiased}
 [data-theme=dark] .txt{color:#FFFFFF}
 .q-card .txt,.m .txt{color:inherit}
+/* 📲 Ilova ochilish animatsiyasi (silliq) */
+#lz-splash{position:fixed;inset:0;z-index:9998;background:#FF5A1F;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity .45s cubic-bezier(.65,0,.35,1),transform .45s cubic-bezier(.65,0,.35,1)}
+#lz-splash.done{opacity:0;transform:scale(1.03);pointer-events:none}
+#lz-splash::before{content:"";position:absolute;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(255,190,150,.55),transparent 65%);pointer-events:none}
+.lzs-row{display:flex;align-items:center;gap:16px;position:relative;transform:translateX(var(--sh,0px));animation:lzsRow .9s cubic-bezier(.65,0,.35,1) 1.1s forwards}
+@keyframes lzsRow{to{transform:translateX(0)}}
+.lzs-mark{width:92px;height:92px;overflow:visible}
+.lzs-L{fill:#fff;transform-box:fill-box;transform-origin:0 100%;opacity:0;animation:lzsL .85s cubic-bezier(.16,1,.3,1) 1.05s forwards}
+.lzs-halo{fill:#0B0B10;transform-box:fill-box;transform-origin:center;opacity:0;animation:lzsHalo .9s cubic-bezier(.33,1,.68,1) 1.45s forwards}
+.lzs-d{fill:#0B0B10}
+.lzs-wA,.lzs-wC{fill-opacity:.5}
+.lzs-wA,.lzs-wB,.lzs-wC{opacity:0;transform:translateY(6px)}
+.lzs-wA{animation:lzsIn .35s cubic-bezier(.16,1,.3,1) forwards,lzsWave .45s cubic-bezier(.65,0,.35,1) .35s}
+.lzs-wB{animation:lzsIn .35s cubic-bezier(.16,1,.3,1) .08s forwards,lzsWave .45s cubic-bezier(.65,0,.35,1) .43s}
+.lzs-wC{animation:lzsIn .35s cubic-bezier(.16,1,.3,1) .16s forwards,lzsWave .45s cubic-bezier(.65,0,.35,1) .51s}
+.lzs-main{fill-opacity:.5;animation:lzsOp .35s cubic-bezier(.65,0,.35,1) .85s forwards}
+.lzs-cA{transform:translateX(-13px);animation:lzsCA .35s cubic-bezier(.65,0,.35,1) .8s forwards}
+.lzs-cC{transform:translateX(13px);animation:lzsCC .35s cubic-bezier(.65,0,.35,1) .8s forwards}
+.lzs-fx{transform:translateX(-22px);animation:lzsFx .55s cubic-bezier(.65,0,.35,1) 1.05s forwards}
+.lzs-fy{transform:translateY(32px);animation:lzsFy .55s cubic-bezier(.3,0,.1,1) 1.05s forwards}
+.lzs-gr{transform-box:fill-box;transform-origin:center;animation:lzsGr .8s cubic-bezier(.65,0,.35,1) .8s forwards}
+.lzs-word{font:800 clamp(54px,15vw,76px)/1.05 var(--brand,Manrope),system-ui,sans-serif;color:#fff;letter-spacing:-.045em;overflow:hidden;padding-bottom:4px;white-space:nowrap}
+.lzs-word span{display:inline-block;opacity:0;transform:translateY(55%);animation:lzsW .7s cubic-bezier(.16,1,.3,1) forwards}
+.lzs-tag{margin:0;font:600 17px var(--font,system-ui),sans-serif;color:#0B0B10;letter-spacing:.01em;opacity:0;transform:translateY(10px);animation:lzsW .7s cubic-bezier(.16,1,.3,1) 1.85s forwards;position:relative}
+@keyframes lzsIn{to{opacity:1;transform:translateY(0)}}
+@keyframes lzsWave{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes lzsOp{to{fill-opacity:1}}
+@keyframes lzsCA{70%{transform:translateX(0);opacity:1}100%{transform:translateX(0);opacity:0}}
+@keyframes lzsCC{70%{transform:translateX(0);opacity:1}100%{transform:translateX(0);opacity:0}}
+@keyframes lzsFx{to{transform:translateX(0)}}
+@keyframes lzsFy{to{transform:translateY(0)}}
+@keyframes lzsGr{30%{transform:scale(1.35)}100%{transform:scale(2.6)}}
+@keyframes lzsL{from{opacity:0;transform:scale(.55) rotate(-8deg)}to{opacity:1;transform:none}}
+@keyframes lzsHalo{0%{opacity:0;transform:scale(.8)}25%{opacity:.3}100%{opacity:0;transform:scale(2.4)}}
+@keyframes lzsW{to{opacity:1;transform:none}}
