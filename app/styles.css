@@ -738,3 +738,9 @@ a.q-ans{text-decoration:none;cursor:pointer}a.q-ans:hover b{text-decoration:unde
 #maint-bar{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:250;background:#FF5A1F;color:#fff;font-size:12.5px;font-weight:700;padding:5px 14px;border-radius:0 0 14px 14px;text-decoration:none;white-space:nowrap}
 @keyframes mtSwing{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
 @keyframes mtDot{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-5px)}}
+/* 💬 Xabar matni: oq fonda to'q qora, qora fonda yorqin oq */
+.m.in{color:#050505}
+[data-theme=dark] .m.in{color:#FFFFFF}
+.m.out{color:#FFFFFF}
+.m .mtx{font-weight:500;-webkit-font-smoothing:antialiased}
+[data-theme=dark] .m.in .who{color:#FFB08A}
