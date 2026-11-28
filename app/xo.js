@@ -48,7 +48,7 @@
       $('.xo-board').innerHTML = [...b].map((v, i) => `<button class="xo-c${res && res.line.includes(i) ? ' win' : ''}" data-i="${i}" ${v !== '.' || res ? 'disabled' : ''} aria-label="${v === '.' ? 'Bo‘sh katak' : v.toUpperCase()}">${mark(v, 46)}</button>`).join('');
       $('[data-st]').textContent = !res ? (busy ? 'Kompyuter o‘ylayapti…' : 'Sizning navbatingiz ❌') : res.w === 'x' ? '🎉 Siz yutdingiz!' : res.w === 'o' ? '🤖 Kompyuter yutdi' : '🤝 Durang';
     }
-    function end() { res = winner(b); if (!res) return false; sc[res.w === 'x' ? 'w' : res.w === 'o' ? 'l' : 'd']++; try { localStorage.setItem(BEST_KEY, JSON.stringify(sc)); } catch (e) {} navigator.vibrate && navigator.vibrate(res.w === 'x' ? [20, 30, 20] : 30); return true; }
+    function end() { res = winner(b); if (!res) return false; sc[res.w === 'x' ? 'w' : res.w === 'o' ? 'l' : 'd']++; try { localStorage.setItem(BEST_KEY, JSON.stringify(sc)); } catch (e) {} navigator.vibrate && navigator.vibrate(res.w === 'x' ? [20, 30, 20] : 30); if (res.w === 'x' && opts && opts.onWin) try { opts.onWin(); } catch (e) {} return true; }
     function reset() { b = '.........'; busy = false; res = null; draw(); }
     wrap.addEventListener('click', e => {
       if (e.target === wrap || e.target.closest('[data-close]')) return wrap.remove();

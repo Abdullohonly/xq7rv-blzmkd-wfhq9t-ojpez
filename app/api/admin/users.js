@@ -8,14 +8,14 @@ export default async function handler(req, res) {
     if (a.error === 401) return send(res, 401, { error: 'phrase', message: 'Sirli frazani kiriting' });
     const db = sql();
     if (req.method === 'GET' && (req.query || {}).stats) {
-      // baza hajmi va akkaunt statistikasi (Neon bepul tarifi: 0.5 GB)
+      // baza hajmi va akkaunt statistikasi (Neon bepul tarifi: 1 GB)
       const [r] = await db`select pg_database_size(current_database())::bigint as bytes,
         (select count(*)::int from users where not is_system) as users,
         (select count(*)::int from users where not is_system and created_at > now() - interval '1 day') as today,
         (select count(*)::int from users where is_blocked) as blocked,
         (select count(*)::int from banned_emails) as banned`;
       let r2 = null; try { r2 = await r2Usage(); } catch (e) { r2 = { error: 'R2 statistikasi olinmadi' }; }
-      return send(res, 200, { dbBytes: Number(r.bytes), limitBytes: 512 * 1024 * 1024, users: r.users, today: r.today, blocked: r.blocked, banned: r.banned, r2 });
+      return send(res, 200, { dbBytes: Number(r.bytes), limitBytes: 1024 * 1024 * 1024, users: r.users, today: r.today, blocked: r.blocked, banned: r.banned, r2 });
     }
     if (req.method === 'GET') {
       const users = await db`select id, username, name, email, is_blocked, created_at, case when star_until > now() then star_until end as star_until from users where not is_system order by id`;

@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.16.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.16.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -509,6 +509,8 @@ function gsend(g, s) {
   try { localStorage.setItem(k, JSON.stringify({ wk, s })); } catch (e) {}
   api('act', { method: 'POST', body: { t: 'gscore', game: g, score: Math.floor(s) } }).then(() => { GLB.at = 0; });
 }
+// ❌⭕ Kompyuterga qarshi g'alaba ham X/O reytingiga qo'shiladi
+if (window.XO && !XO.__lb) { const o = XO.open; XO.__lb = true; XO.open = opts => o({ ...(opts || {}), onWin: () => { if (SESSION) api('act', { method: 'POST', body: { t: 'xobot' } }).then(r => { GLB.at = 0; if (r.ok && r.counted) toast('🏆 G‘alaba reytingga qo‘shildi'); }); } }); }
 [['flappy', 'Flappy'], ['tetris', 'Tetris'], ['2048', 'G2048'], ['mines', 'Mines']].forEach(([k, n]) => { const M = window[n]; if (!M || M.__lb) return; const o = M.open; M.__lb = true; M.open = opts => o({ ...(opts || {}), onEnd: sc => { gsend(k, sc); return opts && opts.onEnd ? opts.onEnd(sc) : null; } }); });
 async function loadGLB(force) {
   if (GLB.loading || (!force && GLB.rows && now() - GLB.at < 60e3)) return;
@@ -527,7 +529,7 @@ function lbCard() {
     ${top.length ? `<div class="podium">${order.map((r, i) => { const pl = [2, 1, 3][i]; if (!r) return `<div class="pd p${pl} empty"><span class="pd-m">${['🥈', '🥇', '🥉'][i]}</span><div class="pd-b">—</div></div>`; const w = user(r.u) || { u: '?', name: '?' };
       return `<a href="/@${esc(w.u)}" data-link class="pd p${pl}${r.u === u.id ? ' me' : ''}">${avatar(w, pl === 1 ? 56 : 46)}<span class="pd-m">${['🥈', '🥇', '🥉'][i]}</span><b>${esc(w.name.split(' ')[0])}</b><span class="pd-s">${r.s}${unit}</span><div class="pd-b"></div></a>`; }).join('')}</div>`
       : `<p class="muted" style="text-align:center;margin:18px 0 6px">${GLB.tab === 'week' ? 'Bu hafta hali hech kim o‘ynamadi. Birinchi bo‘ling! 🚀' : 'Hali natija yo‘q.'}</p>`}
-    <div class="lb-me">${mine ? `Siz: <b>${mine.n}-o‘rin</b> · ${mine.s}${unit}` : GLB.g === 'xo' ? 'Chatda do‘stingiz bilan @xo o‘ynab, g‘alaba qozoning' : 'Hali natijangiz yo‘q: o‘ynang va reytingga chiqing!'}</div>
+    <div class="lb-me">${mine ? `Siz: <b>${mine.n}-o‘rin</b> · ${mine.s}${unit}` : GLB.g === 'xo' ? 'Kompyuterni yoki chatda do‘stingizni @xo bilan yuting' : 'Hali natijangiz yo‘q: o‘ynang va reytingga chiqing!'}</div>
     <p class="muted" style="margin:8px 0 0;font-size:12px;text-align:center">Yakka, chat va guruhlardagi natijalar ham hisoblanadi · haftalik reyting har dushanba yangilanadi · top 3 profilda medal bilan turadi</p></div>`;
 }
 function gamesPage() {

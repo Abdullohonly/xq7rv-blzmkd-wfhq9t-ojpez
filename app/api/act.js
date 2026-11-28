@@ -430,6 +430,13 @@ export default async function handler(req, res) {
         return send(res, 200, { ok: true, record: up.length > 0 });
       }
       /* ---------- O'yinlar reytingi (har o'yinchiga o'yin boshiga ko'pi bilan 3 qator: umrbod, bu hafta, o'tgan hafta) ---------- */
+      case 'xobot': { // kompyuterga qarshi X/O g'alabasi: +1 (aldovga qarshi: 20 soniyada 1 ta, kuniga 30 ta)
+        if (!(await rateLimit('xob:' + uid, 1, 20)) || !(await rateLimit('xobd:' + uid, 30, 86400))) return send(res, 200, { ok: true, counted: false });
+        await db`insert into game_best (game, wk, user_id, score) values
+          ('xo', '2000-01-01', ${uid}, 1), ('xo', date_trunc('week', now() at time zone 'Asia/Tashkent')::date, ${uid}, 1)
+          on conflict (game, wk, user_id) do update set score = game_best.score + 1`;
+        return send(res, 200, { ok: true, counted: true });
+      }
       case 'gscore': {
         const MAX = { flappy: 999, tetris: 999999, '2048': 300000, mines: 1000 }, g = String(b.game || ''), sc = Number(b.score);
         if (!MAX[g] || !Number.isInteger(sc) || sc < 1 || sc > MAX[g]) return bad(res, 'score');
