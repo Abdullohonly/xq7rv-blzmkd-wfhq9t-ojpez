@@ -124,6 +124,13 @@ export function vpnBlocked(req) {
   return !!(c && want && c !== want);
 }
 export const vpnRes = res => send(res, 451, { error: 'vpn', message: 'VPN ni o‘chiring 🙏 Lahzamga VPN orqali kirib bo‘lmaydi' });
+// 📸 Lahza vaqti: har kuni 10:00–21:00 (Toshkent) oralig'ida hamma uchun bir xil, oldindan bilib bo'lmaydigan daqiqa
+export const lvDay = (t = Date.now()) => new Date(t + 5 * 36e5).toISOString().slice(0, 10);
+export function lvAt(day) {
+  const h = createHmac('sha256', process.env.SESSION_SECRET || 'lahzam').update('lv:' + day).digest();
+  return Date.parse(day + 'T10:00:00+05:00') + (h.readUInt32BE(0) % 660) * 60e3;
+}
+export const LV_WIN = 2 * 60e3; // "o'z vaqtida" deb hisoblanadigan oyna
 export const tooMany = res => send(res, 429, { error: 'rate', message: 'Juda ko‘p urinish. Birozdan keyin qayta urinib ko‘ring' });
 
 export async function currentUser(req) {

@@ -246,3 +246,11 @@ alter table users add column if not exists bday text check (bday ~ '^(0[1-9]|1[0
 
 -- v1.15.0 Texnik rejim (sayt ustida ishlanmoqda)
 create table if not exists app_flags (key text primary key, value text, updated_at timestamptz not null default now());
+
+-- v1.17.0 📸 Lahza vaqti
+create table if not exists lv_posts (id bigserial primary key, day date not null, user_id bigint not null references users(id) on delete cascade, img text not null, caption text, late_min int not null default 0, created_at timestamptz not null default now(), unique (day, user_id));
+create index if not exists lv_posts_day on lv_posts(day);
+create table if not exists lv_sent (day date primary key, sent_at timestamptz not null default now());
+
+-- v1.17.0 🔔 aqlli bildirishnomalar
+create table if not exists daily_jobs (job text not null, day date not null, done_at timestamptz not null default now(), primary key (job, day));

@@ -1,5 +1,46 @@
 import { createHash } from 'node:crypto';
-import { sql, currentUser, isOwnerEmail, hasAdminPass, send, OWNER_EMAIL, vpnBlocked, vpnRes } from './_lib.js';
+import { sql, currentUser, isOwnerEmail, hasAdminPass, send, OWNER_EMAIL, vpnBlocked, vpnRes, lvDay, lvAt, LV_WIN } from './_lib.js';
+import { pushTo } from './_push.js';
+// 🔔 Aqlli bildirishnomalar: cron kerak emas — vaqti kelgach birinchi sync bajaradi (kuniga bir marta, bazadagi qulf bilan)
+const JOBS_DONE = new Set();
+async function once(db, job, day) {
+  const k = job + day; if (JOBS_DONE.has(k)) return false;
+  const [r] = await db`insert into daily_jobs (job, day) values (${job}, ${day}::date) on conflict do nothing returning job`;
+  JOBS_DONE.add(k); return !!r;
+}
+async function dailyJobs(db, day, lvState) {
+  const hour = new Date(Date.now() + 5 * 36e5).getUTCHours();
+  // 🔥 20:00 dan keyin: bugun Kun savoliga javob bermagan, seriyasi bor odamlarga eslatma
+  if (hour >= 20 && await once(db, 'streak', day)) {
+    const rows = await db`select id, streak from users where not is_system and not is_blocked and streak >= 1
+      and streak_day = (now() at time zone 'Asia/Tashkent')::date - 1`;
+    for (const r of rows) await pushTo(db, [Number(r.id)], { title: '🔥 Seriyangiz yonib ketmoqda!', body: `${r.streak} kunlik seriyangiz bugun tugaydi. Kun savoliga javob bering va olovni saqlang!`, url: '/', tag: 'sk' + day }).catch(() => {});
+  }
+  // 📬 Dushanba 09:00 dan keyin: o'tgan haftaning shaxsiy xulosasi (faqat bildirishnomaga obuna bo'lganlarga)
+  const dow = new Date(Date.now() + 5 * 36e5).getUTCDay();
+  if (dow === 1 && hour >= 9 && await once(db, 'weekly', day)) {
+    const rows = await db`select u.id, u.streak, (u.streak_day >= (now() at time zone 'Asia/Tashkent')::date - 1) as sk_on,
+        (select count(*)::int from posts p where p.user_id = u.id and p.created_at > now() - interval '7 days' and not p.is_hidden) as posts,
+        (select count(*)::int from post_likes l join posts p on p.id = l.post_id where p.user_id = u.id and l.user_id <> u.id and p.created_at > now() - interval '7 days') as likes,
+        (select count(*)::int from follows f where f.followee_id = u.id and f.created_at > now() - interval '7 days') as fols
+      from users u where not u.is_system and not u.is_blocked and exists (select 1 from push_subs s where s.user_id = u.id)`;
+    for (const r of rows) {
+      const parts = [r.likes && `❤️ ${r.likes} like`, r.fols && `👥 ${r.fols} yangi obunachi`, r.posts && `✍️ ${r.posts} post`, r.sk_on && r.streak > 0 && `🔥 ${r.streak} kun seriya`].filter(Boolean);
+      const body = parts.length ? `O‘tgan hafta: ${parts.join(', ')}. Yangi haftani zo‘r boshlang! 💪` : 'Yangi hafta boshlandi! Kun savoliga javob bering va 🔥 seriyani boshlang 💪';
+      await pushTo(db, [Number(r.id)], { title: '📬 Haftalik xulosangiz', body, url: '/', tag: 'wk' + day }).catch(() => {});
+    }
+  }
+  // 👀 Lahza vaqti tugagach: hali joylamaganlarga "N kishi joyladi"
+  if (lvState === 2 && await once(db, 'lvrecap', day)) {
+    const [{ n }] = await db`select count(*)::int as n from lv_posts where day = ${day}::date`;
+    if (n > 0) {
+      const top = await db`select u.name from lv_posts p join users u on u.id = p.user_id where p.day = ${day}::date order by p.late_min, p.created_at limit 1`;
+      const ids = (await db`select id from users u where not is_system and not is_blocked and not exists (select 1 from lv_posts p where p.day = ${day}::date and p.user_id = u.id)`).map(r => Number(r.id));
+      const who = top[0] ? String(top[0].name).split(' ')[0] : 'Kimdir';
+      await pushTo(db, ids, { title: '👀 Bugungi lahzalar', body: n > 1 ? `${who} va yana ${n - 1} kishi lahzasini joyladi. Siznikini kutishyapti!` : `${who} bugungi lahzasini joyladi. Siznikini kutishyapti!`, url: '/', tag: 'lvr' + day }).catch(() => {});
+    }
+  }
+}
 // GET /api/sync — ilova uchun hamma umumiy ma'lumot bitta so'rovda: odamlar, postlar, guruhlar, chatlar, bildirishnomalar
 // Rasmlar bu yerga kirmaydi (og'ir): ular /api/img orqali alohida, keshlanib yuklanadi
 const ms = t => new Date(t).getTime();
@@ -33,11 +74,20 @@ export default async function handler(req, res) {
       (select count(*) from daily_answers), (select count(*) from daily_likes),
       (select coalesce(max(body), '') from daily_q where day = (now() at time zone 'Asia/Tashkent')::date),
       (select count(*) || '.' || coalesce(sum(score), 0) from tourney_scores), (select count(*) || '.' || count(*) filter (where done) from tournaments),
-      (select count(*) from reports), (select coalesce(max(value), '') from app_flags where key = 'maint')) as f,
+      (select count(*) from reports), (select coalesce(max(value), '') from app_flags where key = 'maint'),
+      (select count(*) || '.' || coalesce(max(id), 0) from lv_posts where day = ${lvDay()}::date)) as f,
       (select max(value) from app_flags where key = 'maint') as maint`;
     // 🛠 Texnik ishlar: egasidan boshqa hamma uchun sayt yopiq
     if (fpRow.maint && !isOwnerEmail(me.email)) { res.setHeader('Cache-Control', 'no-store'); return send(res, 503, { error: 'maint', maint: fpRow.maint }); }
-    const fp = createHash('sha1').update(String(fpRow.f)).digest('base64url').slice(0, 16);
+    // 📸 Lahza vaqti: vaqti kelganda birinchi sync hammaga bildirishnoma yuboradi (bir kunda bir marta)
+    const lvD = lvDay(), lvT = lvAt(lvD), lvNow = Date.now(), lvState = lvNow < lvT ? 0 : lvNow < lvT + LV_WIN ? 1 : 2;
+    if (lvState === 1) {
+      const [first] = await db`insert into lv_sent (day) values (${lvD}::date) on conflict do nothing returning day`;
+      if (first) { const all = await db`select id from users where not is_system and not is_blocked`;
+        await pushTo(db, all.map(r => Number(r.id)), { title: '📸 Lahza vaqti!', body: '2 daqiqa ichida hozirgi lahzangizni suratga oling. Hamma bir vaqtda!', url: '/', tag: 'lv' + lvD, always: true }).catch(() => {}); }
+    }
+    await dailyJobs(db, lvD, lvState).catch(() => {});
+    const fp = createHash('sha1').update(String(fpRow.f) + ':lv' + lvState).digest('base64url').slice(0, 16);
     if (req.query && req.query.fp === fp) { await seenQ.catch(() => {}); res.setHeader('Cache-Control', 'private, no-store'); return send(res, 200, { same: 1 }); }
     const [users, follows, posts, likes, replies, myReports, chats, members, notifs, stars, daily, dq, pvotes] = await Promise.all([
       db`select id, username, name, bio, color, is_system, is_blocked, created_at, dm_from, rr_off, warns, lower(email) = ${OWNER_EMAIL} as is_owner, coalesce(star_until > now(), false) or lower(email) = ${OWNER_EMAIL} as is_star, star_color, cover, pinned_post, hide_online, hide_read, bday,
@@ -137,7 +187,15 @@ export default async function handler(req, res) {
     const memByChat = {};
     members.forEach(m => (memByChat[m.chat_id] = memByChat[m.chat_id] || []).push(m));
 
+    let lv;
+    if (lvState) {
+      const lvRows = await db`select id, user_id, img, caption, late_min, created_at from lv_posts where day = ${lvD}::date order by late_min, created_at`;
+      const mine = lvRows.some(r => Number(r.user_id) === uid);
+      lv = { at: lvT, win: LV_WIN, mine, n: lvRows.length,
+        posts: mine || admin ? lvRows.map(r => ({ id: 'v' + r.id, uid: Number(r.user_id), img: r.img, cap: r.caption || undefined, late: r.late_min || undefined, t: ms(r.created_at) })) : undefined };
+    }
     const payload = {
+      lv,
       me: Number(me.id), admin, maint: fpRow.maint || undefined,
       users: users.filter(u => !u.is_blocked || admin || Number(u.id) === uid).map(u => ({
         id: Number(u.id), u: u.username, name: u.name, bio: u.bio, color: u.color, system: u.is_system || undefined,

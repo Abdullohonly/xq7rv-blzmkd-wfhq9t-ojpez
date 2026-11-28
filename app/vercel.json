@@ -75,6 +75,17 @@
       "destination": "/api/img?app=apple"
     },
     {
+      "source": "/g/:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(telegrambot|facebookexternalhit|facebot|twitterbot|whatsapp|slackbot|discordbot|linkedinbot|vkshare|skypeuripreview|pinterest|googlebot|bingbot|yandex).*"
+        }
+      ],
+      "destination": "/api/img?g=:id"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

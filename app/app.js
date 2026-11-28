@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.16.5'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.17.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -53,6 +53,8 @@ async function api(path, opts = {}) {
   } catch (e) { return { ok: false, status: 0, message: 'Internetga ulanib bo‘lmadi' }; }
 }
 // Server sessiyasi: kim kirgan. Boshqa hamma narsa sync() orqali serverdan keladi
+// 🔗 Taklif havolasidan kelgan odam kirgach, o'sha guruh/post/profilga qaytadi
+const afterLogin = () => { let p = '/'; try { p = sessionStorage.getItem('lahzam_after') || '/'; sessionStorage.removeItem('lahzam_after'); } catch (e) {} return /^\/(g|p|@)[\w\-\/.]*$/.test(p) ? p : '/'; };
 function adoptSession(su) {
   const prev = DB.me;
   SESSION = su || null; DB.sess = SESSION;
@@ -82,10 +84,10 @@ async function sync(force) {
   if (r.status === 401) { adoptSession(null); save(); render(); return; }
   if (!r.ok) return;
   setMaint(r.maint); xoSyncOld();
-  const sig = JSON.stringify([r.users, r.follows, r.posts, r.chats, r.notifs, r.stars, r.daily, r.dq]);
+  const sig = JSON.stringify([r.users, r.follows, r.posts, r.chats, r.notifs, r.stars, r.daily, r.dq, r.lv]);
   if (sig === SYNC.sig && !force) return;
   SYNC.sig = sig;
-  Object.assign(DB, { me: r.me, users: r.users, follows: r.follows, stars: r.stars || {}, posts: r.posts, daily: r.daily || [], dq: r.dq || null, chats: r.chats, notifs: r.notifs.map(n => ({ ...n, to: r.me })) });
+  Object.assign(DB, { me: r.me, users: r.users, follows: r.follows, stars: r.stars || {}, posts: r.posts, daily: r.daily || [], dq: r.dq || null, lv: r.lv || null, chats: r.chats, notifs: r.notifs.map(n => ({ ...n, to: r.me })) });
   if (isOwnerSession() && ADM.checked && r.admin !== ADM.verified) ADM.verified = r.admin;
   save(); softRender();
 }
@@ -397,7 +399,7 @@ function render() {
   document.documentElement.dataset.fs = DB.fs || 'md';
   const [name, arg] = route();
   if (me() && me().blocked) { DB.me = null; save(); toast('Akkauntingiz bloklangan.', true); }
-  if (!me() && !PUBLIC.includes(name)) return go('/kirish', true);
+  if (!me() && !PUBLIC.includes(name)) { try { if (/^\/(g|p|@)/.test(location.pathname)) sessionStorage.setItem('lahzam_after', location.pathname); } catch (e) {} return go('/kirish', true); }
   if (me() && name === 'auth') return go('/', true);
   const V = { home, auth, groups, dms, search, notifs, settings, admin, profile, post, chat, group, tag, updates, leaders, doc: docPage, games: gamesPage, star: starPage, stats: statsPage, '404': notFound }[name];
   const html = V(arg);
@@ -810,6 +812,34 @@ function suggestCard() {
 }
 const CMP = { poll: null, quote: null, at: null }; // post yozish maydoni holati
 /* ---------------- views ---------------- */
+// 📸 Lahza vaqti: har kuni tasodifiy paytda hamma bir vaqtda suratga oladi. O'zingiznikini joylamaguncha boshqalarnikini ko'rmaysiz
+let LV_IMG = null;
+const lvLeft = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+function lvCard() {
+  const L = DB.lv; if (!L) return '';
+  const left = L.at + L.win - now(), open = left > 0, hm = new Date(L.at + 5 * 36e5).toISOString().slice(11, 16);
+  if (!L.mine) return `<section class="lv-card${open ? ' lv-live' : ''}" aria-label="Lahza vaqti">
+    <div class="lv-head">${open ? '<span class="lv-dot" aria-hidden="true"></span>' : ''}<b>📸 Lahza vaqti</b><span class="lv-time">${open ? `<span id="lv-left">${lvLeft(left)}</span> qoldi` : hm + ' da edi'}</span></div>
+    <p>${open ? 'Hozir! Atrofingizda nima bo‘layotgan bo‘lsa, shuni suratga oling. Hamma bir vaqtda 🔥' : L.n ? `Bugun ${L.n} kishi lahzasini joyladi. Ko‘rish uchun o‘zingiznikini joylang (“kechikkan” deb belgilanadi).` : 'Bugun hali hech kim joylamadi. Birinchi bo‘ling!'}</p>
+    ${!open && L.n ? `<div class="lv-blur" aria-hidden="true">${Array.from({ length: Math.min(L.n, 4) }, (_, i) => `<i style="--h:${i * 47}"></i>`).join('')}</div>` : ''}
+    <button class="btn ${open ? 'acc' : 'dark'} full" data-act="lvshoot">📷 ${open ? 'Suratga olish' : 'Kechikib bo‘lsa ham joylash'}</button></section>`;
+  const P = L.posts || [];
+  return `<section class="lv-card" aria-label="Bugungi lahzalar"><div class="lv-head"><b>📸 Bugungi lahzalar</b><span class="lv-time">${hm} · ${P.length} kishi</span></div>
+    <div class="lv-grid">${P.map(p => { const w = user(p.uid); return `<button class="lv-item" data-act="lvview" data-id="${p.id}"><img src="${esc(p.img)}" alt="${esc(w.name)} lahzasi" loading="lazy"><span class="lv-who">${esc(String(w.name).split(' ')[0])} ${p.late ? `· ⏰ ${p.late} daq` : '· ⚡'}</span></button>`; }).join('')}</div></section>`;
+}
+setInterval(() => {
+  const L = DB.lv; if (!L || L.mine) return; const el = document.getElementById('lv-left'), left = L.at + L.win - now();
+  if (el) el.textContent = lvLeft(left);
+  if (left <= 0 && el && !busy()) render();
+}, 1000);
+document.addEventListener('change', async e => {
+  if (e.target.id !== 'lv-file' || !e.target.files[0]) return;
+  try { LV_IMG = await compressImage(e.target.files[0]); } catch (err) { toast('Rasmni o‘qib bo‘lmadi', true); return; }
+  e.target.remove();
+  sheet(`<h2>📸 Lahzangiz</h2><img src="${LV_IMG}" alt="Tanlangan surat" style="width:100%;max-height:60vh;object-fit:cover;border-radius:18px;display:block">
+    <input class="inp" id="lv-cap" maxlength="140" placeholder="Izoh (ixtiyoriy): hozir nima qilyapsiz?" style="margin-top:10px">
+    <button class="btn acc full" style="margin-top:10px" data-act="lvsend">Joylash</button><button class="btn ghost full" style="margin-top:8px" data-act="lvshoot">Boshqa surat</button>`);
+});
 function home() {
   const u = me();
   const tags = (SESSION && SESSION.tags) || [], tagRe = tags.length ? new RegExp('#(' + tags.map(x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')(?![\\p{L}0-9_])', 'iu') : null;
@@ -818,6 +848,7 @@ function home() {
   return `<div class="shell">${header('', 'Ochiq maydon 🌍')}
   <div class="pad stack">
     ${lzRing()}
+    ${lvCard()}
     ${qCard()}
     <form class="card comp comp-d" data-form="post">
       <div class="cd-rail" aria-hidden="true">${avatar(u, 42)}<span class="cd-line"></span><span class="cd-dot"></span></div>
@@ -939,7 +970,7 @@ async function initGoogle() {
 const noAuto = () => { try { return localStorage.getItem('lahzam_noauto') === '1'; } catch (e) { return false; } };
 async function onGoogle(resp) {
   const r = await api('auth/google', { method: 'POST', body: { credential: resp.credential } });
-  if (r.user) { try { localStorage.removeItem('lahzam_noauto'); } catch (e) {} adoptSession(r.user); AUTH = { step: 'start' }; save(); go('/'); toast(`Xush kelibsiz, ${r.user.name.split(' ')[0]} 👋`); if (isOwnerSession()) refreshAdm(); sync(true); return; }
+  if (r.user) { try { localStorage.removeItem('lahzam_noauto'); } catch (e) {} adoptSession(r.user); AUTH = { step: 'start' }; save(); go(afterLogin()); toast(`Xush kelibsiz, ${r.user.name.split(' ')[0]} 👋`); if (isOwnerSession()) refreshAdm(); sync(true); return; }
   if (r.needsSignup) { AUTH = { step: 'username', ticket: r.ticket, email: r.email, name: r.name, owner: r.owner, agree: !!AUTH.agree }; render(); return; }
   toast(r.message || 'Kirib bo‘lmadi', true);
 }
@@ -1221,7 +1252,7 @@ function group(id) {
       <div class="title-h" style="font-size:22px">${esc(c.name)}</div><div class="sub-h">${c.members.length} a‘zo · ${ACCESS[c.access]} · ${esc(c.cat)}</div></div>
     <div class="pad stack">
       <div class="card"><p class="txt" style="font-size:15px">${linkify(c.desc || 'Tavsif yo‘q.')}</p><div class="muted" style="margin-top:4px">Tavsif</div>
-        <div class="li" style="border:0;padding-bottom:0"><span style="flex:1"><b style="color:var(--acc-ink)">${location.host}/g/${c.id}</b><span class="muted" style="display:block">Taklif havolasi</span></span><button class="pill" data-act="copy" data-text="${location.origin}/g/${c.id}">Nusxa</button></div></div>
+        <div class="li" style="border:0;padding-bottom:0"><span style="flex:1"><b style="color:var(--acc-ink)">${location.host}/g/${c.id}</b><span class="muted" style="display:block">Taklif havolasi</span></span><button class="pill" data-act="copy" data-text="${location.origin}/g/${c.id}">Nusxa</button><button class="pill" style="margin-left:6px" data-act="shareg" data-text="${location.origin}/g/${c.id}" data-n="${esc(c.name)}">📤 Ulashish</button></div></div>
       ${c.record ? `<div class="card row" style="background:#121212;color:#fff">${Flappy.birdSVG(40)}<span>Flappy rekordi: <b>${c.record.score}</b> · @${esc(user(c.record.uid).u)}</span></div>` : ''}
       ${gAdmin && c.pending.length ? `<div class="card"><b>Qo‘shilish so‘rovlari</b>${c.pending.map(p => `<div class="li">${avatar(user(p), 36)}<span style="flex:1">${esc(user(p).name)}</span><button class="pill" data-act="approve" data-id="${c.id}" data-u="${p}">Qabul qilish</button></div>`).join('')}</div>` : ''}
       <div class="card"><b>A‘zolar</b>${c.members.map(m => `<div class="li"><a href="/@${esc(user(m).u)}" data-link class="row" style="flex:1;min-width:0;text-decoration:none;color:inherit;gap:12px">${avatar(user(m), 40)}<span style="flex:1;min-width:0"><b>${NM(user(m))}</b>${founderPill(user(m))}<span class="muted" style="display:block">@${esc(user(m).u)}</span></span></a>${m === c.admin ? '<span class="tag">admin</span>' : (gAdmin || isAdmin()) ? `<button class="pill ban-btn" data-act="gban" data-id="${c.id}" data-u="${m}" aria-label="@${esc(user(m).u)} ni chetlatish">🚫 Chetlatish</button>` : ''}</div>`).join('')}</div>
@@ -1973,6 +2004,15 @@ document.addEventListener('click', async e => {
       UPD.list = UPD.list.filter(x => x.id !== +id); toast('O‘chirildi'); render(); break;
     }
     case 'qtop': sheet(qTopSheet()); break;
+    case 'shareg': { const url = el.dataset.text, t = `👥 “${el.dataset.n}” guruhiga qo‘shiling — Lahzam`; if (navigator.share) { try { await navigator.share({ title: t, text: t, url }); } catch (e) {} } else { try { await navigator.clipboard.writeText(url); toast('Havola nusxalandi 📋'); } catch (e) { toast(url); } } break; }
+    case 'lvshoot': { const old = document.getElementById('lv-file'); if (old) old.remove(); const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*'; f.setAttribute('capture', 'environment'); f.id = 'lv-file'; f.hidden = true; document.body.appendChild(f); f.click(); break; }
+    case 'lvsend': { if (!LV_IMG) return; el.disabled = true; el.textContent = 'Yuklanmoqda…'; const r = await server({ t: 'lvpost', img: LV_IMG, cap: ($('#lv-cap') || {}).value || '' });
+      if (r.ok) { LV_IMG = null; closeSheet(); toast(r.late ? `⏰ ${r.late} daqiqa kechikib joylandi. Endi hammanikini ko‘ra olasiz!` : '⚡ O‘z vaqtida! Endi hammanikini ko‘ra olasiz'); } else { el.disabled = false; el.textContent = 'Joylash'; } break; }
+    case 'lvview': { const p = ((DB.lv && DB.lv.posts) || []).find(x => x.id === el.dataset.id); if (!p) return; const w = user(p.uid), own = p.uid === me().id;
+      sheet(`<div class="row" style="gap:10px;margin-bottom:10px">${avatar(w, 40)}<span style="flex:1;min-width:0"><b>${NM(w)}</b><span class="muted" style="display:block">${clock(p.t)} · ${p.late ? `⏰ ${p.late} daqiqa kechikdi` : '⚡ O‘z vaqtida'}</span></span></div>
+        <img src="${esc(p.img)}" alt="${esc(w.name)} lahzasi" style="width:100%;border-radius:18px;display:block">${p.cap ? `<p style="margin:10px 2px 0">${esc(p.cap)}</p>` : ''}
+        ${own || isAdmin() ? `<button class="btn ghost full" style="margin-top:12px;color:var(--danger)" data-act="lvdel" data-id="${p.id}">O‘chirish</button>` : ''}<button class="btn ghost full" style="margin-top:8px" data-act="close-sheet-btn">Yopish</button>`); break; }
+    case 'lvdel': { const r = await server({ t: 'lvdel', id: el.dataset.id }, 'O‘chirildi'); if (r.ok) closeSheet(); break; }
     case 'maint': { const on = !!el.dataset.on; el.disabled = true; const r = await server({ t: 'maint', on, text: ($('#mt-t') || {}).value || '' }, on ? '🛠 Texnik rejim yoqildi' : '✅ Sayt hamma uchun ochildi'); el.disabled = false; if (r.ok) { setMaint(r.maint); render(); } break; }
     case 'maintlogin': go('/musoojon'); break;
     case 'vpnretry': if (SESSION) { await sync(true); if (document.getElementById('vpnblock')) toast('VPN hali yoqilgan ko‘rinadi', true); } else vpnScreen(false); break;
@@ -2070,7 +2110,7 @@ document.addEventListener('submit', async e => {
     const r = await api('auth/signup', { method: 'POST', body: { ticket: AUTH.ticket, username: un, name: nm, password: pw, agree: true } });
     if (!r.user) { btn.disabled = false; $('#su-hint').textContent = r.message || 'Ro‘yxatdan o‘tib bo‘lmadi'; if (r.error === 'ticket') { AUTH = { step: 'start' }; render(); } return; }
     adoptSession(r.user); AUTH = { step: 'start' };
-    save(); go('/'); toast('Xush kelibsiz 👋 Har lahza yoningizda!'); sync(true); return;
+    save(); go(afterLogin()); toast('Xush kelibsiz 👋 Har lahza yoningizda!'); sync(true); return;
   }
   if (kind === 'editpost') {
     const p = DB.posts.find(x => x.id === f.dataset.id || x.id === 'p' + f.dataset.id), t = $('#ep-t').value.trim(); if (!p || !t) return;
@@ -2124,7 +2164,7 @@ document.addEventListener('submit', async e => {
       hint.textContent = '❌ ' + (r.message || 'Kirib bo‘lmadi'); void hint.offsetWidth; hint.classList.add('shake');
       $('#lp').classList.add('inp-bad'); $('#lp').select(); if (navigator.vibrate) navigator.vibrate(120); return;
     }
-    adoptSession(r.user); AUTH = { step: 'start' }; save(); go('/'); sync(true); return;
+    adoptSession(r.user); AUTH = { step: 'start' }; save(); go(afterLogin()); sync(true); return;
   }
   if (kind === 'post') {
     const ta = $('#post-text'), text = ta.value, img = POSTIMG;
@@ -2314,7 +2354,7 @@ function maybeAskPush() {
   sheet(`<div class="inst-sheet"><div class="inst-hero"><span style="font-size:44px">🔔</span><div><b>Bildirishnomalarga ruxsat bering</b><span>${denied ? 'Bildirishnomalar telefoningizda o‘chirilgan. Yoqish uchun: <b>Sozlamalar → Ilovalar → Lahzam → Bildirishnomalar → Yoqish</b>' : 'Kimdir yozsa, javobingizni yoqtirsa yoki X/O’da navbatingiz kelsa, telefoningizga darhol xabar keladi'}</span></div></div>
     <button class="btn acc full inst-big" data-act="pushon">${denied ? '🔔 Qayta tekshirish' : '🔔 Ruxsat berish'}</button><button class="btn ghost full" style="margin-top:10px" data-act="pushnever">Qayta ko‘rsatilmasin</button></div>`);
 }
-if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.go) { closeSheet(); go(e.data.go); } });
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.sync && SESSION) sync(true); if (e.data && e.data.go) { closeSheet(); go(e.data.go); } });
 const WAIT_BIP = ANDROID && !INAPP && !FIREFOX; // bu brauzerlarda haqiqiy "O'rnatish" tugmasi bo'ladi
 setTimeout(() => { if (standalone() || instSeen()) { maybeAskPush(); return; } if (!WAIT_BIP || DEFER) showInstall(false); }, 2500);
 if (WAIT_BIP) setTimeout(() => { if (!standalone() && !instSeen() && !DEFER) showInstall(false); }, 15000);
@@ -2328,20 +2368,24 @@ api('auth/me').then(async r => {
   if (SESSION) await sync(true); else render();
   if (SESSION) { applyIcon(); setTimeout(() => { if (standalone() || instSeen()) maybeAskPush(); }, 3000); }
 });
-// Jonli yangilanish: chat ochiq bo'lsa har 3 soniyada, boshqa sahifalarda har 8 soniyada yangi narsalar o'zi keladi
+// Jonli yangilanish (CPU tejamkor): chat 3 s, boshqa sahifalar 20 s, fonda 30 s
 setInterval(() => {
   if (!SESSION || document.visibilityState !== 'visible') return;
-  const gap = route()[0] === 'chat' ? 3000 : 8000;
+  // ⚡ CPU tejash: texnik rejim yoki VPN ekranida faqat daqiqada bir tekshiramiz
+  const blocked = document.getElementById('maint') || document.getElementById('vpnblock');
+  // chat ko'z oldida bo'lsa 3 s, oyna fonda bo'lsa 30 s, boshqa sahifalarda 20 s (yangiliklar push orqali darhol keladi)
+  const gap = blocked ? 60000 : route()[0] === 'chat' ? (document.hasFocus() ? 3000 : 30000) : 20000;
   if (now() - SYNC.last >= gap - 200) sync();
 }, 1000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && SESSION) sync(); });
 addEventListener('online', () => SESSION && sync(true));
+addEventListener('focus', () => { if (SESSION && now() - SYNC.last > 3000) sync(); });
 loadUpdates().then(() => { if (!busy() && route()[0] !== 'chat') render(); });
 // Har push'dan keyin: server build raqami o'zgarsa, ilova o'zini yangilaydi (yozayotgan bo'lsangiz, tugatishingizni kutadi)
 let BUILD = null, buildReload = false;
 async function checkBuild() {
   if (buildReload) return;
-  const r = await api('auth/config'); if (r.ok) setMaint(r.maint); if (!r.ok || !r.build) return;
+  const r = await api('auth/config' + (SESSION ? '' : '?m=1')); if (r.ok && !SESSION) setMaint(r.maint); if (!r.ok || !r.build) return;
   if (!BUILD) { BUILD = r.build; return; }
   if (r.build !== BUILD) buildReload = true; // jimgina: keyingi sahifa almashishida yoki ilovaga qaytganda yangilanadi
 }

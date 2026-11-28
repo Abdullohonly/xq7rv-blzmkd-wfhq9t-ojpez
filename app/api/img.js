@@ -37,8 +37,27 @@ async function appIcon(req, res) {
   res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
   return res.status(200).end(JSON.stringify({ ...MANIFEST, icons }));
 }
+// 🔗 Guruh taklif havolasi uchun chiroyli oldindan ko'rinish (Telegram, WhatsApp, Instagram botlari JS'ni ishga tushirmaydi)
+const H = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+async function groupCard(req, res) {
+  const id = Number(String(req.query.g || '').replace(/^c/, '')), host = 'https://' + String(req.headers.host || 'app.lahzam.uz').replace(/[^\w.\-:]/g, '');
+  let title = 'Lahzam guruhi', desc = 'O‘zbekcha ijtimoiy tarmoq: guruhlar, chat, o‘yinlar.';
+  if (Number.isSafeInteger(id) && id > 0) {
+    const [c] = await sql()`select c.name, c.description, c.access, (select count(*)::int from chat_members m where m.chat_id = c.id and m.status = 'member') as n
+      from chats c where c.id = ${id} and c.kind = 'group'`;
+    if (c) { title = `👥 ${c.name} — Lahzam`; desc = `${c.n} a’zo${c.access !== 'closed' && c.description ? ' · ' + String(c.description).slice(0, 140) : ''} · Lahzam’da qo‘shiling!`; }
+  }
+  const url = `${host}/g/c${Number.isSafeInteger(id) ? id : ''}`;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300');
+  return res.status(200).end(`<!doctype html><html lang="uz"><head><meta charset="utf-8"><title>${H(title)}</title>
+<meta name="description" content="${H(desc)}"><meta property="og:type" content="website"><meta property="og:site_name" content="Lahzam">
+<meta property="og:title" content="${H(title)}"><meta property="og:description" content="${H(desc)}"><meta property="og:url" content="${H(url)}">
+<meta property="og:image" content="${host}/og.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image"></head><body><h1>${H(title)}</h1><p>${H(desc)}</p><a href="${H(url)}">Guruhni ochish</a></body></html>`);
+}
 export default async function handler(req, res) {
   if (req.query.app) return appIcon(req, res);
+  if (req.query.g) return groupCard(req, res).catch(() => send(res, 500, { error: 'server' }));
   if (req.method !== 'GET') return send(res, 405, { error: 'method' });
   try {
     const q = req.query || {}, db = sql();

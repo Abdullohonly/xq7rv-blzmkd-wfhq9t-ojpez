@@ -1,6 +1,6 @@
 /* Lahzam service worker: avval internetdan oladi (har doim yangi versiya), internet yo'q bo'lsa keshdan */
-const CACHE = 'lahzam-1.16.5';
-const SHELL = ['/', '/index.html', '/app.js?v=85', '/boot.js?v=85', '/flappy.js?v=85', '/tetris.js?v=85', '/game2048.js?v=85', '/mines.js?v=85', '/xo.js?v=85', '/stickers.js?v=85', '/docs.js?v=85', '/icon-192.png', '/styles.css?v=85', '/icon.svg'];
+const CACHE = 'lahzam-1.17.0';
+const SHELL = ['/', '/index.html', '/app.js?v=86', '/boot.js?v=86', '/flappy.js?v=86', '/tetris.js?v=86', '/game2048.js?v=86', '/mines.js?v=86', '/xo.js?v=86', '/stickers.js?v=86', '/docs.js?v=86', '/icon-192.png', '/styles.css?v=86', '/icon.svg'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
@@ -15,9 +15,10 @@ self.addEventListener('fetch', e => {
 // Push: ilova yopiq bo'lsa ham xabar telefonga keladi
 self.addEventListener('push', e => {
   let d = {}; try { d = e.data ? e.data.json() : {}; } catch (err) { d = { body: e.data && e.data.text() }; }
-  e.waitUntil(self.registration.showNotification(d.title || 'Lahzam', {
+  // ochiq oynalarga ham "yangilan" deymiz: so'rovlar siyrak bo'lsa ham yangilik darhol keladi
+  e.waitUntil(Promise.all([self.registration.showNotification(d.title || 'Lahzam', {
     body: d.body || '', icon: '/icon-192.png', badge: '/badge.png', tag: d.tag || undefined, renotify: !!d.tag, data: { url: d.url || '/' }
-  }));
+  }), self.clients.matchAll({ type: 'window' }).then(ws => ws.forEach(w => w.postMessage({ sync: 1 })))]));
 });
 self.addEventListener('notificationclick', e => {
   e.notification.close(); const path = (e.notification.data && e.notification.data.url) || '/';

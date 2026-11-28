@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { TERMS_VER, OWNER_EMAIL, isStar, clearSession, sql, currentUser, isOwnerEmail, hasAdminPass, rateLimit, tooMany, send, sameOrigin, vpnBlocked, vpnRes } from './_lib.js';
+import { TERMS_VER, OWNER_EMAIL, isStar, clearSession, sql, currentUser, isOwnerEmail, hasAdminPass, rateLimit, tooMany, send, sameOrigin, vpnBlocked, vpnRes, lvDay, lvAt, LV_WIN } from './_lib.js';
 import { r2PutDataUrl, r2DeleteUrl } from './_r2.js';
 import { pushTo, pushHostOk } from './_push.js';
 import { clean } from './_clean.js';
@@ -430,6 +430,25 @@ export default async function handler(req, res) {
         return send(res, 200, { ok: true, record: up.length > 0 });
       }
       /* ---------- O'yinlar reytingi (har o'yinchiga o'yin boshiga ko'pi bilan 3 qator: umrbod, bu hafta, o'tgan hafta) ---------- */
+      /* ---------- 📸 Lahza vaqti ---------- */
+      case 'lvpost': {
+        const d = lvDay(), at = lvAt(d), nowT = Date.now();
+        if (nowT < at) return send(res, 400, { error: 'early', message: 'Lahza vaqti hali kelmadi. Bildirishnomani kuting 📸' });
+        if (typeof b.img !== 'string' || b.img.length > 400000 || !IMG_RE.test(b.img)) return bad(res, 'Rasm juda katta yoki noto‘g‘ri');
+        const [had] = await db`select id from lv_posts where day = ${d}::date and user_id = ${uid}`;
+        if (had) return send(res, 409, { error: 'dup', message: 'Bugun allaqachon joyladingiz' });
+        const cap = clean(str(b.cap, 140)).trim() || null, late = nowT - at <= LV_WIN ? 0 : Math.ceil((nowT - at) / 60e3); // signaldan necha daqiqa keyin
+        const img = (await r2PutDataUrl(b.img, 'lv').catch(() => null)) || b.img;
+        const [ins] = await db`insert into lv_posts (day, user_id, img, caption, late_min) values (${d}::date, ${uid}, ${img}, ${cap}, ${late}) on conflict (day, user_id) do nothing returning id`;
+        if (!ins) { if (img !== b.img) await r2DeleteUrl(img).catch(() => {}); return send(res, 409, { error: 'dup', message: 'Bugun allaqachon joyladingiz' }); }
+        return send(res, 200, { ok: true, late });
+      }
+      case 'lvdel': {
+        const id = idOf(b.id, 'v'); if (!id) return bad(res, 'id');
+        const [r] = await db`delete from lv_posts where id = ${id} and (user_id = ${uid} or ${admin}) returning img`;
+        if (r) await r2DeleteUrl(r.img).catch(() => {});
+        return send(res, 200, { ok: true });
+      }
       case 'xobot': { // kompyuterga qarshi X/O g'alabasi: +1 (aldovga qarshi: 20 soniyada 1 ta, kuniga 30 ta)
         if (!(await rateLimit('xob:' + uid, 1, 20)) || !(await rateLimit('xobd:' + uid, 30, 86400))) return send(res, 200, { ok: true, counted: false });
         await db`insert into game_best (game, wk, user_id, score) values
@@ -447,6 +466,12 @@ export default async function handler(req, res) {
       case 'gscore': {
         const MAX = { flappy: 999, tetris: 999999, '2048': 300000, mines: 1000 }, g = String(b.game || ''), sc = Number(b.score);
         if (!MAX[g] || !Number.isInteger(sc) || sc < 1 || sc > MAX[g]) return bad(res, 'score');
+        // 🏆 Umrbod 1-o'rindagi odamdan o'tib ketsa — unga bildirishnoma
+        const [top] = await db`select user_id, score from game_best where game = ${g} and wk = '2000-01-01' order by score desc, user_id limit 1`;
+        if (top && Number(top.user_id) !== uid && sc > Number(top.score)) {
+          const GN = { flappy: 'Flappy', tetris: 'Tetris', '2048': '2048', mines: 'Mina' }[g];
+          await pushTo(db, [Number(top.user_id)], { title: '🏆 Rekordingiz yangilandi!', body: `@${me.username} ${GN}'da ${sc} ochko bilan sizdan o‘tib ketdi. Qaytarib oling!`, url: '/oyinlar', tag: 'rec' + g }).catch(() => {});
+        }
         await db`insert into game_best (game, wk, user_id, score) values
           (${g}, '2000-01-01', ${uid}, ${sc}), (${g}, date_trunc('week', now() at time zone 'Asia/Tashkent')::date, ${uid}, ${sc})
           on conflict (game, wk, user_id) do update set score = greatest(game_best.score, excluded.score)`;
