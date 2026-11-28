@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.19.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.19.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -404,7 +404,8 @@ function draftRestore() {
 document.addEventListener('input', e => { const k = draftKey(e.target); if (!k) return; try { e.target.value.trim() ? localStorage.setItem(k, e.target.value.slice(0, 2000)) : localStorage.removeItem(k); } catch (err) {} });
 document.addEventListener('submit', e => { const el = e.target.querySelector('#msg-in,#post-text,#reply-text'), k = draftKey(el); if (k) try { localStorage.removeItem(k); } catch (err) {} }, true);
 /* 🧭 Birinchi kirishda tanishuv: tugmalarni birma-bir yoritib ko'rsatadi (telefon va kompyuter uchun alohida joylar) */
-const TOUR_KEY = 'lahzam_tour1';
+const TOUR_KEY0 = 'lahzam_tour1';
+const tourKey = () => TOUR_KEY0 + ':' + ((me() && me().id) || '');
 const TOUR = [
   { t: '👋 Lahzamga xush kelibsiz!', d: 'Qisqa tanishuv: asosiy tugmalar qayerdaligini ko‘rsatamiz. Istalgan payt “Tugatish”ni bosishingiz mumkin.' },
   { m: '.dock .plus', k: '.side [data-act="compose"]', t: '➕ Yangi post', d: 'Fikr, rasm yoki 24 soatlik Lahza joylash shu yerdan.' },
@@ -421,11 +422,12 @@ const TR = { i: 0, el: null, raf: 0 };
 function tourVisible(sel) { if (!sel) return null; for (const e of document.querySelectorAll(sel)) { const r = e.getBoundingClientRect(); if (r.width && r.height && getComputedStyle(e).visibility !== 'hidden') return e; } return null; }
 function tourTarget(st) { return st && (st.m || st.k) ? (DESK.matches ? tourVisible(st.k) || tourVisible(st.m) : tourVisible(st.m) || tourVisible(st.k)) : null; }
 function tourMaybe() {
-  try { if (localStorage.getItem(TOUR_KEY)) return; } catch (e) { return; }
-  clearTimeout(TR.wait);
+  try { if (localStorage.getItem(tourKey())) return; } catch (e) { return; }
+  if (TR.wait || TR.el) return;
   TR.wait = setTimeout(() => {
+    TR.wait = null;
     if (TR.el || !me() || route()[0] !== 'home') return;
-    if (document.querySelector('.scrim, #lz-splash, #lz-view, .maint')) return tourMaybe();
+    if (document.querySelector('.scrim, #lz-splash, #lz-view, #maint, #vpnblock, #upd-ov')) return tourMaybe();
     tourOpen(0);
   }, 1500);
 }
@@ -469,9 +471,10 @@ function tourPlace() {
   TR.pos = key; c.style.cssText = `width:${cw}px;left:${x}px;top:${y}px`;
 }
 function tourEnd() {
-  try { localStorage.setItem(TOUR_KEY, '1'); } catch (e) {}
+  try { localStorage.setItem(tourKey(), '1'); } catch (e) {}
   cancelAnimationFrame(TR.raf); document.removeEventListener('keydown', TR.key);
   if (TR.el) { TR.el.remove(); TR.el = null; }
+  setTimeout(instMaybe, 1200);
 }
 function render() {
   document.documentElement.dataset.theme = DB.theme;
@@ -911,7 +914,7 @@ function lvCard() {
 setInterval(() => {
   const L = DB.lv; if (!L || L.mine) return; const el = document.getElementById('lv-left'), left = L.at + L.win - now();
   if (el) el.textContent = lvLeft(left);
-  if (left <= 0 && el && !busy()) render();
+  if (left <= 0 && el && !busy() && !L.over) { L.over = 1; render(); }
 }, 1000);
 document.addEventListener('change', async e => {
   if (e.target.id !== 'lv-file' || !e.target.files[0]) return;
@@ -1766,7 +1769,7 @@ document.addEventListener('click', async e => {
       sheet(`<h2>Mening QR kodim</h2><p class="muted" style="margin-top:-6px">Buni faqat siz ko‘rasiz. Do‘stingiz skanerlasa, profilingiz ochiladi.</p><div class="card" style="display:flex;justify-content:center" id="qr-box">Yuklanmoqda…</div><p style="text-align:center;font-weight:700">${esc(location.host)}/@${esc(u.u)}</p><button class="btn ghost full" data-act="copy" data-text="${esc(url)}">Havolani nusxalash</button>`);
       loadQR(url); break;
     }
-    case 'tour': { try { localStorage.removeItem(TOUR_KEY); } catch (e) {} go('/'); setTimeout(() => tourOpen(0), 500); break; }
+    case 'tour': { try { localStorage.removeItem(tourKey()); } catch (e) {} go('/'); setTimeout(() => tourOpen(0), 500); break; }
     case 'theme': { DB.theme = DB.theme === 'dark' ? 'light' : 'dark'; save(); closeSheet(); const y = scrollY; render(); scrollTo(0, y); break; }
     case 'logout': $('#modal-root').innerHTML = ''; el.disabled = true; try { localStorage.setItem('lahzam_noauto', '1'); window.google && google.accounts && google.accounts.id.disableAutoSelect(); } catch (e) {} await api(el.dataset.all ? 'auth/me?all=1' : 'auth/me', { method: 'DELETE' }); ADM = { checked: false, configured: false, verified: false }; adoptSession(null); AUTH = { step: 'start' }; save(); $('#modal-root').innerHTML = ''; go('/kirish'); toast('Akkauntdan chiqdingiz 👋'); break;
     case 'reset': { const keep = DB; DB = Object.assign(fresh(keep), { me: keep.me, sess: keep.sess, users: keep.users.filter(x => x.id === keep.me) }); SYNC.sig = ''; save(); toast('Yangilanmoqda…'); await sync(true); render(); break; }
@@ -1958,7 +1961,10 @@ document.addEventListener('click', async e => {
     case 'inst-go': doInstall(); break;
     case 'inst-fab-x': FAB_OFF = true; instFab(); break;
     case 'inst-copy': { try { await navigator.clipboard.writeText(location.origin); toast('Havola nusxalandi'); } catch (err) { toast(location.origin); } break; }
-    case 'inst-close': instDone(); closeSheet(); setTimeout(maybeAskPush, 800); break;
+    case 'inst-close': closeSheet(); setTimeout(maybeAskPush, 800); break;
+    case 'inst-yes': if (DEFER) doInstall(); else showInstall(true); break;
+    case 'inst-later': { try { localStorage.setItem(INST_LATER, String(Date.now() + 60e3)); } catch (err) {} closeSheet(); instMaybe(); setTimeout(maybeAskPush, 800); break; }
+    case 'inst-never': instDone(); closeSheet(); toast('Kerak bo‘lsa: Sozlamalar → “Ilovani o‘rnatish”'); setTimeout(maybeAskPush, 800); break;
     case 'adm-hide': { if (!isAdmin()) break; const p = P(); if (!p) break; p.hidden = !p.hidden; render(); server({ t: 'hide', post: id }); break; }
     case 'adm-warn': { if (!isAdmin()) break; server({ t: 'warn', user: +el.dataset.u }, 'Ogohlantirish yuborildi'); break; }
     case 'adm-block': {
@@ -2360,7 +2366,7 @@ let DEFER = null;
 // Android/Chrome: brauzer "o'rnatish mumkin" deganda haqiqiy O'rnatish tugmasi chiqadi
 addEventListener('beforeinstallprompt', e => {
   e.preventDefault(); DEFER = e; instFab();
-  if (document.querySelector('.inst-sheet')) showInstall(true); else if (!instSeen()) showInstall(false);
+  if (document.querySelector('.inst-sheet')) showInstall(true); else instMaybe();
 });
 addEventListener('appinstalled', () => { instDone(); DEFER = null; instFab(); if (document.querySelector('.inst-sheet')) closeSheet(); toast('Lahzam o‘rnatildi 🎉'); setTimeout(maybeAskPush, 1500); });
 let FAB_OFF = false;
@@ -2379,7 +2385,7 @@ async function doInstall() {
   if (ch.outcome === 'accepted') { instDone(); closeSheet(); toast('Lahzam o‘rnatilmoqda 📲'); }
   else { closeSheet(); toast('Keyinroq Sozlamalar → “Ilovani o‘rnatish”dan o‘rnatsangiz bo‘ladi'); }
 }
-const instKey = 'lahzam_install_seen';
+const instKey = 'lahzam_inst_never', INST_LATER = 'lahzam_inst_later';
 function instDone() { try { localStorage.setItem(instKey, '1'); } catch (e) {} }
 const instSeen = () => { try { return localStorage.getItem(instKey) === '1'; } catch (e) { return true; } };
 const stp = (n, html) => `<li><span class="inst-n">${n}</span><span>${html}</span></li>`;
@@ -2399,9 +2405,20 @@ function installSteps() {
 function showInstall(force) {
   if (standalone()) { if (force) toast('Lahzam allaqachon o‘rnatilgan ✅'); return; }
   if (!force && (instSeen() || $('#modal-root').innerHTML)) return;
-  sheet(`<div class="inst-sheet"><div class="inst-hero">${I.logo('#FF5A1F', '#121212', 56)}<div><b>Lahzam’ni o‘rnating</b><span>Telegram kabi alohida ilova: tez ochiladi, xabarlar telefonga keladi 🔔</span></div></div>
-    ${installSteps()}<button class="btn ghost full" style="margin-top:10px" data-act="inst-close">${DEFER ? 'Keyinroq' : 'Tushunarli'}</button></div>`);
-  if (!force) instDone(); // faqat bir marta o'zi chiqadi; keyin Sozlamalar → "Ilovani o'rnatish"
+  const hero = `<div class="inst-hero">${I.logo('#FF5A1F', '#121212', 56)}<div><b>Lahzam’ni o‘rnating</b><span>Telegram kabi alohida ilova: tez ochiladi, xabarlar telefonga keladi 🔔</span></div></div>`;
+  if (force) return sheet(`<div class="inst-sheet">${hero}${installSteps()}<button class="btn ghost full" style="margin-top:10px" data-act="inst-close">${DEFER ? 'Keyinroq' : 'Tushunarli'}</button></div>`);
+  sheet(`<div class="inst-sheet">${hero}<button class="btn acc full inst-big" data-act="inst-yes">📲 O‘rnatish</button>
+    <div class="row" style="gap:8px;margin-top:10px"><button class="btn ghost" style="flex:1" data-act="inst-later">Keyinroq</button><button class="btn ghost" style="flex:1" data-act="inst-never">Qayta ko‘rsatilmasin</button></div></div>`);
+}
+// 📲 Saytga kirganda o'rnatish oynasi: tanishuv, boshqa oyna yoki ekranlar ustiga chiqmaydi, bo'shashini kutadi
+let INST_T = null;
+function instMaybe() {
+  clearTimeout(INST_T); INST_T = null;
+  if (standalone() || instSeen()) return;
+  let later = 0; try { later = +localStorage.getItem(INST_LATER) || 0; } catch (e) {}
+  if (Date.now() < later) { INST_T = setTimeout(instMaybe, later - Date.now() + 300); return; }
+  if (TR.wait || $('#modal-root').innerHTML || document.querySelector('#lz-tour, #lz-splash, #lz-view, #maint, #vpnblock, #upd-ov') || (SESSION && SESSION.termsOk === false)) { INST_T = setTimeout(instMaybe, 3000); return; }
+  showInstall(false);
 }
 /* ---------- Push bildirishnomalar ---------- */
 const PUSH_OK = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
@@ -2439,8 +2456,8 @@ function maybeAskPush() {
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.sync && SESSION) sync(true); if (e.data && e.data.go) { closeSheet(); go(e.data.go); } });
 const WAIT_BIP = ANDROID && !INAPP && !FIREFOX; // bu brauzerlarda haqiqiy "O'rnatish" tugmasi bo'ladi
-setTimeout(() => { if (standalone() || instSeen()) { maybeAskPush(); return; } if (!WAIT_BIP || DEFER) showInstall(false); }, 2500);
-if (WAIT_BIP) setTimeout(() => { if (!standalone() && !instSeen() && !DEFER) showInstall(false); }, 15000);
+setTimeout(() => { if (standalone() || instSeen()) { maybeAskPush(); return; } if (!WAIT_BIP || DEFER) instMaybe(); }, 2500);
+if (WAIT_BIP) setTimeout(() => { if (!DEFER) instMaybe(); }, 15000);
 
 render();
 api('auth/me').then(async r => {
