@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.17.1'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.17.2'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -2369,17 +2369,23 @@ api('auth/me').then(async r => {
   if (SESSION) { applyIcon(); setTimeout(() => { if (standalone() || instSeen()) maybeAskPush(); }, 3000); }
 });
 // Jonli yangilanish (CPU tejamkor): chat 3 s, boshqa sahifalar 20 s, fonda 30 s
+// 💤 1 daqiqa hech narsa qilinmasa so'rovlar to'xtaydi; qimirlashi bilan darhol yangilanadi
+let LAST_ACT = Date.now();
+const wake = () => { const idle = Date.now() - LAST_ACT > 60e3; LAST_ACT = Date.now(); if (idle && SESSION && document.visibilityState === 'visible') sync(true); };
+['pointerdown', 'keydown', 'touchstart', 'wheel', 'scroll'].forEach(ev => addEventListener(ev, wake, { passive: true, capture: true }));
+let MM = 0; addEventListener('mousemove', () => { const t = Date.now(); if (t - MM > 2000) { MM = t; wake(); } }, { passive: true });
 setInterval(() => {
   if (!SESSION || document.visibilityState !== 'visible') return;
+  if (Date.now() - LAST_ACT > 60e3) return; // 💤 harakatsiz
   // ⚡ CPU tejash: texnik rejim yoki VPN ekranida faqat daqiqada bir tekshiramiz
   const blocked = document.getElementById('maint') || document.getElementById('vpnblock');
   // chat ko'z oldida bo'lsa 3 s, oyna fonda bo'lsa 30 s, boshqa sahifalarda 20 s (yangiliklar push orqali darhol keladi)
   const gap = blocked ? 60000 : route()[0] === 'chat' ? (document.hasFocus() ? 3000 : 30000) : 20000;
   if (now() - SYNC.last >= gap - 200) sync();
 }, 1000);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && SESSION) sync(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { LAST_ACT = Date.now(); if (SESSION) sync(); } });
 addEventListener('online', () => SESSION && sync(true));
-addEventListener('focus', () => { if (SESSION && now() - SYNC.last > 3000) sync(); });
+addEventListener('focus', () => { LAST_ACT = Date.now(); if (SESSION && now() - SYNC.last > 3000) sync(); });
 loadUpdates().then(() => { if (!busy() && route()[0] !== 'chat') render(); });
 // Har push'dan keyin: server build raqami o'zgarsa, ilova o'zini yangilaydi (yozayotgan bo'lsangiz, tugatishingizni kutadi)
 let BUILD = null, buildReload = false;
