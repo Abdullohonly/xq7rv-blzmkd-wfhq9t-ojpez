@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const KEY = 'lahzam_db_v2';
-const VERSION = '1.15.4'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
+const VERSION = '1.16.0'; // har yangilanishda oshadi: kichik tuzatish → 1.0.x, yangi funksiya → 1.x.0
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LIMIT = { reply: 300, msg: 2000 };
 Object.defineProperty(LIMIT, 'post', { get: () => (typeof me === 'function' && me() && me().star ? 1500 : 500) });
@@ -46,8 +46,9 @@ async function refreshAdm() {
 }
 async function api(path, opts = {}) {
   try {
-    const r = await fetch('/api/' + path, { method: opts.method || 'GET', credentials: 'same-origin', headers: opts.body ? { 'Content-Type': 'application/json' } : {}, body: opts.body ? JSON.stringify(opts.body) : undefined });
+    const r = await fetch('/api/' + path, { method: opts.method || 'GET', credentials: 'same-origin', headers: opts.body ? { 'Content-Type': 'application/json', 'X-Lz-Tz': TZ } : { 'X-Lz-Tz': TZ }, body: opts.body ? JSON.stringify(opts.body) : undefined });
     const data = await r.json().catch(() => ({}));
+    if (r.status === 451 && data.error === 'vpn') vpnScreen(true);
     return { ok: r.ok, status: r.status, ...data };
   } catch (e) { return { ok: false, status: 0, message: 'Internetga ulanib bo‘lmadi' }; }
 }
@@ -69,13 +70,14 @@ async function sync(force) {
   try {
     // ⚡ avval yengil tekshiruv (fp); onlayn holatlar yangilanib turishi uchun har 60 soniyada bir to'liq sync
     const light = SYNC.fp && !force && now() - (SYNC.full || 0) < 60e3;
-    const res = await fetch('/api/sync' + (light ? '?fp=' + encodeURIComponent(SYNC.fp) : ''), { credentials: 'same-origin', headers: SYNC.etag && !force ? { 'If-None-Match': SYNC.etag } : {} });
+    const res = await fetch('/api/sync' + (light ? '?fp=' + encodeURIComponent(SYNC.fp) : ''), { credentials: 'same-origin', headers: SYNC.etag && !force ? { 'If-None-Match': SYNC.etag, 'X-Lz-Tz': TZ } : { 'X-Lz-Tz': TZ } });
     SYNC.busy = false; SYNC.last = now();
     if (res.status === 304) { SYNC.full = now(); return; } // o'zgarish yo'q: hech narsa yuklanmaydi
     r = { ok: res.ok, status: res.status, ...(await res.json().catch(() => ({}))) };
     if (r.same) return;
     if (res.ok) { SYNC.etag = res.headers.get('ETag'); SYNC.fp = r.fp; SYNC.full = now(); }
   } catch (e) { SYNC.busy = false; SYNC.last = now(); return; }
+  vpnScreen(r.status === 451 && r.error === 'vpn'); if (r.status === 451) return;
   if (r.status === 503 && r.error === 'maint') { MAINT_AUTH = false; setMaint(r.maint); return; }
   if (r.status === 401) { adoptSession(null); save(); render(); return; }
   if (!r.ok) return;
@@ -86,6 +88,19 @@ async function sync(force) {
   Object.assign(DB, { me: r.me, users: r.users, follows: r.follows, stars: r.stars || {}, posts: r.posts, daily: r.daily || [], dq: r.dq || null, chats: r.chats, notifs: r.notifs.map(n => ({ ...n, to: r.me })) });
   if (isOwnerSession() && ADM.checked && r.admin !== ADM.verified) ADM.verified = r.admin;
   save(); softRender();
+}
+// 🌐 VPN: server soat mintaqasi va IP davlatini solishtiradi; mos kelmasa "VPN ni o'chiring" ekrani
+const TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; } })();
+function vpnScreen(on) {
+  let ov = document.getElementById('vpnblock');
+  if (!on) { if (ov) ov.remove(); return; }
+  if (ov) return;
+  ov = document.createElement('div'); ov.id = 'vpnblock'; ov.className = 'maint-like'; ov.setAttribute('role', 'alertdialog');
+  ov.innerHTML = `<div class="mt-box"><div class="mt-ico" aria-hidden="true">🛡</div><h1>VPN ni o‘chiring</h1>
+    <p class="mt-msg">Lahzamga VPN orqali kirib bo‘lmaydi. Xavfsizlik uchun sayt faqat haqiqiy joylashuvingizdan ishlaydi.</p>
+    <p class="muted" style="margin:6px 0 18px">VPN ni o‘chirgach, “Qayta urinish” tugmasini bosing.</p>
+    <button class="btn acc full" data-act="vpnretry">Qayta urinish</button></div>`;
+  document.body.appendChild(ov);
 }
 // 🛠 Texnik rejim: admin yoqsa, egasidan boshqa hammaga "Sayt ustida ishlanmoqda" ekrani chiqadi
 let MAINT = null, MAINT_AUTH = false;
@@ -1954,6 +1969,7 @@ document.addEventListener('click', async e => {
     case 'qtop': sheet(qTopSheet()); break;
     case 'maint': { const on = !!el.dataset.on; el.disabled = true; const r = await server({ t: 'maint', on, text: ($('#mt-t') || {}).value || '' }, on ? '🛠 Texnik rejim yoqildi' : '✅ Sayt hamma uchun ochildi'); el.disabled = false; if (r.ok) { setMaint(r.maint); render(); } break; }
     case 'maintlogin': go('/musoojon'); break;
+    case 'vpnretry': if (SESSION) { await sync(true); if (document.getElementById('vpnblock')) toast('VPN hali yoqilgan ko‘rinadi', true); } else vpnScreen(false); break;
     case 'qall': sheet(qSheet()); break;
     case 'hometab': HOMETAB = id; render(); break;
     case 'sughide': { let h = []; try { h = JSON.parse(localStorage.getItem('lahzam_sug_hide') || '[]'); } catch (err) {} h.push(+id); try { localStorage.setItem('lahzam_sug_hide', JSON.stringify(h.slice(-200))); } catch (err) {} render(); break; }

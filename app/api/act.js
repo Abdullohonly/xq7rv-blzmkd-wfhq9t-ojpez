@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { TERMS_VER, OWNER_EMAIL, isStar, clearSession, sql, currentUser, isOwnerEmail, hasAdminPass, rateLimit, tooMany, send, sameOrigin } from './_lib.js';
+import { TERMS_VER, OWNER_EMAIL, isStar, clearSession, sql, currentUser, isOwnerEmail, hasAdminPass, rateLimit, tooMany, send, sameOrigin, vpnBlocked, vpnRes } from './_lib.js';
 import { r2PutDataUrl, r2DeleteUrl } from './_r2.js';
 import { pushTo, pushHostOk } from './_push.js';
 import { clean } from './_clean.js';
@@ -41,6 +41,7 @@ export default async function handler(req, res) {
     const db = sql(), uid = Number(me.id), b = req.body || {}, t = String(b.t || '');
     const admin = isOwnerEmail(me.email) && hasAdminPass(req, me);
     if (!(await rateLimit('act:' + uid, 240, 60))) return tooMany(res);
+    if (!isOwnerEmail(me.email) && vpnBlocked(req)) return vpnRes(res);
     if (!isOwnerEmail(me.email)) { const [mt] = await db`select value from app_flags where key = 'maint' and value is not null`; if (mt) return send(res, 503, { error: 'maint', maint: mt.value, message: '🛠 Sayt ustida ishlanmoqda. Birozdan keyin urinib ko‘ring' }); }
 
     if (t === 'stats') {

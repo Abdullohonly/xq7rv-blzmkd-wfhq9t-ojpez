@@ -1,9 +1,10 @@
-import { TERMS_VER, sql, unsign, checkUsername, hashPassword, setSession, publicUser, send, onlyMethod, sameOrigin, isOwnerEmail, rateLimit, clientIp, tooMany } from '../_lib.js';
+import { TERMS_VER, sql, unsign, checkUsername, hashPassword, setSession, publicUser, send, onlyMethod, sameOrigin, isOwnerEmail, rateLimit, clientIp, tooMany, vpnBlocked, vpnRes } from '../_lib.js';
 const COLORS = ['#FFD9C7', '#C9E4FF', '#FFE3A3', '#BDEBD6', '#D9D0FF', '#FFC9DA', '#E8E2D8', '#CDEBF2'];
 // POST /api/auth/signup { ticket, username, name, password }
 export default async function handler(req, res) {
   if (!onlyMethod(req, res, 'POST')) return;
   if (!sameOrigin(req)) return send(res, 403, { error: 'origin' });
+  if (vpnBlocked(req)) return vpnRes(res);
   const { ticket, username, name, password, agree } = req.body || {};
   const t = unsign(ticket);
   if (!t || t.k !== 't') return send(res, 401, { error: 'ticket', message: 'Vaqt tugadi, Google bilan qayta kiring' });

@@ -112,6 +112,18 @@ export async function rateLimit(key, limit, windowSec) {
   return Number(r.n) <= limit;
 }
 export async function clearLimit(key) { await sql()`delete from rate_limits where k = ${key}`; }
+// 🌐 VPN tekshiruvi: brauzerning soat mintaqasi bir davlatniki, IP esa boshqa davlatdan bo'lsa — VPN.
+// Rossiyada turgan rossiyalik (Moskva vaqti + RU IP) kiradi; O'zbekistondagi odam Germaniya VPN'i bilan (Toshkent vaqti + DE IP) kira olmaydi.
+const TZ_COUNTRY = { 'Asia/Tashkent': 'UZ', 'Asia/Samarkand': 'UZ',
+  'Europe/Moscow': 'RU', 'Europe/Kaliningrad': 'RU', 'Europe/Samara': 'RU', 'Europe/Volgograd': 'RU', 'Europe/Saratov': 'RU', 'Europe/Ulyanovsk': 'RU', 'Europe/Astrakhan': 'RU', 'Europe/Kirov': 'RU',
+  'Asia/Yekaterinburg': 'RU', 'Asia/Omsk': 'RU', 'Asia/Novosibirsk': 'RU', 'Asia/Barnaul': 'RU', 'Asia/Tomsk': 'RU', 'Asia/Novokuznetsk': 'RU', 'Asia/Krasnoyarsk': 'RU', 'Asia/Irkutsk': 'RU', 'Asia/Chita': 'RU', 'Asia/Yakutsk': 'RU', 'Asia/Vladivostok': 'RU', 'Asia/Magadan': 'RU', 'Asia/Sakhalin': 'RU', 'Asia/Kamchatka': 'RU',
+  'Asia/Almaty': 'KZ', 'Asia/Qyzylorda': 'KZ', 'Asia/Aqtobe': 'KZ', 'Asia/Aqtau': 'KZ', 'Asia/Atyrau': 'KZ', 'Asia/Oral': 'KZ', 'Asia/Qostanay': 'KZ',
+  'Asia/Dushanbe': 'TJ', 'Asia/Bishkek': 'KG', 'Asia/Ashgabat': 'TM' };
+export function vpnBlocked(req) {
+  const c = String(req.headers['x-vercel-ip-country'] || '').toUpperCase(), want = TZ_COUNTRY[String(req.headers['x-lz-tz'] || '')];
+  return !!(c && want && c !== want);
+}
+export const vpnRes = res => send(res, 451, { error: 'vpn', message: 'VPN ni o‘chiring 🙏 Lahzamga VPN orqali kirib bo‘lmaydi' });
 export const tooMany = res => send(res, 429, { error: 'rate', message: 'Juda ko‘p urinish. Birozdan keyin qayta urinib ko‘ring' });
 
 export async function currentUser(req) {

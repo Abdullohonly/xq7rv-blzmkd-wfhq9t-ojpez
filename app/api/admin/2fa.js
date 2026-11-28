@@ -21,10 +21,19 @@ export default async function handler(req, res) {
       setAdminPass(res, me);
       return send(res, 200, { ok: true, configured: true, verified: true });
     }
-    // 15 daqiqada ko'pi bilan 5 urinish (IP va akkaunt bo'yicha)
-    if (!(await rateLimit('a2f:u:' + me.id, 5, 900)) || !(await rateLimit('a2f:ip:' + clientIp(req), 10, 900))) return tooMany(res);
-    if (!(await checkPhrase(phrase, row.hash))) return send(res, 401, { error: 'wrong', message: 'Fraza noto‘g‘ri' });
-    await clearLimit('a2f:u:' + me.id);
+    // 🔒 3 marta xato → shu IP 5 soatga bloklanadi
+    const fk = 'a2f:fail:' + clientIp(req);
+    const [bl] = await db`select ceil(extract(epoch from reset_at - now()) / 60)::int as mins from rate_limits where k = ${fk} and n >= 3 and reset_at > now()`;
+    if (bl) return send(res, 429, { error: 'blocked', message: `3 marta xato kiritildi. Bu IP manzil ${Math.floor(bl.mins / 60)} soat ${bl.mins % 60} daqiqaga bloklangan 🔒` });
+    if (!(await rateLimit('a2f:u:' + me.id, 5, 900))) return tooMany(res);
+    if (!(await checkPhrase(phrase, row.hash))) {
+      const [f] = await db`insert into rate_limits (k, n, reset_at) values (${fk}, 1, now() + interval '5 hours')
+        on conflict (k) do update set n = case when rate_limits.reset_at < now() then 1 else rate_limits.n + 1 end,
+          reset_at = now() + interval '5 hours' returning n`;
+      const left = 3 - Number(f.n);
+      return send(res, 401, { error: 'wrong', message: left > 0 ? `Fraza noto‘g‘ri. Yana ${left} ta urinish qoldi, keyin IP 5 soatga bloklanadi` : '3 marta xato kiritildi. Bu IP manzil 5 soatga bloklandi 🔒' });
+    }
+    await clearLimit('a2f:u:' + me.id); await clearLimit(fk);
     setAdminPass(res, me);
     send(res, 200, { ok: true, configured: true, verified: true });
   } catch { send(res, 500, { error: 'server', message: 'Server xatosi' }); }

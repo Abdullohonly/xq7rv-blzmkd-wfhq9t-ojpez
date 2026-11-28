@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { sql, currentUser, isOwnerEmail, hasAdminPass, send, OWNER_EMAIL } from './_lib.js';
+import { sql, currentUser, isOwnerEmail, hasAdminPass, send, OWNER_EMAIL, vpnBlocked, vpnRes } from './_lib.js';
 // GET /api/sync — ilova uchun hamma umumiy ma'lumot bitta so'rovda: odamlar, postlar, guruhlar, chatlar, bildirishnomalar
 // Rasmlar bu yerga kirmaydi (og'ir): ular /api/img orqali alohida, keshlanib yuklanadi
 const ms = t => new Date(t).getTime();
@@ -11,6 +11,7 @@ export default async function handler(req, res) {
   try {
     const me = await currentUser(req);
     if (!me) return send(res, 401, { error: 'auth' });
+    if (!isOwnerEmail(me.email) && vpnBlocked(req)) return vpnRes(res);
     const db = sql(), uid = Number(me.id);
     const admin = isOwnerEmail(me.email) && hasAdminPass(req, me);
 
